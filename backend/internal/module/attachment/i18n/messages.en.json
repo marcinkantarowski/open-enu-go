@@ -1,0 +1,5 @@
+{
+  "attachment.error.file_required": "Send one file in the `file` field.",
+  "attachment.error.too_large": "That file is larger than this workspace accepts.",
+  "attachment.error.no_tenant": "An upload belongs to a workspace."
+}

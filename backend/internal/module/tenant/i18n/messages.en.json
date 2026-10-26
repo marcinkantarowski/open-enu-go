@@ -1,0 +1,5 @@
+{
+  "tenant.error.name_required": "A workspace needs a name of up to 200 characters.",
+  "tenant.error.slug_invalid": "A workspace address is lowercase letters, digits and single hyphens, up to 64 characters.",
+  "tenant.error.slug_taken": "That workspace address is already taken."
+}

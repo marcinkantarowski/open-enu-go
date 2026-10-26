@@ -1,0 +1,9 @@
+{
+  "example.error.archived": "Tego projektu nie można edytować.",
+  "example.error.name_required": "Nazwa nie może być pusta.",
+  "example.error.no_tenant": "Projekt należy do organizacji; żadna nie jest w zakresie.",
+  "example.project.archived": "Zarchiwizowano %count% projekt(ów).",
+  "example.project.created": "Projekt utworzony.",
+  "example.project.renamed": "Nazwa projektu zmieniona.",
+  "example.progress.archiving": "Archiwizowanie projektów"
+}

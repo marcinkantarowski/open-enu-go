@@ -1,0 +1,10 @@
+{
+  "notification.title": "Notifications",
+  "notification.subtitle": "Things that happened while you were not looking.",
+  "notification.empty": "Nothing to read",
+  "notification.emptyHint": "Notifications appear here when something needs your attention.",
+  "notification.markRead": "Mark read",
+  "notification.markAllRead": "Mark all read",
+  "notification.webhook.delivery_failed.title": "A webhook endpoint stopped responding",
+  "notification.webhook.delivery_failed.body": "Delivery of {event} to {url} failed after {attempts} attempts. Check the endpoint and send it again from the webhook settings."
+}

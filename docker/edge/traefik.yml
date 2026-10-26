@@ -1,0 +1,39 @@
+# The edge's static config - shared by every project on this Docker host.
+# Copied into ${EDGE_HOME} by scripts/dev/edge.sh, and mounted from there.
+#
+# Certificates come from each project's mkcert run via the file provider - no
+# ACME locally, so the stack works offline. Traefik picks one by SNI.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+api:
+  dashboard: true
+  # Not `insecure: true` - each project routes the dashboard through the
+  # websecure entrypoint at traefik.${DOMAIN}, from its dynamic file.
+
+ping: {}
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint: { to: websecure, scheme: https, permanent: false }
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    # Every project on the host is visible here. What keeps them apart is that
+    # each prefixes its router and service names with its slug, and names the
+    # network to reach it on (`traefik.docker.network`) - without that label,
+    # Traefik may pick a network the edge is not attached to and answer 504.
+    exposedByDefault: false
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true

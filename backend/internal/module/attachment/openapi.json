@@ -1,0 +1,142 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/attachments": {
+      "post": {
+        "operationId": "post_attachment_upload",
+        "summary": "Upload one file as multipart/form-data (`file`, optional `ownerType`, `ownerId`). Requires `attachment.manage`.",
+        "tags": [
+          "attachment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAttachment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored file and a signed URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/attachments/{id}": {
+      "get": {
+        "operationId": "get_attachment_show",
+        "summary": "The record with a fresh signed URL. Requires `attachment.view`. Another workspace's file is 404.",
+        "tags": [
+          "attachment"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Attachment": {
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "size",
+          "ownerType",
+          "ownerId",
+          "createdAt",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Sniffed from the bytes, never the client's claim."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ownerType": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string",
+            "description": "A signed download URL valid for a few minutes; fetch the record again for a fresh one."
+          }
+        }
+      },
+      "UploadAttachment": {
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary"
+          },
+          "ownerType": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "ownerId": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  }
+}

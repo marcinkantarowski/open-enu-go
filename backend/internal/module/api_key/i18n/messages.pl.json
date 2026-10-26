@@ -1,0 +1,8 @@
+{
+  "api_key.error.name_required": "Klucz wymaga nazwy do 100 znaków.",
+  "api_key.error.permissions_required": "Klucz wymaga co najmniej jednego uprawnienia.",
+  "api_key.error.permission_unknown": "Żaden moduł nie deklaruje tego uprawnienia.",
+  "api_key.error.permission_not_held": "Klucz może dostać tylko uprawnienia, które masz sam.",
+  "api_key.error.no_tenant": "Klucz należy do przestrzeni roboczej.",
+  "api_key.warning.secret_once": "Zapisz ten sekret teraz. Jest pokazywany raz i nie można go odzyskać."
+}

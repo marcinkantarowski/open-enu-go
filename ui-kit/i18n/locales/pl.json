@@ -1,0 +1,63 @@
+{
+  "common.save": "Zapisz",
+  "common.cancel": "Anuluj",
+  "common.close": "Zamknij",
+  "common.retry": "Spróbuj ponownie",
+  "common.loading": "Wczytywanie…",
+  "common.search": "Szukaj",
+  "common.actions": "Akcje",
+  "common.none": "Brak",
+  "common.yes": "Tak",
+  "common.no": "Nie",
+  "common.back": "Wstecz",
+  "common.next": "Dalej",
+  "common.previous": "Poprzednia",
+  "common.page": "Strona {page} z {pages}",
+  "common.copy": "Kopiuj",
+  "common.copied": "Skopiowano",
+  "common.requestId": "Numer zgłoszenia: {id}",
+
+  "empty.title": "Jeszcze nic tu nie ma",
+  "empty.description": "Gdy pojawią się dane, zobaczysz je w tym miejscu.",
+
+  "error.generic": "Coś poszło nie tak.",
+  "error.network": "Nie udało się połączyć z serwerem.",
+  "error.forbidden": "Nie masz uprawnień do tej operacji.",
+  "error.notFound": "To już nie istnieje.",
+
+  "auth.email": "Adres e-mail",
+  "auth.password": "Hasło",
+  "auth.signIn": "Zaloguj się",
+  "auth.signOut": "Wyloguj się",
+  "auth.signingIn": "Logowanie…",
+  "auth.forgotPassword": "Nie pamiętasz hasła?",
+  "auth.invalidCredentials": "Ten e-mail i hasło do siebie nie pasują.",
+  "auth.sessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
+
+  "tenant.switch": "Zmień obszar roboczy",
+  "tenant.current": "Bieżący obszar roboczy",
+
+  "impersonation.title": "Podgląd jako {user}",
+  "impersonation.description": "Jesteś zalogowany jako operator. Część działań jest niedostępna, a wszystko jest rejestrowane.",
+  "impersonation.exit": "Zakończ podgląd",
+
+  "conflict.title": "Ktoś zapisał zmiany przed Tobą",
+  "conflict.description": "Twoja kopia to wersja {yours}; zapisana wersja to teraz {current}. Wybierz, co zrobić.",
+  "conflict.reload": "Odrzuć moje, wczytaj cudze",
+  "conflict.overwrite": "Zachowaj moje, nadpisz cudze",
+  "conflict.dismiss": "Zdecyduję później",
+
+  "upload.choose": "Wybierz plik",
+  "upload.drop": "lub upuść go tutaj",
+  "upload.uploading": "Wysyłanie… {percent}%",
+  "upload.remove": "Usuń",
+  "upload.tooLarge": "Ten plik przekracza limit {max}.",
+
+  "progress.running": "Przetwarzanie… {done} z {total}",
+  "progress.done": "Zakończono",
+  "progress.failed": "Niepowodzenie: {reason}",
+
+  "realtime.connecting": "Łączenie…",
+  "realtime.live": "Na żywo",
+  "realtime.reconnecting": "Ponowne łączenie…"
+}

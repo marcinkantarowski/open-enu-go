@@ -1,0 +1,47 @@
+# =============================================================================
+#  The edge - one Traefik for every project on this Docker host.
+# =============================================================================
+#  Started by `make edge` (which `make up` runs), never directly. It owns host
+#  ports 80 and 443, so it cannot belong to a stack: two projects - or staging
+#  and production on one server - each starting their own Traefik is the
+#  second one failing on a port.
+#
+#  The same container locally and on a server. Only its static config differs:
+#  traefik.yml (mkcert, dashboard) here, traefik.server.yml (Let's Encrypt,
+#  security headers, rate limit) on a server - chosen by APP_STAGE.
+#
+#  Its name carries no project slug on purpose. It is shared, and `make init`
+#  must not rename one project's edge apart from its siblings'.
+#
+#  Nothing here is stack-specific. Each stack contributes, through
+#  scripts/dev/edge.sh:
+#    • ${EDGE_HOME}/dynamic/<stack>.yml   locally its mkcert certificate and
+#                                         dashboard host; on a staging server
+#                                         its IP allowlist
+#    • ${EDGE_HOME}/certs/<stack>/        locally, that certificate
+#    • a network attachment to <stack>-net, with its hostnames as aliases
+#
+#  Everything is mounted from EDGE_HOME rather than from a checkout, so the
+#  edge survives the checkout that first started it being moved or deleted.
+# =============================================================================
+
+name: enu-edge
+
+services:
+  traefik:
+    image: traefik:v3.7.16
+    container_name: enu-edge
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${EDGE_HOME:?EDGE_HOME is set by scripts/dev/edge.sh}/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${EDGE_HOME}/dynamic:/etc/traefik/dynamic:ro
+      - ${EDGE_HOME}/certs:/certs:ro
+      # Let's Encrypt state on a server; an empty directory locally.
+      - ${EDGE_HOME}/acme:/acme
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

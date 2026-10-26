@@ -1,0 +1,166 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/projects": {
+      "get": {
+        "operationId": "get_example_project_index",
+        "summary": "The tenant's projects, newest first. Requires `example.view`.",
+        "tags": ["example"],
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "query", "name": "size", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
+          { "in": "query", "name": "sort", "schema": { "type": "string", "enum": ["name", "createdAt"] } },
+          { "in": "query", "name": "direction", "schema": { "type": "string", "enum": ["asc", "desc"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list envelope. The encrypted clientReference is absent here: what leaves the server is decided per endpoint.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectList" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "operationId": "post_example_project_create",
+        "summary": "Create a project. Requires `example.manage`. Raises `example.project.created`.",
+        "tags": ["example"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateProject" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "The created project, version 1.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/projects/archive": {
+      "post": {
+        "operationId": "post_example_project_archive",
+        "summary": "Archive every active project, in the background. Requires `example.manage` and the `example.archive` flag.",
+        "description": "Disabled => 404, not 403: \"not built yet\" and \"turned off after an incident\" should be indistinguishable from outside. 202 rather than 200 - the work has been accepted, not done; `jobId` is what the browser watches.",
+        "tags": ["example"],
+        "responses": {
+          "202": {
+            "description": "Accepted: the progress id to follow and how many projects it will touch.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ArchiveAccepted" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/projects/{id}": {
+      "parameters": [
+        { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "get_example_project_show",
+        "summary": "One project, with its clientReference. Requires `example.view`.",
+        "tags": ["example"],
+        "responses": {
+          "200": {
+            "description": "The project. ETag carries the version the client now holds; it comes back as If-Match on the next write.",
+            "headers": { "ETag": { "schema": { "type": "string" }, "description": "The quoted version." } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectDetail" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "patch": {
+        "operationId": "patch_example_project_rename",
+        "summary": "Rename a project. Requires `example.manage`; refused under impersonation and on an archived project.",
+        "description": "Send If-Match with the version you read. A stale one is 409 with both versions and the saved record (ConflictDetails), so the UI can offer reload or overwrite instead of losing the edit.",
+        "tags": ["example"],
+        "parameters": [
+          { "in": "header", "name": "If-Match", "schema": { "type": "string" }, "description": "The quoted version the client holds, e.g. `\"3\"`." }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RenameProject" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "The renamed project, version incremented.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "required": ["id", "name", "description", "attributes", "status", "version", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "maxLength": 200 },
+          "description": { "type": "string", "nullable": true },
+          "attributes": { "type": "object", "additionalProperties": true, "description": "Open-ended per-tenant data (ADR-0012): a JSONB column, not a custom-fields layer." },
+          "status": { "type": "string", "enum": ["active", "archived"] },
+          "version": { "type": "integer", "description": "Optimistic-locking version. Send it back as If-Match." },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProjectDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Project" },
+          {
+            "type": "object",
+            "required": ["clientReference"],
+            "properties": {
+              "clientReference": { "type": "string", "nullable": true, "description": "Encrypted at rest; plaintext only here, never in the list." }
+            }
+          }
+        ]
+      },
+      "ProjectList": {
+        "type": "object",
+        "required": ["items", "meta"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } },
+          "meta": { "$ref": "#/components/schemas/ListMeta" }
+        }
+      },
+      "ListMeta": {
+        "type": "object",
+        "required": ["total", "page", "size", "pages"],
+        "properties": {
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "size": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "CreateProject": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "nullable": true },
+          "clientReference": { "type": "string", "nullable": true },
+          "attributes": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "RenameProject": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      },
+      "ArchiveAccepted": {
+        "type": "object",
+        "required": ["jobId", "total"],
+        "properties": {
+          "jobId": { "type": "string", "description": "The progress id the browser subscribes to." },
+          "total": { "type": "integer", "description": "Active projects the job will archive." }
+        }
+      }
+    }
+  }
+}

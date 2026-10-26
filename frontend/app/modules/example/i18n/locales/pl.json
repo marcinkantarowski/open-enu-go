@@ -1,0 +1,23 @@
+{
+  "example.title": "Projekty",
+  "example.subtitle": "Ekran referencyjny: blokada optymistyczna, aktualizacje na żywo, długie zadanie, flaga funkcji i ograniczenie do obszaru roboczego - wszystko na prawdziwym API.",
+  "example.name": "Nazwa",
+  "example.status": "Status",
+  "example.status.active": "Aktywny",
+  "example.status.archived": "Zarchiwizowany",
+  "example.version": "Wersja",
+  "example.created": "Utworzono",
+  "example.empty": "Brak projektów",
+  "example.create": "Nowy projekt",
+  "example.rename": "Zmień nazwę",
+  "example.renamed": "Nazwa zmieniona.",
+  "example.clientReference": "Oznaczenie klienta",
+  "example.clientReferenceHint": "Szyfrowane w spoczynku. Można je odczytać, ale nigdy przeszukać.",
+  "example.versionHint": "Odczytano w wersji {version}. Zapis odsyła tę wersję, więc zmiana wprowadzona w międzyczasie zostanie odrzucona, a nie nadpisana.",
+  "example.archive": "Zarchiwizuj wszystko",
+  "example.archived": "Zarchiwizowano {count} projekt(ów).",
+  "example.archiveUnavailable": "Archiwizacja jest wyłączona dla tego obszaru roboczego.",
+  "example.attached": "Załączono {name}.",
+  "example.live": "Zdarzenia na żywo",
+  "example.liveHint": "Wysyłane przez serwer, ograniczone do tematu tego obszaru roboczego."
+}

@@ -1,0 +1,3254 @@
+{
+  "components": {
+    "responses": {
+      "Error": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Any failure, in the one envelope."
+      }
+    },
+    "schemas": {
+      "ApiKey": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prefix": {
+            "description": "The first characters of the secret, to tell keys apart.",
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "permissions",
+          "revoked",
+          "expiresAt",
+          "lastUsedAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "ApiKeyList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ApiKey"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "ArchiveAccepted": {
+        "properties": {
+          "jobId": {
+            "description": "The progress id the browser subscribes to.",
+            "type": "string"
+          },
+          "total": {
+            "description": "Active projects the job will archive.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobId",
+          "total"
+        ],
+        "type": "object"
+      },
+      "Attachment": {
+        "properties": {
+          "contentType": {
+            "description": "Sniffed from the bytes, never the client's claim.",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ownerId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "ownerType": {
+            "nullable": true,
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "A signed download URL valid for a few minutes; fetch the record again for a fresh one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "size",
+          "ownerType",
+          "ownerId",
+          "createdAt",
+          "url"
+        ],
+        "type": "object"
+      },
+      "AuditEntry": {
+        "description": "One audit entry as the kernel wrote it (ADR-0013): both snapshots, the actor and whoever they acted for.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "after": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          },
+          "before": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "onBehalfOfId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requestId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "subjectId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "tenantId",
+          "actorId",
+          "onBehalfOfId",
+          "subjectId",
+          "requestId",
+          "succeeded",
+          "failureReason",
+          "before",
+          "after",
+          "context",
+          "recordedAt"
+        ],
+        "type": "object"
+      },
+      "AuditList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "ConflictDetails": {
+        "description": "error.details of a 409: both versions, so the client can offer reload, overwrite or diff.",
+        "properties": {
+          "current": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "currentVersion": {},
+          "resource": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "yourVersion": {}
+        },
+        "required": [
+          "resource",
+          "yourVersion",
+          "currentVersion"
+        ],
+        "type": "object"
+      },
+      "CreateApiKey": {
+        "properties": {
+          "expiresInDays": {
+            "maximum": 3650,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "permissions": {
+            "description": "A non-empty subset of the permissions modules declare.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ],
+        "type": "object"
+      },
+      "CreateProject": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "clientReference": {
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateWebhookEndpoint": {
+        "properties": {
+          "events": {
+            "description": "Event names, e.g. example.project.created. At least one.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url": {
+            "description": "https:// only - the payload is signed, not encrypted.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "events"
+        ],
+        "type": "object"
+      },
+      "CreatedApiKey": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiKey"
+          },
+          {
+            "properties": {
+              "secret": {
+                "type": "string"
+              },
+              "warning": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "secret",
+              "warning"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "Error": {
+        "description": "The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change.",
+        "properties": {
+          "error": {
+            "properties": {
+              "code": {
+                "description": "Stable machine token, snake_case.",
+                "type": "string"
+              },
+              "details": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "message": {
+                "description": "Translated for the request's locale.",
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "FeedMeta": {
+        "properties": {
+          "unread": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread"
+        ],
+        "type": "object"
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "ImpersonatedSession": {
+        "additionalProperties": true,
+        "description": "The person's session body (identity's Session) with `impersonating: true` and `operator: {id, displayName}`. No refresh cookie is set.",
+        "type": "object"
+      },
+      "ListMeta": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "pages": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "type": "object"
+      },
+      "LoggedOut": {
+        "properties": {
+          "status": {
+            "enum": [
+              "logged_out"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "tenantId": {
+            "description": "The workspace to open; the best active membership otherwise.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "ManagedTenant": {
+        "properties": {
+          "activatedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "defaultLocale": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "members": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "plan",
+          "defaultLocale",
+          "version",
+          "createdAt",
+          "activatedAt",
+          "members"
+        ],
+        "type": "object"
+      },
+      "ManagedTenantDetail": {
+        "properties": {
+          "activatedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "defaultLocale": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/TenantMember"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "plan",
+          "defaultLocale",
+          "version",
+          "createdAt",
+          "activatedAt",
+          "members"
+        ],
+        "type": "object"
+      },
+      "ManagedTenantList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManagedTenant"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListMeta"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "ManagerAuditEntry": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "onBehalfOfId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requestId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "subjectId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "tenantId",
+          "actorId",
+          "onBehalfOfId",
+          "subjectId",
+          "requestId",
+          "succeeded",
+          "failureReason",
+          "recordedAt"
+        ],
+        "type": "object"
+      },
+      "ManagerAuditList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManagerAuditEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "ManagerLoginRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "Membership": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "suspended"
+            ],
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantSlug": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "role",
+          "status",
+          "tenantName",
+          "tenantSlug"
+        ],
+        "type": "object"
+      },
+      "Notification": {
+        "properties": {
+          "bodyKey": {
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": true,
+            "description": "Translation arguments, never prose.",
+            "type": "object"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "titleKey": {
+            "description": "A translation key the client renders with `context` as arguments; the type itself when the type is no longer declared.",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "titleKey",
+          "bodyKey",
+          "context",
+          "read",
+          "readAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "NotificationFeed": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/FeedMeta"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "Operator": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "roles",
+          "active",
+          "status",
+          "lastLoginAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "OperatorSession": {
+        "properties": {
+          "expiresIn": {
+            "type": "integer"
+          },
+          "manager": {
+            "$ref": "#/components/schemas/Operator"
+          },
+          "token": {
+            "description": "HS256 access token, aud manager, 15 minutes. No refresh: a lapsed session means logging in again.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expiresIn",
+          "manager"
+        ],
+        "type": "object"
+      },
+      "Override": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "identifier",
+          "value",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ProgressJob": {
+        "description": "A job as useProgress reads it: polled here, pushed on /tenants/{tid}/progress/{id} in the same shape.",
+        "properties": {
+          "done": {
+            "type": "integer"
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "percent": {
+            "type": "integer"
+          },
+          "result": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "done",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "total",
+          "done",
+          "percent",
+          "status",
+          "result",
+          "failureReason",
+          "startedAt",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
+      "Project": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "description": "Open-ended per-tenant data (ADR-0012): a JSONB column, not a custom-fields layer.",
+            "type": "object"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Optimistic-locking version. Send it back as If-Match.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "attributes",
+          "status",
+          "version",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "ProjectDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Project"
+          },
+          {
+            "properties": {
+              "clientReference": {
+                "description": "Encrypted at rest; plaintext only here, never in the list.",
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "clientReference"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ProjectList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListMeta"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "ReadAllStatus": {
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "unread": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "unread"
+        ],
+        "type": "object"
+      },
+      "ReadStatus": {
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "displayName": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "type": "string"
+          },
+          "locale": {
+            "maxLength": 5,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 200,
+            "minLength": 12,
+            "type": "string"
+          },
+          "tenantName": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "tenantName"
+        ],
+        "type": "object"
+      },
+      "Registered": {
+        "description": "The same for every address: no ids, because an address that already has an account must not be told so (ADR-0023).",
+        "properties": {
+          "status": {
+            "enum": [
+              "unverified"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "RenameProject": {
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "Reset": {
+        "properties": {
+          "status": {
+            "enum": [
+              "reset"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "userId"
+        ],
+        "type": "object"
+      },
+      "ResetPasswordRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 200,
+            "minLength": 12,
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "type": "object"
+      },
+      "Revoked": {
+        "properties": {
+          "status": {
+            "enum": [
+              "revoked"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "SearchHit": {
+        "properties": {
+          "excerpt": {
+            "description": "A highlighted fragment of the indexed text - content, which is why the type's permission is required.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "score": {
+            "format": "float",
+            "type": "number"
+          },
+          "type": {
+            "description": "The entity type a module declared, e.g. `example.project`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "score",
+          "excerpt"
+        ],
+        "type": "object"
+      },
+      "SearchMeta": {
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total"
+        ],
+        "type": "object"
+      },
+      "SearchResult": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/SearchMeta"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "Sent": {
+        "properties": {
+          "status": {
+            "enum": [
+              "sent"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "Session": {
+        "description": "What every session-establishing call returns (ADR-0018): the access token lives in memory, the refresh token in the cookie.",
+        "properties": {
+          "expiresIn": {
+            "description": "Seconds.",
+            "type": "integer"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/Membership"
+            },
+            "type": "array"
+          },
+          "permissions": {
+            "description": "Advisory for the UI; the token carries the same list and the server checks that one.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "token": {
+            "description": "HS256 access token, 15 minutes.",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUser"
+          }
+        },
+        "required": [
+          "token",
+          "expiresIn",
+          "tenantId",
+          "user",
+          "memberships",
+          "role",
+          "permissions"
+        ],
+        "type": "object"
+      },
+      "SessionUser": {
+        "description": "A person as they see themselves. Email is decrypted for its owner only.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "hasAvatar": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "locale": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unverified",
+              "active",
+              "disabled"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "status",
+          "locale",
+          "hasAvatar",
+          "version",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "SetSetting": {
+        "properties": {
+          "value": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "Setting": {
+        "properties": {
+          "category": {
+            "nullable": true,
+            "type": "string"
+          },
+          "defaultValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "The identifier; flags have no row of their own.",
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tenantEditable": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "bool",
+              "string",
+              "int",
+              "json"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "identifier",
+          "name",
+          "description",
+          "type",
+          "defaultValue",
+          "tenantEditable",
+          "category",
+          "version"
+        ],
+        "type": "object"
+      },
+      "SettingList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Setting"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "Suspended": {
+        "properties": {
+          "status": {
+            "enum": [
+              "suspended"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "SwitchTenantRequest": {
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId"
+        ],
+        "type": "object"
+      },
+      "TenantMember": {
+        "properties": {
+          "displayName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "description": "The USER's id - what impersonation takes.",
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role",
+          "status"
+        ],
+        "type": "object"
+      },
+      "TenantSetting": {
+        "properties": {
+          "category": {
+            "nullable": true,
+            "type": "string"
+          },
+          "defaultValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "effectiveValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "id": {
+            "description": "The identifier; flags have no row of their own.",
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "overridden": {
+            "type": "boolean"
+          },
+          "tenantEditable": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "bool",
+              "string",
+              "int",
+              "json"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "identifier",
+          "name",
+          "description",
+          "type",
+          "defaultValue",
+          "tenantEditable",
+          "category",
+          "version",
+          "effectiveValue",
+          "overridden"
+        ],
+        "type": "object"
+      },
+      "TenantSettingList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TenantSetting"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "UpdateProfileRequest": {
+        "properties": {
+          "displayName": {
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "locale": {
+            "maxLength": 5,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UploadAttachment": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "type": "string"
+          },
+          "ownerId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "ownerType": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
+      "Verified": {
+        "properties": {
+          "status": {
+            "enum": [
+              "verified"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "userId"
+        ],
+        "type": "object"
+      },
+      "VerifyRequest": {
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "WebhookDelivery": {
+        "properties": {
+          "attempts": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endpointId": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastAttemptAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "responseBody": {
+            "nullable": true,
+            "type": "string"
+          },
+          "responseCode": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "delivered",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "endpointId",
+          "event",
+          "status",
+          "attempts",
+          "responseCode",
+          "responseBody",
+          "lastAttemptAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "WebhookDeliveryList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookDelivery"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "WebhookEndpoint": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "active",
+          "version",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "WebhookEndpointCreated": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "secret": {
+            "description": "`whsec_...`, shown exactly once. Encrypted at rest and never returned again.",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "warning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "active",
+          "version",
+          "createdAt",
+          "secret",
+          "warning"
+        ],
+        "type": "object"
+      },
+      "WebhookEndpointList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEndpoint"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "WorkerStatus": {
+        "properties": {
+          "failed": {
+            "description": "Jobs River discarded after their last retry.",
+            "type": "integer"
+          },
+          "queues": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Jobs waiting per queue (available, scheduled or retryable).",
+            "type": "object"
+          }
+        },
+        "required": [
+          "queues",
+          "failed"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "description": "A JWT from /api/auth/login (tenant) or /api/manager/login (operator), or an API key (`sk_...`).",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Two realms share this API and one signing key. A token carries an `aud` claim - `tenant` for workspace members, `manager` for platform operators - and is refused outside its realm with the same 401 as no token (ADR-0019). An API key (`sk_...`) acts in the tenant realm with its own scopes.",
+    "title": "OpenEnu API",
+    "version": "0.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/api-keys": {
+      "get": {
+        "operationId": "get_api_key_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyList"
+                }
+              }
+            },
+            "description": "Every key, revoked ones included; never a secret."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "This tenant's keys, newest first. Requires `api_key.view`.",
+        "tags": [
+          "api_key"
+        ]
+      },
+      "post": {
+        "operationId": "post_api_key_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKey"
+                }
+              }
+            },
+            "description": "The key, with its secret."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Mint a key. Requires `api_key.manage`. The secret is in this response and nowhere else, ever.",
+        "tags": [
+          "api_key"
+        ]
+      }
+    },
+    "/api/api-keys/{id}": {
+      "delete": {
+        "operationId": "delete_api_key_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revoked"
+                }
+              }
+            },
+            "description": "Revoked."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Revoke a key: it stops authenticating at once and stays in the list. Requires `api_key.manage`.",
+        "tags": [
+          "api_key"
+        ]
+      }
+    },
+    "/api/attachments": {
+      "post": {
+        "operationId": "post_attachment_upload",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAttachment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "description": "The stored file and a signed URL."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Upload one file as multipart/form-data (`file`, optional `ownerType`, `ownerId`). Requires `attachment.manage`.",
+        "tags": [
+          "attachment"
+        ]
+      }
+    },
+    "/api/attachments/{id}": {
+      "get": {
+        "operationId": "get_attachment_show",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "description": "The record."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "The record with a fresh signed URL. Requires `attachment.view`. Another workspace's file is 404.",
+        "tags": [
+          "attachment"
+        ]
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "operationId": "get_audit_index",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditList"
+                }
+              }
+            },
+            "description": "Up to `limit` entries."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "This workspace's trail, newest first. Requires `audit.view`.",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "operationId": "post_auth_forgot_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sent"
+                }
+              }
+            },
+            "description": "Always."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Send a reset link when the address is known; the answer is the same either way. Public, rate limited.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "post_auth_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            },
+            "description": "The session; Set-Cookie carries the refresh token."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Exchange credentials for a session: the access token in the body, the refresh token as an HttpOnly cookie. Every failure is one 401. Public, rate limited.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "post_auth_logout",
+        "parameters": [
+          {
+            "description": "The refresh token, set by login and rotated on every use.",
+            "in": "cookie",
+            "name": "open_enu_refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedOut"
+                }
+              }
+            },
+            "description": "Logged out."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Revoke every refresh token of the person and expire the cookie.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "post_auth_refresh",
+        "parameters": [
+          {
+            "description": "The refresh token, set by login and rotated on every use.",
+            "in": "cookie",
+            "name": "open_enu_refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            },
+            "description": "A fresh session and a rotated cookie."
+          },
+          "204": {
+            "description": "No refresh cookie was sent: there is no session to restore. Nothing is set or cleared."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Rotate the refresh cookie and issue a new access token. A reused token revokes its whole family. No cookie at all is a 204, not a 401: a first visit asks this, and there is simply nothing to restore.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "post_auth_register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registered"
+                }
+              }
+            },
+            "description": "Accepted: the person must check their mail."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Create an account and a pending workspace and send the verification link - or, for an address that has an account, mail its owner instead. The answer is the same either way. Public, rate limited.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "post_auth_reset_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reset"
+                }
+              }
+            },
+            "description": "Reset."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Consume a reset token, set the password, revoke every session. Public.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/switch-tenant": {
+      "post": {
+        "operationId": "post_auth_switch_tenant",
+        "parameters": [
+          {
+            "description": "The refresh token, set by login and rotated on every use.",
+            "in": "cookie",
+            "name": "open_enu_refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            },
+            "description": "The session for the other workspace."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Re-issue the session for another workspace the person belongs to. Requires the refresh cookie and a bearer token.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/verify": {
+      "post": {
+        "operationId": "post_auth_verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verified"
+                }
+              }
+            },
+            "description": "Verified."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Consume a verification token: the account and its workspace become active. Public.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/manager/audit": {
+      "get": {
+        "operationId": "get_manager_audit_index",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerAuditList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "The trail across every workspace, or one of them.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/login": {
+      "post": {
+        "operationId": "post_manager_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagerLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorSession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "summary": "Operator login: the strictest rate limit in the system, no refresh, no reset, no registration.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/settings": {
+      "get": {
+        "operationId": "get_manager_settings_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Every declared setting, platform-wide. Operators only.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants": {
+      "get": {
+        "operationId": "get_manager_tenant_index",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedTenantList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Every workspace on the platform, newest first, with member counts.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{id}": {
+      "get": {
+        "operationId": "get_manager_tenant_show",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedTenantDetail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "One workspace and its members.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{id}/suspend": {
+      "post": {
+        "operationId": "post_manager_tenant_suspend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suspended"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Suspend a workspace: its members and keys stop authenticating.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{tenantId}/settings/{identifier}": {
+      "put": {
+        "operationId": "put_manager_settings_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSetting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Override"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Override any setting for a workspace - the kill switch. Operators only.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{tenantId}/users/{userId}/impersonate": {
+      "post": {
+        "operationId": "post_manager_impersonate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpersonatedSession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/workers": {
+      "get": {
+        "operationId": "get_manager_worker_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "What is waiting and what has failed in the job queues.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "operationId": "get_notification_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationFeed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Your feed, newest first, with the unread count.",
+        "tags": [
+          "notification"
+        ]
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "operationId": "post_notification_read_all",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadAllStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Mark everything in your feed read.",
+        "tags": [
+          "notification"
+        ]
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "operationId": "post_notification_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Mark one of yours read. Somebody else's is 404, not 403.",
+        "tags": [
+          "notification"
+        ]
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "operationId": "get_profile_show",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            },
+            "description": "The account."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "The caller's own account. Any authenticated person; no permission.",
+        "tags": [
+          "identity"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_profile_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            },
+            "description": "The account after the change."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Change display name or locale. Requires `identity.profile.manage`.",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/progress/{id}": {
+      "get": {
+        "operationId": "get_progress_show",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressJob"
+                }
+              }
+            },
+            "description": "The job."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "One job of this workspace. Requires `progress.view`. Another workspace's job is 404.",
+        "tags": [
+          "progress"
+        ]
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "operationId": "get_example_project_index",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "enum": [
+                "name",
+                "createdAt"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectList"
+                }
+              }
+            },
+            "description": "The list envelope. The encrypted clientReference is absent here: what leaves the server is decided per endpoint."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "The tenant's projects, newest first. Requires `example.view`.",
+        "tags": [
+          "example"
+        ]
+      },
+      "post": {
+        "operationId": "post_example_project_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "The created project, version 1."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Create a project. Requires `example.manage`. Raises `example.project.created`.",
+        "tags": [
+          "example"
+        ]
+      }
+    },
+    "/api/projects/archive": {
+      "post": {
+        "description": "Disabled => 404, not 403: \"not built yet\" and \"turned off after an incident\" should be indistinguishable from outside. 202 rather than 200 - the work has been accepted, not done; `jobId` is what the browser watches.",
+        "operationId": "post_example_project_archive",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveAccepted"
+                }
+              }
+            },
+            "description": "Accepted: the progress id to follow and how many projects it will touch."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Archive every active project, in the background. Requires `example.manage` and the `example.archive` flag.",
+        "tags": [
+          "example"
+        ]
+      }
+    },
+    "/api/projects/{id}": {
+      "get": {
+        "operationId": "get_example_project_show",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDetail"
+                }
+              }
+            },
+            "description": "The project. ETag carries the version the client now holds; it comes back as If-Match on the next write.",
+            "headers": {
+              "ETag": {
+                "description": "The quoted version.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "One project, with its clientReference. Requires `example.view`.",
+        "tags": [
+          "example"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "description": "Send If-Match with the version you read. A stale one is 409 with both versions and the saved record (ConflictDetails), so the UI can offer reload or overwrite instead of losing the edit.",
+        "operationId": "patch_example_project_rename",
+        "parameters": [
+          {
+            "description": "The quoted version the client holds, e.g. `\"3\"`.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "The renamed project, version incremented."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Rename a project. Requires `example.manage`; refused under impersonation and on an archived project.",
+        "tags": [
+          "example"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "get_search",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Full-text search across every type the caller may read. An empty query is an empty result, not everything.",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "operationId": "get_settings_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "This workspace's settings: every declared flag with what applies here. Requires `settings.view`.",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/settings/{identifier}": {
+      "put": {
+        "operationId": "put_settings_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSetting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Override"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Override one setting for this workspace; only `tenantEditable` ones. Requires `settings.manage`.",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "operationId": "get_webhook_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Every endpoint of the workspace, newest first. Never the secret.",
+        "tags": [
+          "webhook"
+        ]
+      },
+      "post": {
+        "operationId": "post_webhook_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpoint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointCreated"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Register an endpoint. The secret is in this response and nowhere else, ever.",
+        "tags": [
+          "webhook"
+        ]
+      }
+    },
+    "/api/webhooks/deliveries": {
+      "get": {
+        "operationId": "get_webhook_deliveries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "endpointId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "The delivery log - the product: did you send it, and what did they say?",
+        "tags": [
+          "webhook"
+        ]
+      }
+    },
+    "/api/webhooks/deliveries/{id}/redeliver": {
+      "post": {
+        "operationId": "post_webhook_redeliver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDelivery"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Queue the same delivery again: attempts reset, the log keeps the row.",
+        "tags": [
+          "webhook"
+        ]
+      }
+    },
+    "/api/webhooks/{id}": {
+      "delete": {
+        "operationId": "delete_webhook_deactivate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Deactivate - never delete: the log points at it.",
+        "tags": [
+          "webhook"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

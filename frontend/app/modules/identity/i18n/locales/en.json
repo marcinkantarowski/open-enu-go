@@ -1,0 +1,13 @@
+{
+  "identity.profile": "Profile",
+  "identity.email": "Email address",
+  "identity.emailHint": "Changing your address is a separate, verified flow.",
+  "identity.displayName": "Display name",
+  "identity.language": "Language",
+  "identity.saved": "Profile saved.",
+  "identity.memberships": "Your workspaces",
+  "identity.membershipsHint": "One account, one membership per workspace, one role in each.",
+  "identity.workspace": "Workspace",
+  "identity.role": "Role",
+  "identity.status": "Status"
+}

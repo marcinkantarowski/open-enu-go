@@ -1,0 +1,333 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/settings": {
+      "get": {
+        "operationId": "get_settings_index",
+        "summary": "This workspace's settings: every declared flag with what applies here. Requires `settings.view`.",
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSettingList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/settings/{identifier}": {
+      "put": {
+        "operationId": "put_settings_set",
+        "summary": "Override one setting for this workspace; only `tenantEditable` ones. Requires `settings.manage`.",
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Override"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSetting"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/manager/settings": {
+      "get": {
+        "operationId": "get_manager_settings_index",
+        "summary": "Every declared setting, platform-wide. Operators only.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/manager/tenants/{tenantId}/settings/{identifier}": {
+      "put": {
+        "operationId": "put_manager_settings_set",
+        "summary": "Override any setting for a workspace - the kill switch. Operators only.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Override"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSetting"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Setting": {
+        "type": "object",
+        "required": [
+          "id",
+          "identifier",
+          "name",
+          "description",
+          "type",
+          "defaultValue",
+          "tenantEditable",
+          "category",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The identifier; flags have no row of their own."
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bool",
+              "string",
+              "int",
+              "json"
+            ]
+          },
+          "defaultValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "tenantEditable": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "TenantSetting": {
+        "type": "object",
+        "required": [
+          "id",
+          "identifier",
+          "name",
+          "description",
+          "type",
+          "defaultValue",
+          "tenantEditable",
+          "category",
+          "version",
+          "effectiveValue",
+          "overridden"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The identifier; flags have no row of their own."
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bool",
+              "string",
+              "int",
+              "json"
+            ]
+          },
+          "defaultValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "tenantEditable": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer"
+          },
+          "effectiveValue": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "overridden": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SettingList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Setting"
+            }
+          }
+        }
+      },
+      "TenantSettingList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantSetting"
+            }
+          }
+        }
+      },
+      "Override": {
+        "type": "object",
+        "required": [
+          "id",
+          "identifier",
+          "value",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SetSetting": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "description": "Any JSON value; null is a value, not an absence.",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

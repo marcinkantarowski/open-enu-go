@@ -1,0 +1,47 @@
+# =============================================================================
+#  CI override - the dev stack, with its image builds cached between runs.
+# =============================================================================
+#  Used as: -f compose.dev.yml -f compose.ci.yml  (COMPOSE_FILE in .env, set by
+#  .github/workflows/ci.yml - never on a developer's machine or a server)
+#
+#  A clean runner builds every image from nothing. The Go image is cheap - a
+#  module download and a compile - but the three Nuxt images run `npm ci` over
+#  the whole workspace each, which is most of a cold run. This file stores the
+#  build layers in the GitHub Actions cache and reads them back.
+#
+#  One scope per Dockerfile, not per service: api, worker and scheduler are the
+#  same image, and so are the three Nuxt apps. One writer per scope - the
+#  others only read, so identical exports do not race.
+#
+#  Needs a buildx builder with the docker-container driver and the Actions
+#  runtime token exported to the step; the workflow sets up both.
+#
+#  version=2 pins the current cache API rather than trusting the environment
+#  to select it. ignore-error on the export: a cache outage makes a run slower,
+#  never red - the cache is an optimisation, not part of the gate.
+# =============================================================================
+
+x-api-cache: &api-cache
+  cache_from: ["type=gha,version=2,scope=api"]
+
+x-node-cache: &node-cache
+  cache_from: ["type=gha,version=2,scope=node"]
+
+services:
+  api:
+    build:
+      <<: *api-cache
+      cache_to: ["type=gha,version=2,scope=api,mode=max,ignore-error=true"]
+  worker:
+    build: *api-cache
+  scheduler:
+    build: *api-cache
+
+  frontend:
+    build:
+      <<: *node-cache
+      cache_to: ["type=gha,version=2,scope=node,mode=max,ignore-error=true"]
+  manager:
+    build: *node-cache
+  landing:
+    build: *node-cache

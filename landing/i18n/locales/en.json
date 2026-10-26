@@ -1,0 +1,22 @@
+{
+  "site.nav.home": "Home",
+  "site.nav.contact": "Contact",
+  "site.nav.signIn": "Sign in",
+  "site.nav.getStarted": "Get started",
+  "site.nav.menu": "Menu",
+  "site.nav.language": "Language",
+
+  "site.locale.en": "English",
+  "site.locale.pl": "Polski",
+
+  "site.footer.tagline": "Something good is being built here.",
+  "site.footer.product": "Product",
+  "site.footer.legal": "Legal",
+  "site.footer.privacy": "Privacy policy",
+  "site.footer.terms": "Terms of service",
+  "site.footer.rights": "© {year} {name}. All rights reserved.",
+
+  "site.pricing.popular": "Most popular",
+
+  "site.notFound": "Page not found"
+}

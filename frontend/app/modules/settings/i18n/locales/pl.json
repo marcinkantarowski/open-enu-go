@@ -1,0 +1,8 @@
+{
+  "settings.title": "Ustawienia",
+  "settings.workspace": "Obszar roboczy",
+  "settings.hint": "Ustawienia zablokowane przez operatora są widoczne, ale nie można ich tu zmienić.",
+  "settings.platformManaged": "Zarządzane przez platformę",
+  "settings.overridden": "Zmienione",
+  "settings.saved": "Ustawienie zapisane."
+}

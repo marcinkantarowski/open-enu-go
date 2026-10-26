@@ -1,0 +1,47 @@
+{
+  "schemas": {
+    "Error": {
+      "type": "object",
+      "description": "The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change.",
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "description": "Stable machine token, snake_case." },
+            "message": { "type": "string", "description": "Translated for the request's locale." },
+            "details": { "type": "object", "additionalProperties": true },
+            "requestId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "ConflictDetails": {
+      "type": "object",
+      "description": "error.details of a 409: both versions, so the client can offer reload, overwrite or diff.",
+      "required": ["resource", "yourVersion", "currentVersion"],
+      "properties": {
+        "resource": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "yourVersion": {},
+        "currentVersion": {},
+        "current": { "type": "object", "additionalProperties": true }
+      }
+    }
+  },
+  "responses": {
+    "Error": {
+      "description": "Any failure, in the one envelope.",
+      "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+    }
+  },
+  "securitySchemes": {
+    "bearer": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT",
+      "description": "A JWT from /api/auth/login (tenant) or /api/manager/login (operator), or an API key (`sk_...`)."
+    }
+  }
+}

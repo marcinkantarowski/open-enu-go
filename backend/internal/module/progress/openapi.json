@@ -1,0 +1,106 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/progress/{id}": {
+      "get": {
+        "operationId": "get_progress_show",
+        "summary": "One job of this workspace. Requires `progress.view`. Another workspace's job is 404.",
+        "tags": [
+          "progress"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressJob"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ProgressJob": {
+        "type": "object",
+        "description": "A job as useProgress reads it: polled here, pushed on /tenants/{tid}/progress/{id} in the same shape.",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "total",
+          "done",
+          "percent",
+          "status",
+          "result",
+          "failureReason",
+          "startedAt",
+          "finishedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "total": {
+            "type": "integer"
+          },
+          "done": {
+            "type": "integer"
+          },
+          "percent": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

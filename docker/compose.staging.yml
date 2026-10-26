@@ -1,0 +1,48 @@
+# =============================================================================
+#  Staging override - the dev stack, made safe to run on a public server.
+# =============================================================================
+#  Used as: -f compose.dev.yml -f compose.staging.yml  (COMPOSE_FILE in .env)
+#
+#  Staging is where you vibe code: hot reload under air, Mailpit, Vite's dev
+#  server. Every one of those is a liability on the internet - Mailpit shows
+#  every mail the stack sent, and a dev server serves source files. So this
+#  file does exactly two things, and `make prod-check` fails if either is
+#  undone:
+#
+#    1. publishes no port. The edge is the only way in. (Docker writes its own
+#       iptables rules, so ufw does NOT protect a published port - a dev
+#       Postgres on 0.0.0.0:5432 is reachable from anywhere.)
+#    2. puts every router behind ${STACK}-allow, an IP allowlist written into
+#       the edge from STAGING_ALLOW_FROM by scripts/dev/edge.sh, and marks every
+#       response noindex.
+#
+#  An allowlist and not basic auth: the apps call api. from the browser with
+#  CORS, and a CORS preflight never carries credentials - basic auth on the API
+#  fails every request before it starts.
+# =============================================================================
+
+services:
+  postgres:
+    ports: !reset []
+
+  mercure:
+    labels:
+      - traefik.http.routers.${STACK}-mercure.middlewares=${STACK}-allow@file,noindex@file
+  api:
+    labels:
+      - traefik.http.routers.${STACK}-api.middlewares=${STACK}-allow@file,noindex@file
+  frontend:
+    labels:
+      - traefik.http.routers.${STACK}-frontend.middlewares=${STACK}-allow@file,noindex@file
+  manager:
+    labels:
+      - traefik.http.routers.${STACK}-manager.middlewares=${STACK}-allow@file,noindex@file
+  landing:
+    labels:
+      - traefik.http.routers.${STACK}-landing.middlewares=${STACK}-allow@file,noindex@file
+  mailpit:
+    labels:
+      - traefik.http.routers.${STACK}-mailpit.middlewares=${STACK}-allow@file,noindex@file
+  webhook-echo:
+    labels:
+      - traefik.http.routers.${STACK}-webhook-echo.middlewares=${STACK}-allow@file,noindex@file

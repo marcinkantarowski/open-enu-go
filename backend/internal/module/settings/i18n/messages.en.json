@@ -1,0 +1,5 @@
+{
+  "settings.error.unknown": "No module declares that setting.",
+  "settings.error.platform_managed": "This setting is managed by the platform.",
+  "settings.error.wrong_scope": "A setting is written in its own workspace's scope."
+}

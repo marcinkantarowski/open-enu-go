@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: notification
+description: The in-app feed and the mail behind it - one catalogue of declared types, a row per recipient storing a type and its arguments, read state per person.
+depends: [identity]
+enabled: true

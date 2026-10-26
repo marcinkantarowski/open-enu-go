@@ -1,0 +1,23 @@
+{
+  "example.title": "Projects",
+  "example.subtitle": "The reference screen: optimistic locking, live updates, a long job, a feature flag and tenant scoping - all against the real API.",
+  "example.name": "Name",
+  "example.status": "Status",
+  "example.status.active": "Active",
+  "example.status.archived": "Archived",
+  "example.version": "Version",
+  "example.created": "Created",
+  "example.empty": "No projects yet",
+  "example.create": "New project",
+  "example.rename": "Rename",
+  "example.renamed": "Renamed.",
+  "example.clientReference": "Client reference",
+  "example.clientReferenceHint": "Encrypted at rest. It can be read back, but never searched.",
+  "example.versionHint": "Read at version {version}. Saving sends that back, so a change made meanwhile is refused rather than overwritten.",
+  "example.archive": "Archive all",
+  "example.archived": "Archived {count} project(s).",
+  "example.archiveUnavailable": "Archiving is switched off for this workspace.",
+  "example.attached": "Attached {name}.",
+  "example.live": "Live events",
+  "example.liveHint": "Server-sent, scoped to this workspace's topic."
+}

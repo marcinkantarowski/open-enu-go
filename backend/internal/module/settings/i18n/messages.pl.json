@@ -1,0 +1,5 @@
+{
+  "settings.error.unknown": "Żaden moduł nie deklaruje tego ustawienia.",
+  "settings.error.platform_managed": "To ustawienie jest zarządzane przez platformę.",
+  "settings.error.wrong_scope": "Ustawienie zapisuje się w zakresie własnej przestrzeni roboczej."
+}

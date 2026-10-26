@@ -1,0 +1,153 @@
+name: CI
+
+# A clean clone, the whole gate, nothing skipped. `make ci` is the same command
+# a developer runs locally - if CI needed its own variant of it, the local one
+# would stop being the truth within a month.
+#
+# A push to main does NOT run the gate again. The ruleset only merges a branch
+# that is up to date with main and green, so the merged tree is the tree the
+# pull request already tested. What main does run is the image build, because
+# the Actions cache written on the default branch is the only one every pull
+# request can read.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# The token can read the code and nothing else. A pull request from a fork runs
+# this workflow; what it cannot write, it cannot vandalise.
+permissions:
+  contents: read
+
+concurrency:
+  # A second push supersedes the first: the older run's verdict is about code
+  # nobody will merge.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: make ci
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    # The browser suite waits on a real stack coming up; the rest is minutes.
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Native Go, as on a developer's machine (.ai/platform/ARCHITECTURE.md §2):
+      # the inner loop never waits for a container. scripts/lib/go.sh finds it
+      # on PATH.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: |
+            backend/go.sum
+            backend/kernel/go.sum
+
+      - name: Install mkcert
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/mkcert \
+            https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+          sudo install -m 0755 /tmp/mkcert /usr/local/bin/mkcert
+          sudo apt-get update -qq && sudo apt-get install -y -qq libnss3-tools dnsutils
+          mkcert -install
+
+      - name: Toolchain
+        run: make check-tools
+
+      # Every per-app env file is DERIVED from .env, which is created from
+      # .env.example on first run. Nothing here is configured a second time.
+      - name: Derive every env file
+        run: make env
+
+      # The builds read their layers from the Actions cache (docker/compose.ci.yml).
+      # COMPOSE_FILE is how every script and target picks the files up.
+      - name: Use the CI compose override
+        run: sed -i 's|^COMPOSE_FILE=.*|COMPOSE_FILE=docker/compose.dev.yml:docker/compose.ci.yml|' .env
+
+      # The gha cache backend is spoken by buildx, not by the docker driver, and
+      # it authenticates with the runtime token that only JavaScript actions see.
+      # ACTIONS_CACHE_SERVICE_V2 is what makes buildx use the current cache API:
+      # without it buildx falls back to ACTIONS_CACHE_URL, the retired v1
+      # service, and every request comes back as a 400 HTML error page.
+      - uses: docker/setup-buildx-action@v4
+      - name: Expose the Actions cache to buildx
+        uses: actions/github-script@v9
+        with:
+          script: |
+            for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
+              if (process.env[k]) core.exportVariable(k, process.env[k])
+            }
+
+      # `make builddev` writes these itself; doing it here first means a
+      # failure in the hosts step is reported as a hosts problem rather than as
+      # an unexplained connection refused twenty lines later.
+      - name: Map the hosts
+        run: make hosts
+
+      - name: Bring the stack up
+        run: make builddev
+
+      - name: The gate
+        run: make ci
+
+      # The build regenerates files that are committed: npm rewrites the
+      # lockfile's copy of each workspace manifest, `go generate` the registry,
+      # the ACL and the merged spec. If the build changed one, main is carrying
+      # a stale copy.
+      - name: Nothing the build generated is left uncommitted
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            git status --short --untracked-files=no
+            git --no-pager diff --stat
+            echo "::error::the build changed committed files - run make builddev locally and commit what it changed"
+            exit 1
+          fi
+
+      # Only on failure, and only what a human would actually open: traces and
+      # the report. A green run uploading artefacts nobody looks at is minutes
+      # added to every merge.
+      - name: Browser suite artefacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            e2e/.report
+            e2e/.results
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: What the containers said
+        if: failure()
+        # COMPOSE_FILE comes from .env, like everywhere else. --project-directory
+        # keeps paths relative to the checkout rather than to docker/.
+        run: docker compose --project-directory . logs --tail=200
+
+  # On main only: build the images so the cache every pull request reads from
+  # is warm. No tests - the gate already ran on the pull request.
+  cache:
+    name: warm the image cache
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Derive every env file
+        run: make env
+      - name: Use the CI compose override
+        run: sed -i 's|^COMPOSE_FILE=.*|COMPOSE_FILE=docker/compose.dev.yml:docker/compose.ci.yml|' .env
+      - uses: docker/setup-buildx-action@v4
+      - name: Expose the Actions cache to buildx
+        uses: actions/github-script@v9
+        with:
+          script: |
+            for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
+              if (process.env[k]) core.exportVariable(k, process.env[k])
+            }
+      - name: Build every image
+        run: docker compose --project-directory . build

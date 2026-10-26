@@ -1,0 +1,400 @@
+# =============================================================================
+#  Development stack - bind-mounted source, hot reload everywhere.
+# =============================================================================
+#  Brought up by `make builddev`. Every host is derived from ${DOMAIN}, so this
+#  file never names a domain literally.
+#
+#  Also the STAGING stack on a server, with compose.staging.yml on top (order
+#  10). Everything is named after ${STACK}, so staging and production can share
+#  a box. No Traefik here: routing and TLS belong to the edge - one Traefik
+#  shared by every project on this Docker host (docker/edge/, `make edge`), so
+#  every router below is prefixed with the stack name and names the network
+#  the edge reaches it on.
+# =============================================================================
+
+name: ${STACK:-open-enu-go}
+
+# The backend's environment, composed from .env - the one place the api, the
+# worker and the scheduler are told the same thing. Two database roles on
+# purpose: the application connects as the one that cannot bypass RLS, and only
+# `openenu migrate` uses the owner (ADR-0009). Project variables arrive through
+# docker/api/project.env, written by `make env`.
+x-backend-env: &backend_env
+  APP_STAGE: ${APP_STAGE:-local}
+  APP_SECRET: ${APP_SECRET}
+  APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+  APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
+  PROJECT_SLUG: ${PROJECT_SLUG}
+  DATABASE_URL: postgres://${DB_USER}_app:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
+  DATABASE_ADMIN_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+  REDIS_ADDR: redis:6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  # The URL the BACKEND publishes to (container-internal) and the one the
+  # BROWSER subscribes to differ; publishing through Traefik would be a round
+  # trip for nothing.
+  MERCURE_URL: http://mercure/.well-known/mercure
+  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+  API_URL: https://api.${DOMAIN}
+  # Also the CORS allowlist. Exact origins, never a wildcard: auth rides on a
+  # cookie, so Access-Control-Allow-Credentials is on and a browser refuses a
+  # wildcard beside it (ADR-0021).
+  APP_URL: https://app.${DOMAIN}
+  MANAGER_URL: https://manager.${DOMAIN}
+  SITE_URL: https://${DOMAIN}
+  STORAGE_ROOT: /var/lib/openenu/storage
+  STORAGE_MAX_UPLOAD_MB: ${STORAGE_MAX_UPLOAD_MB:-25}
+  # Mail goes to mailpit (mail.${DOMAIN}) in dev; unset, the backend logs it.
+  MAILER_DSN: ${MAILER_DSN:-smtp://mailpit:1025}
+  MAILER_FROM: ${MAILER_FROM:-noreply@${DOMAIN}}
+  MAILER_REPLY_TO: ${MAILER_REPLY_TO:-support@${DOMAIN}}
+  # The dev CA, so the backend can call its own stack over HTTPS (a webhook
+  # aimed at *.${DOMAIN}). Go reads this file and still the system roots.
+  SSL_CERT_FILE: /etc/open-enu/certs/rootCA.pem
+
+x-backend-volumes: &backend_volumes
+  - ./backend:/app
+  - gomod:/go/pkg/mod
+  - gobuild:/root/.cache/go-build
+  - storage:/var/lib/openenu/storage
+  # The DIRECTORY, not the file: bind-mounting a path that does not exist
+  # makes Docker create a directory there, and a directory named rootCA.pem is
+  # worse than an absent one.
+  - ./docker/certs:/etc/open-enu/certs:ro
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  PostgreSQL - pgvector image so a vector search driver stays a migration
+  #  away, not an infrastructure change (ADR-0017). 18, like the kernel's
+  #  tests and production (make versions-check). From 18 the image keeps its data
+  #  in /var/lib/postgresql/18/docker and wants the volume one level up; the
+  #  volume is not `pgdata` because a 17 data directory sits at that one's root,
+  #  and the image refuses to start beside it.
+  # ───────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: ${STACK:-open-enu-go}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # Read by docker/postgres/init/01-init.sh to create the application role.
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports: ["${DB_PORT:-5432}:5432"]     # exposed in dev for psql; never in prod
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Redis - the tenant-scoped cache. Jobs and events live in Postgres (River).
+  # ───────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:8.10-alpine
+    container_name: ${STACK:-open-enu-go}-redis
+    restart: unless-stopped
+    command: >
+      redis-server --appendonly yes --maxmemory 256mb
+      --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    volumes: [redisdata:/data]
+    networks: [net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Mercure - SSE hub. Served at api.${DOMAIN}/.well-known/mercure, not on a
+  #  host of its own, so the subscriber cookie can be host-only (see
+  #  kernel/realtime). Traefik ranks rules by length, so this beats the API's
+  #  bare Host() rule. Anonymous subscribers may connect in DEV; every update
+  #  is private, so a subscriber without a token for the topic receives nothing.
+  # ───────────────────────────────────────────────────────────────────────────
+  mercure:
+    image: dunglas/mercure:v1.1
+    container_name: ${STACK:-open-enu-go}-mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      # The `iss` and `aud` of the API's tokens (kernel/realtime). The audience
+      # is pinned rather than derived per request: the API publishes to
+      # http://mercure inside the network and the browser subscribes through the
+      # edge, and the two would derive different ones. It is also the base the
+      # relative topics and URL Patterns resolve against.
+      MERCURE_TRUSTED_ISSUERS: https://api.${DOMAIN}
+      MERCURE_EXTRA_DIRECTIVES: |
+        resource_identifier https://api.${DOMAIN}/.well-known/mercure
+        anonymous
+        subscriptions
+        cors_origins https://app.${DOMAIN} https://manager.${DOMAIN}
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-mercure.rule=Host(`api.${DOMAIN}`) && PathPrefix(`/.well-known/mercure`)
+      - traefik.http.routers.${STACK:-open-enu-go}-mercure.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-mercure.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-mercure.loadbalancer.server.port=80
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  The Go API - one binary under air, rebuilt when the source changes.
+  # ───────────────────────────────────────────────────────────────────────────
+  api:
+    build: &backend_build
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: dev
+    container_name: ${STACK:-open-enu-go}-api
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      <<: *backend_env
+      API_ADDR: ":8080"
+    env_file: [./docker/api/project.env]
+    volumes: *backend_volumes
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-api.rule=Host(`api.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-api.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-api.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-api.loadbalancer.server.port=8080
+    healthcheck:
+      # The body, not only the status: a crashed process still answers something.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health | grep -q '\"status\":\"ok\"' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      # The first build compiles every dependency from a cold cache.
+      start_period: 120s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Worker - the outbox: events, broadcasts, background jobs (River).
+  #  Same image, same source, the other role of the binary. air restarts it on
+  #  an edit, so a new job handler exists the moment it is written.
+  # ───────────────────────────────────────────────────────────────────────────
+  worker:
+    build: *backend_build
+    container_name: ${STACK:-open-enu-go}-worker
+    restart: unless-stopped
+    command: ["air", "-c", ".air.toml", "--", "worker"]
+    # Let an in-flight job finish on restart. At the 10s default, restarting
+    # after a code change SIGKILLs a handler mid-write.
+    stop_grace_period: 120s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment: *backend_env
+    env_file: [./docker/api/project.env]
+    volumes: *backend_volumes
+    networks: [net]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Scheduler - the tasks modules declare to run on a clock (module.Task).
+  #  Worker and scheduler retry their start while the schema is unmigrated.
+  # ───────────────────────────────────────────────────────────────────────────
+  scheduler:
+    build: *backend_build
+    container_name: ${STACK:-open-enu-go}-scheduler
+    restart: unless-stopped
+    command: ["air", "-c", ".air.toml", "--", "scheduler"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      <<: *backend_env
+      # Hourly in dev rather than daily, so the daily tasks are observable in
+      # a working session instead of only at 3am. They are idempotent.
+      SCHEDULER_INTERVAL_SECONDS: "3600"
+    env_file: [./docker/api/project.env]
+    volumes: *backend_volumes
+    networks: [net]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Nuxt apps - one image, three containers, driven by npm workspaces.
+  #
+  #  The whole repo is mounted at /app so `@open-enu/ui-kit` resolves as a real
+  #  workspace dependency (npm symlinks it into node_modules) rather than by a
+  #  relative path. node_modules lives in a named volume shared by all three:
+  #  installed once by `make builddev`, read-only in practice afterwards.
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    build: { context: ., dockerfile: docker/node/Dockerfile, target: dev }
+    container_name: ${STACK:-open-enu-go}-frontend
+    restart: unless-stopped
+    command: npm run dev -w frontend
+    environment: &nuxt_env
+      NUXT_HOST: 0.0.0.0
+      NUXT_PORT: "3000"
+      NUXT_PUBLIC_DOMAIN: ${DOMAIN}
+      # Vite's HMR websocket is proxied through Traefik over TLS. Without these
+      # the client dials ws://host:3000 directly, which never connects, and
+      # hot reload fails silently - the page just stops updating.
+      VITE_HMR_PROTOCOL: wss
+      VITE_HMR_PORT: "443"
+      VITE_HMR_HOST: app.${DOMAIN}
+    volumes: &nuxt_volumes
+      - .:/app
+      - node_modules:/app/node_modules
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-frontend.rule=Host(`app.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-frontend.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-frontend.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-frontend.loadbalancer.server.port=3000
+    healthcheck: &nuxt_health
+      # Nuxt's dev server takes 10-20s to compile on boot. Without this, a step
+      # that runs straight after a restart cannot distinguish "still starting"
+      # from "broken" - and `make builddev` raced it into a 502.
+      #
+      # 127.0.0.1, not localhost: in the container localhost resolves to ::1
+      # first, Nuxt binds IPv4 0.0.0.0, and the check gets "connection refused"
+      # from a server that is serving perfectly well.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  manager:
+    build: { context: ., dockerfile: docker/node/Dockerfile, target: dev }
+    container_name: ${STACK:-open-enu-go}-manager
+    restart: unless-stopped
+    command: npm run dev -w manager
+    environment:
+      <<: *nuxt_env
+      VITE_HMR_HOST: manager.${DOMAIN}
+    volumes: *nuxt_volumes
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-manager.rule=Host(`manager.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-manager.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-manager.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-manager.loadbalancer.server.port=3000
+    healthcheck: *nuxt_health
+
+  landing:
+    build: { context: ., dockerfile: docker/node/Dockerfile, target: dev }
+    container_name: ${STACK:-open-enu-go}-landing
+    restart: unless-stopped
+    command: npm run dev -w landing
+    environment:
+      <<: *nuxt_env
+      VITE_HMR_HOST: ${DOMAIN}
+    volumes: *nuxt_volumes
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-landing.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-landing.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-landing.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-landing.loadbalancer.server.port=3000
+    healthcheck: *nuxt_health
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Mailpit - catches every outbound mail in dev. Nothing leaves the machine.
+  # ───────────────────────────────────────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    container_name: ${STACK:-open-enu-go}-mailpit
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-mailpit.rule=Host(`mail.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-mailpit.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-mailpit.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-mailpit.loadbalancer.server.port=8025
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  A webhook receiver, so outbound deliveries have somewhere real to land.
+  #  Test infrastructure, behind the e2e profile: `POST /` records and answers
+  #  200, `POST /fail` answers 500, `GET /last` hands back what it saw.
+  # ───────────────────────────────────────────────────────────────────────────
+  webhook-echo:
+    image: python:3.15-alpine
+    container_name: ${STACK:-open-enu-go}-webhook-echo
+    profiles: [e2e]
+    command: python /receiver.py
+    volumes:
+      - ./docker/webhook-echo/receiver.py:/receiver.py:ro
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go}-net
+      - traefik.http.routers.${STACK:-open-enu-go}-webhook-echo.rule=Host(`webhook-echo.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go}-webhook-echo.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go}-webhook-echo.tls=true
+      - traefik.http.services.${STACK:-open-enu-go}-webhook-echo.loadbalancer.server.port=9000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  Playwright - browser tests against this very stack. Behind a profile, so
+  #  `docker compose up` never starts it: a one-shot runner invoked by `make
+  #  e2e`. The tag is the @playwright/test version, read from e2e/package.json
+  #  by `make e2e` - a second copy here would be a copy that drifts.
+  # ───────────────────────────────────────────────────────────────────────────
+  e2e:
+    image: mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION:-unset-run-make-e2e}-noble
+    container_name: ${STACK:-open-enu-go}-e2e
+    profiles: [e2e]
+    working_dir: /app/e2e
+    command: npx playwright test
+    # As the host user, like every other container that writes into the bind
+    # mount: a root-owned trace directory is a file the developer cannot delete.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      CI: "1"
+      HOME: /tmp
+      XDG_CACHE_HOME: /tmp/.cache
+      E2E_APP_URL: https://app.${DOMAIN}
+      E2E_MANAGER_URL: https://manager.${DOMAIN}
+      E2E_API_BASE: https://api.${DOMAIN}
+      E2E_SITE_URL: https://${DOMAIN}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    networks: [net]
+    depends_on:
+      frontend: { condition: service_healthy }
+      manager: { condition: service_healthy }
+      api: { condition: service_healthy }
+      webhook-echo: { condition: service_healthy }
+
+networks:
+  net:
+    name: ${STACK:-open-enu-go}-net
+
+volumes:
+  postgres:
+  redisdata:
+  gomod:
+  gobuild:
+  storage:
+  node_modules:

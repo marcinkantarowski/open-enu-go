@@ -1,0 +1,695 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "operationId": "post_auth_register",
+        "summary": "Create an account and a pending workspace and send the verification link - or, for an address that has an account, mail its owner instead. The answer is the same either way. Public, rate limited.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted: the person must check their mail.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registered"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/verify": {
+      "post": {
+        "operationId": "post_auth_verify",
+        "summary": "Consume a verification token: the account and its workspace become active. Public.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verified"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "post_auth_login",
+        "summary": "Exchange credentials for a session: the access token in the body, the refresh token as an HttpOnly cookie. Every failure is one 401. Public, rate limited.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "The session; Set-Cookie carries the refresh token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "post_auth_refresh",
+        "summary": "Rotate the refresh cookie and issue a new access token. A reused token revokes its whole family. No cookie at all is a 204, not a 401: a first visit asks this, and there is simply nothing to restore.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "A fresh session and a rotated cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No refresh cookie was sent: there is no session to restore. Nothing is set or cleared."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "open_enu_refresh",
+            "in": "cookie",
+            "required": false,
+            "description": "The refresh token, set by login and rotated on every use.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/switch-tenant": {
+      "post": {
+        "operationId": "post_auth_switch_tenant",
+        "summary": "Re-issue the session for another workspace the person belongs to. Requires the refresh cookie and a bearer token.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "The session for the other workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTenantRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "open_enu_refresh",
+            "in": "cookie",
+            "required": false,
+            "description": "The refresh token, set by login and rotated on every use.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "post_auth_logout",
+        "summary": "Revoke every refresh token of the person and expire the cookie.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "open_enu_refresh",
+            "in": "cookie",
+            "required": false,
+            "description": "The refresh token, set by login and rotated on every use.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "operationId": "post_auth_forgot_password",
+        "summary": "Send a reset link when the address is known; the answer is the same either way. Public, rate limited.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "Always.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sent"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "post_auth_reset_password",
+        "summary": "Consume a reset token, set the password, revoke every session. Public.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "Reset.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reset"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "operationId": "get_profile_show",
+        "summary": "The caller's own account. Any authenticated person; no permission.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "The account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patch_profile_update",
+        "summary": "Change display name or locale. Requires `identity.profile.manage`.",
+        "tags": [
+          "identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "The account after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "tenantName"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 200
+          },
+          "tenantName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 5
+          }
+        }
+      },
+      "Registered": {
+        "type": "object",
+        "description": "The same for every address: no ids, because an address that already has an account must not be told so (ADR-0023).",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unverified"
+            ]
+          }
+        }
+      },
+      "VerifyRequest": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "Verified": {
+        "type": "object",
+        "required": [
+          "status",
+          "userId"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "verified"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "The workspace to open; the best active membership otherwise."
+          }
+        }
+      },
+      "SwitchTenantRequest": {
+        "type": "object",
+        "required": [
+          "tenantId"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          }
+        }
+      },
+      "LoggedOut": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "logged_out"
+            ]
+          }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "Sent": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent"
+            ]
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": [
+          "token",
+          "password"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 200
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 120,
+            "nullable": true
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 5
+          }
+        }
+      },
+      "SessionUser": {
+        "type": "object",
+        "description": "A person as they see themselves. Email is decrypted for its owner only.",
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "status",
+          "locale",
+          "hasAvatar",
+          "version",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "active",
+              "disabled"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasAvatar": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Membership": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "role",
+          "status",
+          "tenantName",
+          "tenantSlug"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended"
+            ]
+          },
+          "tenantName": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenantSlug": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "description": "What every session-establishing call returns (ADR-0018): the access token lives in memory, the refresh token in the cookie.",
+        "required": [
+          "token",
+          "expiresIn",
+          "tenantId",
+          "user",
+          "memberships",
+          "role",
+          "permissions"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "HS256 access token, 15 minutes."
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Seconds."
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUser"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Membership"
+            }
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Advisory for the UI; the token carries the same list and the server checks that one."
+          }
+        }
+      },
+      "Reset": {
+        "type": "object",
+        "required": [
+          "status",
+          "userId"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "reset"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

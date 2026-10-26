@@ -1,0 +1,8 @@
+{
+  "api_key.error.name_required": "A key needs a name of up to 100 characters.",
+  "api_key.error.permissions_required": "A key needs at least one permission.",
+  "api_key.error.permission_unknown": "No module declares that permission.",
+  "api_key.error.permission_not_held": "You can only give a key permissions you hold yourself.",
+  "api_key.error.no_tenant": "A key belongs to a workspace.",
+  "api_key.warning.secret_once": "Store this secret now. It is shown once and cannot be recovered."
+}

@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: example
+description: The reference module - one of every platform concern, and nothing else.
+depends: []
+enabled: true

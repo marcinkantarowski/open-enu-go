@@ -1,0 +1,9 @@
+{
+  "$comment": "Identity of THIS project. Rewritten by `make init NAME=...`. The kernel (github.com/open-enu/kernel, @open-enu/ui-kit) is deliberately NOT listed here - it is the framework's name and never changes. See .ai/platform/ARCHITECTURE.md and .ai/platform/adr/0002-kernel-packaging.md.",
+  "initialized": false,
+  "slug": "open-enu-go",
+  "name": "OpenEnuGo",
+  "domain": "open-enu-go.local",
+  "db": "open_enu_go",
+  "go_module": "github.com/open-enu/app"
+}

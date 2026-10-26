@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: webhook
+description: Outbound webhooks - per-tenant endpoints subscribed to event names, each event signed (Standard Webhooks), delivered on the jobs queue with retries, and logged attempt by attempt.
+depends: []
+enabled: true

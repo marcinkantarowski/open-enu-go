@@ -1,0 +1,9 @@
+{
+  "webhook.title": "Webhooki",
+  "webhook.secret.warning": "Zapisz to teraz - nie da się pokazać ponownie.",
+  "webhook.error.https_required": "Endpoint webhooka musi być adresem https://.",
+  "webhook.error.events_required": "Zasubskrybuj co najmniej jedno zdarzenie - endpoint bez żadnego nic nie otrzyma.",
+  "webhook.error.no_tenant": "Endpoint należy do przestrzeni roboczej; żadna nie jest w zakresie.",
+  "notification.webhook.delivery_failed.title": "Endpoint webhooka przestał odpowiadać",
+  "notification.webhook.delivery_failed.body": "Dostarczenie %event% do %url% nie powiodło się po %attempts% próbach. Sprawdź endpoint i wyślij ponownie z ustawień webhooków."
+}

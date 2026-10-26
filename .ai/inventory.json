@@ -1,0 +1,337 @@
+{
+  "modules": {
+    "api_key": {
+      "description": "Machine credentials - per-tenant keys with a subset of the declared permissions, shown once, stored hashed, revocable; the kernel's KeyResolver.",
+      "depends": [
+        "tenant"
+      ],
+      "entities": [
+        "apiKey"
+      ],
+      "commands": [
+        "createKey",
+        "created",
+        "revokeKey"
+      ],
+      "tables": [
+        "api_key"
+      ],
+      "permissions": [
+        "api_key.manage",
+        "api_key.view"
+      ],
+      "routes": [
+        "DELETE /api/api-keys/{id} (delete_api_key_revoke)",
+        "GET /api/api-keys (get_api_key_index)",
+        "POST /api/api-keys (post_api_key_create)"
+      ]
+    },
+    "attachment": {
+      "description": "Uploaded files - stored through the kernel's tenant-scoped storage, typed by their bytes not their name, reached through short-lived signed URLs, swept when nothing claims them.",
+      "depends": [
+        "tenant"
+      ],
+      "entities": [
+        "attachment"
+      ],
+      "commands": [
+        "deleteAttachment",
+        "uploadAttachment"
+      ],
+      "tables": [
+        "attachment"
+      ],
+      "permissions": [
+        "attachment.manage",
+        "attachment.view"
+      ],
+      "tasks": [
+        "attachment.sweep_orphans (daily)"
+      ],
+      "routes": [
+        "GET /api/attachments/{id} (get_attachment_show)",
+        "POST /api/attachments (post_attachment_upload)"
+      ]
+    },
+    "audit": {
+      "description": "Reading the trail the kernel writes - a tenant's own entries, newest first; operators read across tenants through contract/.",
+      "depends": [
+        "tenant"
+      ],
+      "commands": [
+        "anonymiseActor"
+      ],
+      "contract": [
+        "DefaultLimit",
+        "Entry",
+        "MaxLimit",
+        "NewReader()",
+        "Reader"
+      ],
+      "permissions": [
+        "audit.view"
+      ],
+      "routes": [
+        "GET /api/audit (get_audit_index)"
+      ]
+    },
+    "example": {
+      "description": "The reference module - one of every platform concern, and nothing else.",
+      "depends": [],
+      "entities": [
+        "project"
+      ],
+      "commands": [
+        "archiveActive",
+        "archiveProjects",
+        "createProject",
+        "renameProject",
+        "sweepArchived"
+      ],
+      "contract": [
+        "ProjectCreated"
+      ],
+      "tables": [
+        "example_project"
+      ],
+      "permissions": [
+        "example.manage",
+        "example.view"
+      ],
+      "flags": [
+        "example.archive"
+      ],
+      "tasks": [
+        "example.sweep (daily)"
+      ],
+      "search": [
+        "example.project (example.view)"
+      ],
+      "routes": [
+        "GET /api/projects (get_example_project_index)",
+        "GET /api/projects/{id} (get_example_project_show)",
+        "PATCH /api/projects/{id} (patch_example_project_rename)",
+        "POST /api/projects (post_example_project_create)",
+        "POST /api/projects/archive (post_example_project_archive)"
+      ]
+    },
+    "identity": {
+      "description": "People and their sessions - registration, email verification, login with a rotating refresh cookie, tenant switching, password reset, the profile, and the role-to-permission rule every token carries.",
+      "depends": [
+        "tenant"
+      ],
+      "entities": [
+        "membership",
+        "refreshToken",
+        "securityToken",
+        "user"
+      ],
+      "commands": [
+        "createUser",
+        "eraseUser",
+        "registerUser",
+        "registered",
+        "removeTenantMemberships",
+        "requestPasswordReset",
+        "resetPassword",
+        "updateProfile",
+        "verifyEmail"
+      ],
+      "contract": [
+        "Directory",
+        "Member",
+        "Minter",
+        "NewDirectory()",
+        "NewMinter()",
+        "Operator",
+        "Started"
+      ],
+      "tables": [
+        "identity_membership",
+        "identity_refresh_token",
+        "identity_security_token",
+        "identity_user"
+      ],
+      "permissions": [
+        "identity.member.invite",
+        "identity.member.manage",
+        "identity.member.view",
+        "identity.profile.manage"
+      ],
+      "routes": [
+        "GET /api/profile (get_profile_show)",
+        "PATCH /api/profile (patch_profile_update)",
+        "POST /api/auth/forgot-password (post_auth_forgot_password)",
+        "POST /api/auth/login (post_auth_login)",
+        "POST /api/auth/logout (post_auth_logout)",
+        "POST /api/auth/refresh (post_auth_refresh)",
+        "POST /api/auth/register (post_auth_register)",
+        "POST /api/auth/reset-password (post_auth_reset_password)",
+        "POST /api/auth/switch-tenant (post_auth_switch_tenant)",
+        "POST /api/auth/verify (post_auth_verify)"
+      ]
+    },
+    "manager": {
+      "description": "The platform-operator realm - a separate identity table, a separate token audience, a separate app; tenant administration, the cross-tenant audit view, worker status and impersonation, the one designed crossing between realms.",
+      "depends": [
+        "audit",
+        "identity",
+        "tenant"
+      ],
+      "entities": [
+        "operator"
+      ],
+      "commands": [
+        "startImpersonation",
+        "suspendTenant"
+      ],
+      "tables": [
+        "platform_manager"
+      ],
+      "routes": [
+        "GET /api/manager/audit (get_manager_audit_index)",
+        "GET /api/manager/tenants (get_manager_tenant_index)",
+        "GET /api/manager/tenants/{id} (get_manager_tenant_show)",
+        "GET /api/manager/workers (get_manager_worker_status)",
+        "POST /api/manager/login (post_manager_login)",
+        "POST /api/manager/tenants/{id}/suspend (post_manager_tenant_suspend)",
+        "POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate (post_manager_impersonate)"
+      ]
+    },
+    "notification": {
+      "description": "The in-app feed and the mail behind it - one catalogue of declared types, a row per recipient storing a type and its arguments, read state per person.",
+      "depends": [
+        "identity"
+      ],
+      "entities": [
+        "catalogue",
+        "keys",
+        "row"
+      ],
+      "tables": [
+        "notification"
+      ],
+      "permissions": [
+        "notification.view"
+      ],
+      "routes": [
+        "GET /api/notifications (get_notification_index)",
+        "POST /api/notifications/read-all (post_notification_read_all)",
+        "POST /api/notifications/{id}/read (post_notification_read)"
+      ]
+    },
+    "progress": {
+      "description": "Reading the progress of a long-running job the kernel persisted - the poll that keeps the browser honest beside the push on the job's topic.",
+      "depends": [
+        "tenant"
+      ],
+      "permissions": [
+        "progress.view"
+      ],
+      "routes": [
+        "GET /api/progress/{id} (get_progress_show)"
+      ]
+    },
+    "search": {
+      "description": "One search endpoint across every module that declared a searchable type - with that type's permission checked before the query runs, because an excerpt is content.",
+      "depends": [],
+      "routes": [
+        "GET /api/search (get_search)"
+      ]
+    },
+    "settings": {
+      "description": "Runtime configuration and kill switches - every module's declared flags, with per-tenant overrides an operator can set and a tenant can set only where allowed.",
+      "depends": [
+        "tenant"
+      ],
+      "entities": [
+        "boxed",
+        "override"
+      ],
+      "commands": [
+        "setTenantFlag"
+      ],
+      "tables": [
+        "setting_override"
+      ],
+      "permissions": [
+        "settings.manage",
+        "settings.view"
+      ],
+      "routes": [
+        "GET /api/manager/settings (get_manager_settings_index)",
+        "GET /api/settings (get_settings_index)",
+        "PUT /api/manager/tenants/{tenantId}/settings/{identifier} (put_manager_settings_set)",
+        "PUT /api/settings/{identifier} (put_settings_set)"
+      ]
+    },
+    "tenant": {
+      "description": "The workspaces everything else is scoped to - created, activated, suspended, deleted, and described to every other module through contract/.",
+      "depends": [],
+      "entities": [
+        "tenant"
+      ],
+      "contract": [
+        "Activate",
+        "Columns",
+        "Create",
+        "Created",
+        "Delete",
+        "Deleted",
+        "DescribeTTL",
+        "Info",
+        "NewReader()",
+        "Provisioner",
+        "Reader",
+        "Scan()",
+        "StatusActive",
+        "StatusPending",
+        "StatusSuspended",
+        "Suspend"
+      ],
+      "tables": [
+        "tenant"
+      ],
+      "permissions": [
+        "tenant.delete",
+        "tenant.manage",
+        "tenant.view"
+      ],
+      "tasks": [
+        "tenant.purge_unverified (daily)"
+      ]
+    },
+    "webhook": {
+      "description": "Outbound webhooks - per-tenant endpoints subscribed to event names, each event signed (Standard Webhooks), delivered on the jobs queue with retries, and logged attempt by attempt.",
+      "depends": [],
+      "entities": [
+        "created",
+        "delivery",
+        "endpoint"
+      ],
+      "commands": [
+        "createEndpoint",
+        "deactivateEndpoint",
+        "redeliver"
+      ],
+      "tables": [
+        "webhook_delivery",
+        "webhook_endpoint"
+      ],
+      "permissions": [
+        "webhook.manage",
+        "webhook.view"
+      ],
+      "notifications": [
+        "webhook.delivery_failed"
+      ],
+      "routes": [
+        "DELETE /api/webhooks/{id} (delete_webhook_deactivate)",
+        "GET /api/webhooks (get_webhook_index)",
+        "GET /api/webhooks/deliveries (get_webhook_deliveries)",
+        "POST /api/webhooks (post_webhook_create)",
+        "POST /api/webhooks/deliveries/{id}/redeliver (post_webhook_redeliver)"
+      ]
+    }
+  }
+}

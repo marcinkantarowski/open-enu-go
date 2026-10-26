@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: api_key
+description: Machine credentials - per-tenant keys with a subset of the declared permissions, shown once, stored hashed, revocable; the kernel's KeyResolver.
+depends: [tenant]
+enabled: true

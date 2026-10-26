@@ -1,0 +1,280 @@
+# =============================================================================
+#  Production stack - immutable images. Staging is NOT this file: staging is the
+#  dev stack plus compose.staging.yml, because staging is where you vibe code.
+# =============================================================================
+#  What is deliberately ABSENT compared with compose.dev.yml, and why:
+#
+#    no source bind-mounts   images are immutable, so a deploy replaces a
+#                            container rather than the files inside a running one
+#    no air                  the binary in the image is the binary that runs
+#    no exposed DB port      the database is reachable from the app network only
+#    no Traefik              routing and Let's Encrypt belong to the edge, one per
+#                            server (docker/edge/), so staging and production can
+#                            share a box without fighting over ports 80 and 443
+#    no Mailpit              real mail goes through a real provider
+#    no mkcert               certificates come from Let's Encrypt
+#
+#  One backend image, three containers: `api`, `worker` and `scheduler` are the
+#  same static binary started with a different argument
+#  (.ai/platform/ARCHITECTURE.md §2). Every third-party image is pinned to a
+#  version tag. `latest` means a `docker compose pull` six months from now
+#  silently deploys a different system than the one tested. `make prod-check`
+#  holds this file to all of the above.
+# =============================================================================
+
+name: ${STACK:-open-enu-go-prod}
+
+x-restart: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  # Bounded at the container, not only on the daemon: a box provisioned by hand
+  # or by an older script still cannot fill its disk with one service's logs.
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+# The backend's environment, composed from .env - the same block as the dev
+# stack's, minus the dev CA. Two database roles on purpose (ADR-0009): the
+# application connects as the one that cannot bypass RLS; only `openenu
+# migrate` uses the owner. Project variables arrive through
+# docker/api/project.env, written by `make env` on the server.
+x-backend-env: &backend_env
+  APP_STAGE: ${APP_STAGE:-production}
+  APP_SECRET: ${APP_SECRET}
+  APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+  APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
+  PROJECT_SLUG: ${PROJECT_SLUG}
+  DATABASE_URL: postgres://${DB_USER}_app:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
+  DATABASE_ADMIN_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+  REDIS_ADDR: redis:6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  MERCURE_URL: http://mercure/.well-known/mercure
+  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+  API_URL: https://api.${DOMAIN}
+  APP_URL: https://app.${DOMAIN}
+  MANAGER_URL: https://manager.${DOMAIN}
+  SITE_URL: https://${DOMAIN}
+  STORAGE_ROOT: /var/lib/openenu/storage
+  STORAGE_MAX_UPLOAD_MB: ${STORAGE_MAX_UPLOAD_MB:-25}
+  # No default. In dev an unset DSN falls back to Mailpit; here a DSN that is
+  # not set is a stack that silently drops every verification mail.
+  MAILER_DSN: ${MAILER_DSN:?MAILER_DSN must be a real provider in production}
+  MAILER_FROM: ${MAILER_FROM:-noreply@${DOMAIN}}
+  MAILER_REPLY_TO: ${MAILER_REPLY_TO:-support@${DOMAIN}}
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: docker/api/Dockerfile
+    target: prod
+  image: ${STACK:-open-enu-go-prod}-api:${RELEASE:-latest}
+  <<: [*restart, *logging]
+  environment: *backend_env
+  env_file: [./docker/api/project.env]
+  volumes: [storage:/var/lib/openenu/storage]
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  networks: [net]
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: ${STACK:-open-enu-go-prod}-postgres
+    <<: [*restart, *logging]
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    volumes:
+      # 18 keeps its data in /var/lib/postgresql/18/docker: the volume is the
+      # parent, so the next major's pg_upgrade finds both clusters on one volume.
+      - postgres:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    # No `ports:`. In dev the port is published for psql; here the only way in
+    # is `make tunnel`, which forwards it over SSH for one session.
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  redis:
+    # Pinned to a minor in production, as in open-enu: a release's `build --pull`
+    # must not move the cache server to a new minor nobody chose.
+    image: redis:8.10-alpine
+    container_name: ${STACK:-open-enu-go-prod}-redis
+    <<: [*restart, *logging]
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes: [redisdata:/data]
+    networks: [net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mercure:
+    image: dunglas/mercure:v1.1
+    container_name: ${STACK:-open-enu-go-prod}-mercure
+    <<: [*restart, *logging]
+    environment:
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      # The issuer and the pinned audience of the API's tokens - see
+      # compose.dev.yml for why the audience cannot be derived per request.
+      MERCURE_TRUSTED_ISSUERS: https://api.${DOMAIN}
+      # cors_origins, not a wildcard: the subscriber token is a cookie, and a
+      # wildcard origin with credentials is refused by browsers anyway. No
+      # `anonymous`: off is 1.x's default, and every topic needs the token the
+      # API mints.
+      MERCURE_EXTRA_DIRECTIVES: |
+        resource_identifier https://api.${DOMAIN}/.well-known/mercure
+        cors_origins https://app.${DOMAIN} https://manager.${DOMAIN}
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go-prod}-net
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-mercure.rule=Host(`api.${DOMAIN}`) && PathPrefix(`/.well-known/mercure`)
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-mercure.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-mercure.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK:-open-enu-go-prod}-mercure.loadbalancer.server.port=80
+
+  api:
+    <<: *backend
+    container_name: ${STACK:-open-enu-go-prod}-api
+    command: ["api"]
+    environment:
+      <<: *backend_env
+      API_ADDR: ":8080"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go-prod}-net
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-api.rule=Host(`api.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-api.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-api.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK:-open-enu-go-prod}-api.loadbalancer.server.port=8080
+      # Traefik polls the SHALLOW check. The deep one touches the database, and
+      # putting that on a 10-second loop turns a slow query into a
+      # load-balancer flap.
+      - traefik.http.services.${STACK:-open-enu-go-prod}-api.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.${STACK:-open-enu-go-prod}-api.loadbalancer.healthcheck.interval=10s
+    healthcheck:
+      # The binary probes itself: distroless has no shell and no curl. It
+      # reads the body, not only the status (cmd/openenu/health.go).
+      test: ["CMD", "/openenu", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  worker:
+    <<: *backend
+    container_name: ${STACK:-open-enu-go-prod}-worker
+    command: ["worker"]
+    # Let an in-flight job finish on restart. At the 10s default, a deploy
+    # SIGKILLs a handler mid-write.
+    stop_grace_period: 120s
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  scheduler:
+    <<: *backend
+    container_name: ${STACK:-open-enu-go-prod}-scheduler
+    command: ["scheduler"]
+    deploy:
+      resources:
+        limits: { memory: 256m }
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+      target: prod
+      args: { APP: frontend }
+    image: ${STACK:-open-enu-go-prod}-frontend:${RELEASE:-latest}
+    container_name: ${STACK:-open-enu-go-prod}-frontend
+    <<: [*restart, *logging]
+    env_file: [./frontend/.env]
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go-prod}-net
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-frontend.rule=Host(`app.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-frontend.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK:-open-enu-go-prod}-frontend.loadbalancer.server.port=3000
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  manager:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+      target: prod
+      args: { APP: manager }
+    image: ${STACK:-open-enu-go-prod}-manager:${RELEASE:-latest}
+    container_name: ${STACK:-open-enu-go-prod}-manager
+    <<: [*restart, *logging]
+    env_file: [./manager/.env]
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go-prod}-net
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-manager.rule=Host(`manager.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-manager.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-manager.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK:-open-enu-go-prod}-manager.loadbalancer.server.port=3000
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  landing:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+      target: prod
+      args: { APP: landing }
+    image: ${STACK:-open-enu-go-prod}-landing:${RELEASE:-latest}
+    container_name: ${STACK:-open-enu-go-prod}-landing
+    <<: [*restart, *logging]
+    env_file: [./landing/.env]
+    networks: [net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${STACK:-open-enu-go-prod}-net
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-landing.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-landing.entrypoints=websecure
+      - traefik.http.routers.${STACK:-open-enu-go-prod}-landing.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK:-open-enu-go-prod}-landing.loadbalancer.server.port=3000
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+networks:
+  # One network, joined by the edge (`edge.sh attach`). The database and Redis
+  # have no router, so the edge has no route to them - being on the segment is
+  # not the same as being reachable from the internet.
+  net:
+    name: ${STACK:-open-enu-go-prod}-net
+
+volumes:
+  postgres:
+  redisdata:
+  storage:

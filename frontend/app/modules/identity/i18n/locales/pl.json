@@ -1,0 +1,13 @@
+{
+  "identity.profile": "Profil",
+  "identity.email": "Adres e-mail",
+  "identity.emailHint": "Zmiana adresu to osobny proces z weryfikacją.",
+  "identity.displayName": "Nazwa wyświetlana",
+  "identity.language": "Język",
+  "identity.saved": "Profil zapisany.",
+  "identity.memberships": "Twoje obszary robocze",
+  "identity.membershipsHint": "Jedno konto, jedno członkostwo na obszar roboczy, jedna rola w każdym.",
+  "identity.workspace": "Obszar roboczy",
+  "identity.role": "Rola",
+  "identity.status": "Status"
+}

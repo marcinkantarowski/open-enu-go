@@ -1,0 +1,8 @@
+{
+  "settings.title": "Settings",
+  "settings.workspace": "Workspace",
+  "settings.hint": "Settings an operator has locked are shown but cannot be changed here.",
+  "settings.platformManaged": "Platform-managed",
+  "settings.overridden": "Customised",
+  "settings.saved": "Setting saved."
+}

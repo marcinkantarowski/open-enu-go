@@ -1,0 +1,26 @@
+# air - rebuild and restart the binary when the source changes. Dev only;
+# docker/api/Dockerfile runs it, compose appends `-- api|worker|scheduler`.
+root = "."
+tmp_dir = "/tmp/air"
+
+[build]
+cmd = "go build -o /tmp/air/openenu ./cmd/openenu"
+bin = "/tmp/air/openenu"
+include_ext = ["go", "json", "sql", "yaml", "toml"]
+exclude_dir = ["bin", "tools"]
+exclude_regex = ["_test\\.go$", "testdata"]
+# A bind mount under WSL2 or macOS delivers no file events; polling does.
+poll = true
+poll_interval = 1000
+delay = 500
+# SIGTERM first, so a worker finishes the job in hand (River drains on Stop).
+send_interrupt = true
+kill_delay = "10s"
+stop_on_error = false
+
+[log]
+main_only = true
+time = true
+
+[misc]
+clean_on_exit = true

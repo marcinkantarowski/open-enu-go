@@ -1,0 +1,32 @@
+{
+  "name": "open-enu-go",
+  "private": true,
+  "description": "OpenEnu Go - a Go API + three Nuxt apps, designed to be read and extended by AI agents.",
+  "engines": {
+    "node": ">=26"
+  },
+  "workspaces": [
+    "ui-kit",
+    "frontend",
+    "manager",
+    "landing",
+    "e2e"
+  ],
+  "scripts": {
+    "//": "Entry points are Make targets, not npm scripts. These exist so tooling that expects npm scripts finds something sensible.",
+    "check": "make check",
+    "ci": "make ci"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "knip": "^6.43.0",
+    "typescript": "^6.0.3",
+    "vue-tsc": "3.3.11"
+  },
+  "//devDependencies": "vue-tsc is exact at 3.3.11: from 3.3.12 a static attribute holding '//' (placeholder=\"https://\") inside a scoped slot loses the slot's variable (TS2304 in webhook/pages/settings/webhooks.vue). .github/dependabot.yml skips 3.3.12 and 3.3.13 only, so the first release past them is proposed and type-checked. esbuild: see knip.config.ts.",
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true
+  }
+}

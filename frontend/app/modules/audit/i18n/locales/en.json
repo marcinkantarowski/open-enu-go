@@ -1,0 +1,16 @@
+{
+  "audit.title": "Activity",
+  "audit.subtitle": "Every change, with what the record looked like before and after.",
+  "audit.when": "When",
+  "audit.action": "Action",
+  "audit.actor": "Who",
+  "audit.outcome": "Outcome",
+  "audit.ok": "OK",
+  "audit.failed": "Failed",
+  "audit.onBehalfOf": "(support session)",
+  "audit.show": "Details",
+  "audit.hide": "Hide",
+  "audit.before": "Before",
+  "audit.after": "After",
+  "audit.empty": "Nothing recorded yet"
+}

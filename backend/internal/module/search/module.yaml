@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: search
+description: One search endpoint across every module that declared a searchable type - with that type's permission checked before the query runs, because an excerpt is content.
+depends: []
+enabled: true

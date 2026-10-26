@@ -1,0 +1,19 @@
+{
+  "apiKey.title": "API keys",
+  "apiKey.hint": "Machine credentials scoped to this workspace. Each carries only the permissions you give it.",
+  "apiKey.create": "New key",
+  "apiKey.name": "Name",
+  "apiKey.prefix": "Prefix",
+  "apiKey.permissions": "Permissions",
+  "apiKey.permissionsHint": "You can only grant what you hold. Minting further keys is never grantable.",
+  "apiKey.expiry": "Expires in (days)",
+  "apiKey.expiryHint": "Leave it short. A key with no end date outlives the reason it was made.",
+  "apiKey.lastUsed": "Last used",
+  "apiKey.empty": "No keys yet",
+  "apiKey.revoke": "Revoke",
+  "apiKey.revokedBadge": "Revoked",
+  "apiKey.revoked": "Key revoked.",
+  "apiKey.revokeConfirm": "Revoke \"{name}\"? Anything using it stops working immediately.",
+  "apiKey.secretTitle": "Copy this key now",
+  "apiKey.secretWarning": "This is the only time the key is shown. It is stored hashed, so it cannot be shown again."
+}

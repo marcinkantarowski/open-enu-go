@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/search": {
+      "get": {
+        "operationId": "get_search",
+        "summary": "Full-text search across every type the caller may read. An empty query is an empty result, not everything.",
+        "tags": [
+          "search"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SearchHit": {
+        "type": "object",
+        "required": [
+          "type",
+          "id",
+          "score",
+          "excerpt"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The entity type a module declared, e.g. `example.project`."
+          },
+          "id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "float"
+          },
+          "excerpt": {
+            "type": "string",
+            "description": "A highlighted fragment of the indexed text - content, which is why the type's permission is required."
+          }
+        }
+      },
+      "SearchMeta": {
+        "type": "object",
+        "required": [
+          "query",
+          "total"
+        ],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/SearchMeta"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "identity.title": "Tożsamość",
+  "identity.error.invalid_credentials": "Te dane logowania są nieprawidłowe.",
+  "identity.error.not_a_member": "Nie należysz do tej przestrzeni roboczej.",
+  "identity.error.email_invalid": "To nie wygląda na adres e-mail.",
+  "identity.error.password_too_short": "Hasło musi mieć co najmniej 12 znaków.",
+  "identity.error.tenant_name_required": "Przestrzeń robocza wymaga nazwy do 200 znaków.",
+  "identity.error.token_invalid": "Ten link nie jest już ważny. Poproś o nowy.",
+  "identity.error.locale_unsupported": "Ten język nie jest dostępny.",
+  "identity.error.role_invalid": "Rola to owner, admin lub member.",
+  "identity.error.not_a_person": "Klucz API nie ma profilu.",
+  "identity.email.verify.subject": "Potwierdź swój adres e-mail",
+  "identity.email.verify.body": "Potwierdź adres, aby dokończyć zakładanie konta.",
+  "identity.email.reset.subject": "Zresetuj hasło",
+  "identity.email.reset.body": "Użyj poniższego linku, aby ustawić nowe hasło.",
+  "identity.email.reset.ignore": "Jeśli to nie Ty prosiłeś o zmianę, zignoruj tę wiadomość - hasło nie zostało zmienione.",
+  "identity.email.invite.subject": "Zaproszenie do %tenant%",
+  "identity.email.invite.body": "Zaproszono Cię do dołączenia do %tenant%.",
+  "identity.email.expires": "Ten link wygasa za %hours% godz.",
+  "identity.email.account_exists.subject": "Masz już konto",
+  "identity.email.account_exists.body": "Ktoś - być może Ty - próbował założyć konto z tym adresem. Masz już konto: zaloguj się pierwszym linkiem albo ustaw nowe hasło drugim, jeśli go nie pamiętasz.",
+  "identity.email.account_exists.ignore": "Jeśli to nie Ty, zignoruj tę wiadomość - nic się nie zmieniło."
+}

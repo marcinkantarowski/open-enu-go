@@ -1,0 +1,5 @@
+{
+  "tenant.error.name_required": "Przestrzeń robocza wymaga nazwy do 200 znaków.",
+  "tenant.error.slug_invalid": "Adres przestrzeni roboczej to małe litery, cyfry i pojedyncze łączniki, do 64 znaków.",
+  "tenant.error.slug_taken": "Ten adres przestrzeni roboczej jest już zajęty."
+}

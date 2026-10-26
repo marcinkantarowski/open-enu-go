@@ -1,0 +1,22 @@
+{
+  "site.nav.home": "Strona główna",
+  "site.nav.contact": "Kontakt",
+  "site.nav.signIn": "Zaloguj się",
+  "site.nav.getStarted": "Zacznij",
+  "site.nav.menu": "Menu",
+  "site.nav.language": "Język",
+
+  "site.locale.en": "English",
+  "site.locale.pl": "Polski",
+
+  "site.footer.tagline": "Powstaje tu coś fajnego.",
+  "site.footer.product": "Produkt",
+  "site.footer.legal": "Informacje prawne",
+  "site.footer.privacy": "Polityka prywatności",
+  "site.footer.terms": "Regulamin",
+  "site.footer.rights": "© {year} {name}. Wszelkie prawa zastrzeżone.",
+
+  "site.pricing.popular": "Najczęściej wybierany",
+
+  "site.notFound": "Nie znaleziono strony"
+}

@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: identity
+description: People and their sessions - registration, email verification, login with a rotating refresh cookie, tenant switching, password reset, the profile, and the role-to-permission rule every token carries.
+depends: [tenant]
+enabled: true

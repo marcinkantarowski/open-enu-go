@@ -1,0 +1,9 @@
+{
+  "webhook.title": "Webhooks",
+  "webhook.secret.warning": "Store this now - it cannot be shown again.",
+  "webhook.error.https_required": "A webhook endpoint must be an https:// URL.",
+  "webhook.error.events_required": "Subscribe to at least one event - an endpoint with none receives nothing.",
+  "webhook.error.no_tenant": "An endpoint belongs to a workspace; none is in scope.",
+  "notification.webhook.delivery_failed.title": "A webhook endpoint stopped responding",
+  "notification.webhook.delivery_failed.body": "Delivery of %event% to %url% failed after %attempts% attempts. Check the endpoint and redeliver from the webhook settings."
+}

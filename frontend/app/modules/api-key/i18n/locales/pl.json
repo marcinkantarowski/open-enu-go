@@ -1,0 +1,19 @@
+{
+  "apiKey.title": "Klucze API",
+  "apiKey.hint": "Poświadczenia maszynowe ograniczone do tego obszaru roboczego. Każdy ma tylko te uprawnienia, które mu nadasz.",
+  "apiKey.create": "Nowy klucz",
+  "apiKey.name": "Nazwa",
+  "apiKey.prefix": "Prefiks",
+  "apiKey.permissions": "Uprawnienia",
+  "apiKey.permissionsHint": "Możesz nadać tylko to, co sam masz. Tworzenie kolejnych kluczy nigdy nie jest do nadania.",
+  "apiKey.expiry": "Wygasa za (dni)",
+  "apiKey.expiryHint": "Ustaw krótko. Klucz bez daty końca przeżywa powód, dla którego powstał.",
+  "apiKey.lastUsed": "Ostatnio użyty",
+  "apiKey.empty": "Brak kluczy",
+  "apiKey.revoke": "Unieważnij",
+  "apiKey.revokedBadge": "Unieważniony",
+  "apiKey.revoked": "Klucz unieważniony.",
+  "apiKey.revokeConfirm": "Unieważnić „{name}”? Wszystko, co go używa, natychmiast przestanie działać.",
+  "apiKey.secretTitle": "Skopiuj ten klucz teraz",
+  "apiKey.secretWarning": "To jedyny moment, w którym klucz jest pokazany. Jest przechowywany jako skrót, więc nie da się go pokazać ponownie."
+}

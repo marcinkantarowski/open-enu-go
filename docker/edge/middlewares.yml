@@ -1,0 +1,44 @@
+# =============================================================================
+#  Middleware for every stack on a server's edge. Installed by edge.sh as
+#  ${EDGE_HOME}/dynamic/_shared.yml; security-headers and rate-limit apply to
+#  every request on websecure, noindex is added by compose.staging.yml.
+# =============================================================================
+http:
+  middlewares:
+    security-headers:
+      headers:
+        # HSTS. One year, subdomains included, and NOT preloaded - preloading is
+        # effectively irreversible, and a boilerplate must not make that choice
+        # for a domain it does not own.
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: false
+        forceSTSHeader: true
+
+        contentTypeNosniff: true
+        browserXssFilter: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+
+        customResponseHeaders:
+          # Traefik's own version is not information a client needs.
+          Server: ""
+          X-Powered-By: ""
+
+    rate-limit:
+      # A coarse first layer in front of the application's own limiters, which
+      # are per-endpoint and know the difference between a login and a list.
+      # This one only stops a flood from reaching the API at all.
+      rateLimit:
+        average: 100
+        burst: 200
+        period: 1s
+
+    # Staging only, applied by compose.staging.yml: keeps a staging copy of the product out
+    # of search results. Indexed staging sites outrank nothing and confuse
+    # everyone.
+    noindex:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: "noindex, nofollow"

@@ -1,0 +1,97 @@
+# Dependency updates, monthly, grouped.
+#
+# Grouped deliberately: twenty single-dependency pull requests a week is a
+# notification stream people mute, and a muted update stream is how a project
+# ends up three majors behind on the thing with the CVE. One PR per ecosystem
+# per month is a thing somebody actually reviews - and each one is a full CI
+# run. Security updates do not wait for the schedule: Dependabot opens those
+# as soon as an advisory lands, whatever the interval says.
+#
+# Every one of them runs `make ci`, which is what makes accepting them cheap.
+# Part of that is `make versions-check`: Dependabot moves one file at a time and
+# never reads the kernel's test containers (backend/kernel/testdb/testdb.go),
+# backup-verify.sh or a go.mod `toolchain` line, so a PR that bumps Postgres,
+# Redis, Mercure, Go or Node in one place fails until the others say the same.
+# That failure is the reminder, not a broken PR.
+version: 2
+updates:
+  # Both Go modules: the kernel is its own module with its own go.mod
+  # (ADR-0002), and the application reaches it through a replace directive.
+  - package-ecosystem: gomod
+    directories:
+      - /backend
+      - /backend/kernel
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      go:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    ignore:
+      # 13.x publishes no prebuilt binaries at all (13.0.3, 2026-10-25), so
+      # `npm install` compiles it with node-gyp - and node:26-alpine has no
+      # python, make or g++. Lift this once a 13.x release carries
+      # `node-v147-linuxmusl-x64` again.
+      - dependency-name: better-sqlite3
+        versions: ['>=13']
+      # TypeScript 7 is the native (Go) compiler and has no JavaScript API
+      # (7.0.2 exports no createProgram, no createLanguageService). vue-tsc,
+      # knip and @nuxtjs/i18n's unplugin-vue-i18n all read that API, so
+      # `nuxt prepare` dies in postinstall. Lift this when they support 7.
+      - dependency-name: typescript
+        versions: ['>=7']
+      # 3.3.12 and 3.3.13 lose a scoped slot's variable when a static attribute
+      # beside it holds `//` (placeholder="https://"): TS2304 in the webhook
+      # settings page, which 3.3.11 type-checks. Only these two are skipped, so
+      # the next release is proposed - and `make typecheck` decides.
+      - dependency-name: vue-tsc
+        versions: ['3.3.12', '3.3.13']
+    groups:
+      nuxt:
+        patterns: ['nuxt', '@nuxt/*', '@nuxtjs/*', 'vue', 'vue-router']
+      frontend:
+        patterns: ['*']
+        exclude-patterns: ['nuxt', '@nuxt/*', '@nuxtjs/*', 'vue', 'vue-router']
+
+  # Base images: the ones a `docker compose build` pulls - golang and the
+  # distroless runtime for the API, node for the three apps.
+  - package-ecosystem: docker
+    directories:
+      - /docker/api
+      - /docker/node
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+
+  # The images compose pulls directly - Postgres, Redis, Mercure, Mailpit, the
+  # webhook receiver's Python, the edge's Traefik. The `docker` entry above
+  # reads Dockerfiles only. The Playwright image is tagged from a variable
+  # (make e2e) and is moved by the npm update of @playwright/test.
+  - package-ecosystem: docker-compose
+    directories:
+      - /docker
+      - /docker/edge
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    ignore:
+      # A Postgres major is a dump and restore of every database; a Mercure
+      # major changed the protocol last time (1.0: OAuth access tokens, URL
+      # Pattern matchers). Both are deliberate migrations, made in a spec, not
+      # monthly bumps.
+      - dependency-name: 'pgvector/pgvector'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'dunglas/mercure'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2

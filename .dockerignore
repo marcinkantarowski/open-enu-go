@@ -1,0 +1,12 @@
+.git
+.idea
+.out
+**/node_modules
+**/vendor
+**/.nuxt
+**/.output
+backend/var
+docker/certs
+.env
+.env.*
+!.env.example

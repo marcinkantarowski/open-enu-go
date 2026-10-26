@@ -1,0 +1,632 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/manager/login": {
+      "post": {
+        "operationId": "post_manager_login",
+        "summary": "Operator login: the strictest rate limit in the system, no refresh, no reset, no registration.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorSession"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagerLoginRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/manager/tenants": {
+      "get": {
+        "operationId": "get_manager_tenant_index",
+        "summary": "Every workspace on the platform, newest first, with member counts.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedTenantList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/api/manager/tenants/{id}": {
+      "get": {
+        "operationId": "get_manager_tenant_show",
+        "summary": "One workspace and its members.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedTenantDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/manager/tenants/{id}/suspend": {
+      "post": {
+        "operationId": "post_manager_tenant_suspend",
+        "summary": "Suspend a workspace: its members and keys stop authenticating.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suspended"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/manager/tenants/{tenantId}/users/{userId}/impersonate": {
+      "post": {
+        "operationId": "post_manager_impersonate",
+        "summary": "Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpersonatedSession"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/manager/audit": {
+      "get": {
+        "operationId": "get_manager_audit_index",
+        "summary": "The trail across every workspace, or one of them.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerAuditList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ]
+      }
+    },
+    "/api/manager/workers": {
+      "get": {
+        "operationId": "get_manager_worker_status",
+        "summary": "What is waiting and what has failed in the job queues.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ManagerLoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "Operator": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "roles",
+          "active",
+          "status",
+          "lastLoginAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OperatorSession": {
+        "type": "object",
+        "required": [
+          "token",
+          "expiresIn",
+          "manager"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "HS256 access token, aud manager, 15 minutes. No refresh: a lapsed session means logging in again."
+          },
+          "expiresIn": {
+            "type": "integer"
+          },
+          "manager": {
+            "$ref": "#/components/schemas/Operator"
+          }
+        }
+      },
+      "ManagedTenant": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "plan",
+          "defaultLocale",
+          "version",
+          "createdAt",
+          "activatedAt",
+          "members"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "defaultLocale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "members": {
+            "type": "integer"
+          }
+        }
+      },
+      "ListMeta": {
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "pages": {
+            "type": "integer"
+          }
+        }
+      },
+      "ManagedTenantList": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedTenant"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListMeta"
+          }
+        }
+      },
+      "TenantMember": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The USER's id - what impersonation takes."
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ManagedTenantDetail": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "plan",
+          "defaultLocale",
+          "version",
+          "createdAt",
+          "activatedAt",
+          "members"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "defaultLocale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantMember"
+            }
+          }
+        }
+      },
+      "Suspended": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "suspended"
+            ]
+          }
+        }
+      },
+      "ImpersonatedSession": {
+        "type": "object",
+        "description": "The person's session body (identity's Session) with `impersonating: true` and `operator: {id, displayName}`. No refresh cookie is set.",
+        "additionalProperties": true
+      },
+      "ManagerAuditEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "tenantId",
+          "actorId",
+          "onBehalfOfId",
+          "subjectId",
+          "requestId",
+          "succeeded",
+          "failureReason",
+          "recordedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "onBehalfOfId": {
+            "type": "string",
+            "nullable": true
+          },
+          "subjectId": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ManagerAuditList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagerAuditEntry"
+            }
+          }
+        }
+      },
+      "WorkerStatus": {
+        "type": "object",
+        "required": [
+          "queues",
+          "failed"
+        ],
+        "properties": {
+          "queues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Jobs waiting per queue (available, scheduled or retryable)."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Jobs River discarded after their last retry."
+          }
+        }
+      }
+    }
+  }
+}

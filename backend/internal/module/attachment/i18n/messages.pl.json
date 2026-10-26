@@ -1,0 +1,5 @@
+{
+  "attachment.error.file_required": "Prześlij jeden plik w polu `file`.",
+  "attachment.error.too_large": "Ten plik jest większy, niż przyjmuje ta przestrzeń robocza.",
+  "attachment.error.no_tenant": "Plik należy do przestrzeni roboczej."
+}

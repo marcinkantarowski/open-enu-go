@@ -1,0 +1,13 @@
+{
+  "kernel.error.bad_request": "Nie udało się zrozumieć żądania.",
+  "kernel.error.conflict": "Ten rekord został w międzyczasie zmieniony przez kogoś innego. Odśwież i spróbuj ponownie.",
+  "kernel.error.forbidden": "Nie masz uprawnień do tej operacji.",
+  "kernel.error.impersonation_denied": "Ta akcja nie jest dostępna podczas podglądu jako inny użytkownik.",
+  "kernel.error.internal": "Coś poszło nie tak po naszej stronie. Identyfikator żądania jest w odpowiedzi.",
+  "kernel.error.not_found": "Nie znaleziono.",
+  "kernel.error.rate_limited": "Zbyt wiele żądań. Spróbuj ponownie za chwilę.",
+  "kernel.error.realtime_no_tenant": "Aktualizacje na żywo wymagają przestrzeni roboczej.",
+  "kernel.error.service_unavailable": "Usługa jest chwilowo niedostępna.",
+  "kernel.error.unauthenticated": "Zaloguj się, aby kontynuować.",
+  "kernel.error.validation_failed": "Niektóre pola są nieprawidłowe."
+}

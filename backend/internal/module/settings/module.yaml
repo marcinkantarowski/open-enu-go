@@ -1,0 +1,6 @@
+# Read by tools/genregistry at generate time and embedded into module.go. The
+# name MUST match the directory - it is the Go package and the permission prefix.
+name: settings
+description: Runtime configuration and kill switches - every module's declared flags, with per-tenant overrides an operator can set and a tenant can set only where allowed.
+depends: [tenant]
+enabled: true

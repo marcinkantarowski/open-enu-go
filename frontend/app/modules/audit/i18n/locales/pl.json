@@ -1,0 +1,16 @@
+{
+  "audit.title": "Aktywność",
+  "audit.subtitle": "Każda zmiana wraz z tym, jak rekord wyglądał przed i po.",
+  "audit.when": "Kiedy",
+  "audit.action": "Akcja",
+  "audit.actor": "Kto",
+  "audit.outcome": "Wynik",
+  "audit.ok": "OK",
+  "audit.failed": "Niepowodzenie",
+  "audit.onBehalfOf": "(sesja wsparcia)",
+  "audit.show": "Szczegóły",
+  "audit.hide": "Ukryj",
+  "audit.before": "Przed",
+  "audit.after": "Po",
+  "audit.empty": "Nic jeszcze nie zarejestrowano"
+}

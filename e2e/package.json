@@ -1,0 +1,13 @@
+{
+  "name": "e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests against the running dev stack. Runs in `make ci`, never in `make check`.",
+  "scripts": {
+    "test": "playwright test",
+    "//": "The exact @playwright/test version is also the browser image's tag - make e2e reads it from here. Keep it exact, never a range."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

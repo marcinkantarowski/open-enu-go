@@ -1,0 +1,74 @@
+# =============================================================================
+#  The edge on a server - TLS from Let's Encrypt, HTTP-01. Shared by every stack
+#  on the box (staging and production, or several projects).
+# =============================================================================
+#  A TEMPLATE. scripts/dev/edge.sh renders __LETSENCRYPT_EMAIL__ and
+#  __LE_CA_SERVER__ from the stack's .env into ${EDGE_HOME}/traefik.yml. Traefik
+#  does not expand ${VARS} in its static file: written that way, the ACME email
+#  and CA server are the literal strings, and no certificate ever issues.
+#
+#  HTTP-01 and not DNS-01, deliberately: DNS-01 needs an API token for the zone
+#  with write access, which is a credential on the server that can rewrite your
+#  DNS. HTTP-01 needs port 80 open and nothing else. The cost is that wildcard
+#  certificates are unavailable - which is why preflight checks each subdomain
+#  individually rather than looking for a wildcard record.
+# =============================================================================
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: WARN
+
+accessLog:
+  filters:
+    # Only what somebody would act on. A full access log on a small box is
+    # mostly health checks, and it fills the disk that the database is on.
+    statusCodes: ["400-499", "500-599"]
+    retryAttempts: true
+
+# No dashboard. It is an unauthenticated map of every route and service, and in
+# production there is no host to put it behind that is not also reachable.
+api:
+  dashboard: false
+
+ping: {}
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        # `permanent: true` here and not in dev: a 301 is cached by browsers,
+        # which is right once the domain is settled and painful while it is not.
+        entryPoint: { to: websecure, scheme: https, permanent: true }
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        # The default for every router on this entrypoint, so the dev stack's
+        # routers (`tls=true`, no resolver - mkcert locally) get Let's Encrypt
+        # certificates on a staging server with no label changed.
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers@file
+        - rate-limit@file
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "__LETSENCRYPT_EMAIL__"
+      storage: /acme/acme.json
+      # Production's CA by default, staging stacks included: a staging-CA
+      # certificate is untrusted by browsers, and staging is used in one.
+      caServer: "__LE_CA_SERVER__"
+      httpChallenge:
+        entryPoint: web

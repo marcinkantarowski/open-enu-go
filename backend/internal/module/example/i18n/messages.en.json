@@ -1,0 +1,9 @@
+{
+  "example.error.archived": "That project cannot be edited.",
+  "example.error.name_required": "A non-empty name is required.",
+  "example.error.no_tenant": "A project belongs to a tenant; none is in scope.",
+  "example.project.archived": "Archived %count% project(s).",
+  "example.project.created": "Project created.",
+  "example.project.renamed": "Project renamed.",
+  "example.progress.archiving": "Archiving projects"
+}

@@ -1,0 +1,63 @@
+{
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.close": "Close",
+  "common.retry": "Retry",
+  "common.loading": "Loading…",
+  "common.search": "Search",
+  "common.actions": "Actions",
+  "common.none": "None",
+  "common.yes": "Yes",
+  "common.no": "No",
+  "common.back": "Back",
+  "common.next": "Next",
+  "common.previous": "Previous",
+  "common.page": "Page {page} of {pages}",
+  "common.copy": "Copy",
+  "common.copied": "Copied",
+  "common.requestId": "Reference: {id}",
+
+  "empty.title": "Nothing here yet",
+  "empty.description": "When there is something to show, it will appear here.",
+
+  "error.generic": "Something went wrong.",
+  "error.network": "The server could not be reached.",
+  "error.forbidden": "You do not have permission to do that.",
+  "error.notFound": "That no longer exists.",
+
+  "auth.email": "Email address",
+  "auth.password": "Password",
+  "auth.signIn": "Sign in",
+  "auth.signOut": "Sign out",
+  "auth.signingIn": "Signing in…",
+  "auth.forgotPassword": "Forgot your password?",
+  "auth.invalidCredentials": "That email and password do not match.",
+  "auth.sessionExpired": "Your session has ended. Please sign in again.",
+
+  "tenant.switch": "Switch workspace",
+  "tenant.current": "Current workspace",
+
+  "impersonation.title": "Viewing as {user}",
+  "impersonation.description": "You are signed in as an operator. Changes are limited and everything you do is recorded.",
+  "impersonation.exit": "Stop viewing as",
+
+  "conflict.title": "Someone else changed this first",
+  "conflict.description": "Your copy was version {yours}; the saved version is now {current}. Choose how to continue.",
+  "conflict.reload": "Discard mine, load theirs",
+  "conflict.overwrite": "Keep mine, overwrite theirs",
+  "conflict.dismiss": "Decide later",
+
+  "upload.choose": "Choose a file",
+  "upload.drop": "or drop one here",
+  "upload.uploading": "Uploading… {percent}%",
+  "upload.remove": "Remove",
+  "upload.tooLarge": "That file is larger than the {max} limit.",
+
+  "progress.running": "Working… {done} of {total}",
+  "progress.done": "Finished",
+  "progress.failed": "Failed: {reason}",
+
+  "realtime.connecting": "Connecting…",
+  "realtime.live": "Live",
+  "realtime.reconnecting": "Reconnecting…"
+}

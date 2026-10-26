@@ -1,0 +1,191 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/notifications": {
+      "get": {
+        "operationId": "get_notification_index",
+        "summary": "Your feed, newest first, with the unread count.",
+        "tags": [
+          "notification"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationFeed"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "operationId": "post_notification_read_all",
+        "summary": "Mark everything in your feed read.",
+        "tags": [
+          "notification"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadAllStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "operationId": "post_notification_read",
+        "summary": "Mark one of yours read. Somebody else's is 404, not 403.",
+        "tags": [
+          "notification"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Notification": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "titleKey",
+          "bodyKey",
+          "context",
+          "read",
+          "readAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "titleKey": {
+            "type": "string",
+            "description": "A translation key the client renders with `context` as arguments; the type itself when the type is no longer declared."
+          },
+          "bodyKey": {
+            "type": "string"
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Translation arguments, never prose."
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FeedMeta": {
+        "type": "object",
+        "required": [
+          "unread"
+        ],
+        "properties": {
+          "unread": {
+            "type": "integer"
+          }
+        }
+      },
+      "NotificationFeed": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/FeedMeta"
+          }
+        }
+      },
+      "ReadStatus": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ReadAllStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "unread"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "unread": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
