@@ -134,7 +134,9 @@ operation no test reached fails the build, unless its fragment says
 application's roots, plus knip for TypeScript. A finding under `internal/` or `cmd/` fails
 the build; a kernel export this application does not reach is printed and does not, because
 the kernel is a library with an upgrade contract and the next project built on it reaches
-things this one does not. Generated files are not reported.
+things this one does not. Generated files are not reported. The application is found by the path
+in `backend/go.mod`, so it is checked under the project's own name after `make init`, and
+`make selftest` proves it there.
 
 The rule underneath all of them: **when you add a convention, add the check that fails when
 it is broken, in the same change.** A convention without a check is gone in three months.

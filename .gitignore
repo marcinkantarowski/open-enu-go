@@ -45,3 +45,6 @@ backups/
 
 # written by make test, read by make route-coverage
 backend/.route-trace
+
+# local scratch space - anything kept for a while and never committed
+/temp/

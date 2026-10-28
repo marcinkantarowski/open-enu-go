@@ -268,6 +268,18 @@ const peek = `SELECT name FROM tenant WHERE id = $1`
 '
 assert_contains "clean again after the plants are removed" "$(bash -c "$ARCH" _ "$WORK" "$GO" 2>&1 && echo clean)" "clean"
 
+# dead-code, in the copy init renamed: the application is no longer
+# github.com/open-enu/app, which is exactly where a hard-coded filter goes blind.
+DEADCODE="$WORK/scripts/dev/check-dead-code.sh"
+printf '%s' 'package internal
+
+func zzNobodyCallsThis() int { return 42 }
+' > "$WORK/backend/internal/module/demo/internal/zz_dead.go"
+assert_contains "dead-code fires on an unreachable func in a renamed project" \
+  "$(DEAD_CODE_GO_ONLY=1 bash "$DEADCODE" 2>&1)" "unreachable func: zzNobodyCallsThis"
+rm -f "$WORK/backend/internal/module/demo/internal/zz_dead.go"
+assert_contains "dead-code passes the clean copy" "$(DEAD_CODE_GO_ONLY=1 bash "$DEADCODE" 2>&1 && echo clean)" "clean"
+
 # ── 8. prod-check holds the production and staging stacks to their invariants
 # Each case breaks one rule in the copy and expects the check to say so. Needs
 # Docker only for `compose config`, which renders without a daemon's images.

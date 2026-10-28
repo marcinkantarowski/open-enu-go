@@ -29,13 +29,23 @@ rc=0
 
 # ── Go ──────────────────────────────────────────────────────────────────────
 log_step "Dead code - Go (deadcode)"
-raw="$(cd "$ROOT/backend" && "$GO" tool deadcode -test -filter '^github.com/open-enu/' ./... 2>&1)"
+# The kernel and THIS application. The application's path is the project's own
+# after `make init`, so it is read from go.mod, never written here: a pattern
+# naming the platform's path reports the kernel alone in every project.
+app_module="$(sed -n 's/^module[[:space:]]*//p' "$ROOT/backend/go.mod" | head -1)"
+[ -n "$app_module" ] || { log_fail "backend/go.mod names no module" "it must start with: module <path>"; exit 1; }
+filter="^(github\\.com/open-enu/kernel|${app_module//./\\.})(/|\$)"
+# Findings on stdout, the toolchain on stderr: `go: downloading ...` on a cold
+# cache is not dead code, and deadcode exits 0 when it finds some.
+errs="$(mktemp)"
+raw="$(cd "$ROOT/backend" && "$GO" tool deadcode -test -filter "$filter" ./... 2>"$errs")"
 status=$?
-if [ "$status" -ne 0 ] && [ -z "$raw" ]; then
-  # "The tool produced no output" is not "the code is all alive".
+if [ "$status" -ne 0 ]; then
   log_fail "deadcode could not run (exit $status)" "try: cd backend && go tool deadcode -test ./..."
+  sed 's/^/    /' "$errs" >&2; rm -f "$errs"
   exit 1
 fi
+rm -f "$errs"
 findings="$(printf '%s\n' "$raw" | grep -v '\.gen\.go:' | grep -v '^$' || true)"
 app="$(printf '%s\n' "$findings" | grep -v '^kernel/' || true)"
 lib="$(printf '%s\n' "$findings" | grep '^kernel/' || true)"
@@ -50,6 +60,9 @@ if [ -n "$lib" ]; then
   log_warn "$(printf '%s\n' "$lib" | wc -l | tr -d ' ') kernel export(s) this application does not reach (advisory - a library's surface)"
   printf '%s\n' "$lib" | sed 's/^/    /'
 fi
+
+# The Go half alone, for selftest - knip needs the node container.
+[ "${DEAD_CODE_GO_ONLY:-}" = 1 ] && exit $rc
 
 # ── TypeScript ──────────────────────────────────────────────────────────────
 log_step "Dead code - TypeScript (knip)"
