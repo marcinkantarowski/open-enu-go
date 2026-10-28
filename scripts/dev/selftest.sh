@@ -274,7 +274,10 @@ assert_contains "clean again after the plants are removed" "$(bash -c "$ARCH" _ 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   log_step "prod-check fails on each broken invariant"
   PRODCHECK="$WORK/scripts/dev/check-prod-compose.sh"
-  [ -f "$WORK/.env" ] || cp "$WORK/.env.example" "$WORK/.env"
+  # The copy's own `make env`: .env and the files derived from it, as on a clone.
+  [ -f "$WORK/.env" ] && [ -f "$WORK/docker/api/project.env" ] || "$WORK/scripts/lib/envgen.sh" generate >/dev/null
+  assert_contains "prod-check on a clone with no .env asks for make env" \
+    "$(cd "$WORK" && mv .env .env.held && bash "$PRODCHECK" 2>&1; mv .env.held .env)" "make env"
   prodcase() { # <label> <edit of the copy>
     local label="$1" edit="$2"
     cp "$WORK/docker/compose.prod.yml" "$WORK/prod.bak"; cp "$WORK/docker/compose.staging.yml" "$WORK/staging.bak"
@@ -372,6 +375,15 @@ upd_base="$("${GT[@]}" -C "$UPD/platform" rev-parse HEAD)"
 ( cd "$UPD/project" && make init NAME=upd-shop DOMAIN=shop.example.com GO_MODULE=example.com/shop/app >/dev/null 2>&1 )
 assert_eq "init records the platform commit it started from" "$upd_base" "$(jget "$UPD/project/.project.json" platform_ref)"
 assert_eq "init records where the platform is"                "$UPD/platform" "$(jget "$UPD/project/.project.json" platform_source)"
+# A copy committed into a repository of its own: HEAD and origin are the
+# project's, so the platform is named, and what is named wins over git.
+mkdir "$UPD/copy"
+tar --exclude=.git -C "$UPD/platform" -cf - . | tar -C "$UPD/copy" -xf -
+"${GT[@]}" -C "$UPD/copy" init -q && "${GT[@]}" -C "$UPD/copy" add -A . >/dev/null && "${GT[@]}" -C "$UPD/copy" commit -q -m "a copy"
+( cd "$UPD/copy" && make init NAME=upd-copy PLATFORM_SOURCE="$UPD/platform" PLATFORM_REF="$upd_base" >/dev/null 2>&1 )
+assert_eq "init takes PLATFORM_REF over the copy's own HEAD"  "$upd_base" "$(jget "$UPD/copy/.project.json" platform_ref)"
+assert_eq "init takes PLATFORM_SOURCE over the copy's origin" "$UPD/platform" "$(jget "$UPD/copy/.project.json" platform_source)"
+rm -rf "$UPD/copy"
 echo 'the project owns this line' >> "$UPD/project/README.md"
 "${GT[@]}" -C "$UPD/project" add -A . >/dev/null
 "${GT[@]}" -C "$UPD/project" commit -q -m "the project, renamed"

@@ -49,7 +49,7 @@ PLAYWRIGHT_VERSION := $(shell sed -n 's/.*"@playwright\/test": *"\([0-9][0-9.]*\
 # ═════════════════════════════════════════════════════════════════════════════
 
 .PHONY: init
-init: ## Rename the boilerplate into your project (NAME=myproject [DOMAIN=...] [GO_MODULE=...])
+init: ## Rename the boilerplate into your project (NAME=myproject [DOMAIN=...] [GO_MODULE=...] [PLATFORM_SOURCE=... PLATFORM_REF=...])
 	@$(DEV)/init.sh
 
 .PHONY: platform-update
@@ -353,8 +353,10 @@ build: ## Build the openenu binary into backend/bin/
 # session's reaper removes the shared containers ten seconds after that session ends - while
 # the second has already reused them, and every test in flight sees "connection reset". So the
 # reaper is off for the pair and the containers are removed here, success or failure. The names
-# are testdb.go's (kernel/testdb).
-TEST_CONTAINERS := open-enu-go-test-postgres open-enu-go-test-redis
+# are testdb.go's (kernel/testdb), prefixed with the slug so that two projects on one Docker
+# host never reuse, or remove, each other's.
+export TESTDB_CONTAINER_PREFIX ?= $(PROJECT_SLUG)
+TEST_CONTAINERS := $(TESTDB_CONTAINER_PREFIX)-test-postgres $(TESTDB_CONTAINER_PREFIX)-test-redis
 
 # ROUTE_TRACE: every request a test makes appends its matched route to this file
 # (kernel/httpx/trace.go); `make route-coverage` subtracts it from the spec. A stale

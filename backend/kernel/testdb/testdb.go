@@ -145,10 +145,10 @@ func Redis(t testing.TB) string {
 }
 
 func startPostgres(ctx context.Context) (string, error) {
-	c, err := postgres.Run(ctx, imageOr("TESTDB_POSTGRES_IMAGE", "postgres:18-alpine"),
+	c, err := postgres.Run(ctx, envOr("TESTDB_POSTGRES_IMAGE", "postgres:18-alpine"),
 		postgres.WithDatabase("postgres"), postgres.WithUsername("postgres"), postgres.WithPassword("postgres"),
 		postgres.BasicWaitStrategies(),
-		testcontainers.WithReuseByName("open-enu-go-test-postgres"),
+		testcontainers.WithReuseByName(containerName("postgres")),
 	)
 	if err != nil {
 		return "", err
@@ -157,8 +157,8 @@ func startPostgres(ctx context.Context) (string, error) {
 }
 
 func startRedis(ctx context.Context) (string, error) {
-	c, err := tcredis.Run(ctx, imageOr("TESTDB_REDIS_IMAGE", "redis:8.10-alpine"),
-		testcontainers.WithReuseByName("open-enu-go-test-redis"))
+	c, err := tcredis.Run(ctx, envOr("TESTDB_REDIS_IMAGE", "redis:8.10-alpine"),
+		testcontainers.WithReuseByName(containerName("redis")))
 	if err != nil {
 		return "", err
 	}
@@ -166,7 +166,14 @@ func startRedis(ctx context.Context) (string, error) {
 	return strings.TrimPrefix(s, "redis://"), err
 }
 
-func imageOr(env, def string) string {
+// containerName is the name a container is reused by. Projects sharing a
+// Docker host must not share it: one run's cleanup would remove the container
+// another run is using, so `make` sets TESTDB_CONTAINER_PREFIX to the slug.
+func containerName(service string) string {
+	return envOr("TESTDB_CONTAINER_PREFIX", "open-enu-go") + "-test-" + service
+}
+
+func envOr(env, def string) string {
 	if v := os.Getenv(env); v != "" {
 		return v
 	}

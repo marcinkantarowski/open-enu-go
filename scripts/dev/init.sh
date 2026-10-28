@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  make init NAME=myproject [DOMAIN=myproject.local] [GO_MODULE=github.com/me/myproject]
+#            [PLATFORM_SOURCE=<url> PLATFORM_REF=<commit>]   (a copy, not a clone)
 # =============================================================================
 #  Turns the boilerplate into a named project: the manifest, the application's
 #  Go module path and every import of it, the default domain.
@@ -66,13 +67,17 @@ OLD_MODULE="$(read_manifest go_module)"
 
 # Where this project came from, for `make platform-update`. Kept across a
 # re-init; on the first one, taken from git while it is still true: a fresh
-# clone's HEAD is the platform commit and its origin is the platform.
-PLATFORM_REF="$(read_manifest platform_ref)"
-PLATFORM_SOURCE="$(read_manifest platform_source)"
+# clone's HEAD is the platform commit and its origin is the platform. A copy
+# committed into a new repository has neither - HEAD and origin are the
+# project's own - so PLATFORM_REF and PLATFORM_SOURCE, when given, win.
+PLATFORM_REF="${PLATFORM_REF:-$(read_manifest platform_ref)}"
+PLATFORM_SOURCE="${PLATFORM_SOURCE:-$(read_manifest platform_source)}"
+GUESSED_PLATFORM=0
 if [ -z "$PLATFORM_REF" ] && grep -q '"initialized"[[:space:]]*:[[:space:]]*false' "$MANIFEST" \
    && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   PLATFORM_REF="$(git -C "$ROOT" rev-parse --verify --quiet HEAD 2>/dev/null || true)"
   PLATFORM_SOURCE="${PLATFORM_SOURCE:-$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)}"
+  GUESSED_PLATFORM=1
 fi
 
 # ── target identity ─────────────────────────────────────────────────────────
@@ -147,6 +152,11 @@ with open(path, 'w', encoding='utf-8') as fh:
 PY
 fi
 log_ok ".project.json$([ -n "$PLATFORM_REF" ] && echo " (made from platform ${PLATFORM_REF:0:12})")"
+if [ "$GUESSED_PLATFORM" = 1 ]; then
+  log_warn "platform taken from this checkout's git: ${PLATFORM_REF:0:12} at ${PLATFORM_SOURCE:-<no origin>}"
+  log_info "right for a clone of the platform; for a copy committed into a new repository, say which:"
+  log_info "make init NAME=$NEW_SLUG PLATFORM_SOURCE=<platform url> PLATFORM_REF=<platform commit>"
+fi
 
 # ── 3. defaults that carry the slug or the domain ───────────────────────────
 log_step "Defaults"

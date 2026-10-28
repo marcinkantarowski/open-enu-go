@@ -48,6 +48,11 @@ log_step "Production stack invariants"
 
 # Rendered rather than grepped: compose resolves anchors, extends and variables,
 # and a rule applied to the raw YAML checks the text instead of the stack.
+# Both stacks read .env and the derived docker/api/project.env; a fresh clone
+# has neither until `make env`, and that is not a broken stack.
+for derived in .env docker/api/project.env; do
+  [ -f "$ROOT/$derived" ] || { log_fail "$derived is missing - the stacks cannot be rendered without it" "run: make env"; exit 1; }
+done
 CONFIG="$(docker compose --project-directory "$ROOT" --env-file "$ROOT/.env" "${PROD_FILES[@]}" config 2>/dev/null)" \
   || { log_fail "compose.prod.yml does not parse" "run: docker compose -f docker/compose.prod.yml config"; exit 1; }
 

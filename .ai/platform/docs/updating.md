@@ -13,7 +13,13 @@ make platform-update FROM=git@github.com:acme/platform.git   # the first time, o
 `FROM` is a local checkout or a git URL (cloned once into `~/.cache/enu-platform/` and
 fetched on every run). It is remembered in `.project.json` (`platform_source`), next to the
 commit the project has reached (`platform_ref`), so after the first run the bare command is
-enough. `make init` records both when a project is created from a fresh clone.
+enough. `make init` records both when a project is created from a fresh clone. A project
+that starts as a copy committed into a repository of its own has the wrong HEAD and origin
+for that, so it names the platform instead:
+
+```bash
+make init NAME=acme PLATFORM_SOURCE=git@github.com:acme/platform.git PLATFORM_REF=<commit copied>
+```
 
 ## What it does
 
