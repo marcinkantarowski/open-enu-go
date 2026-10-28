@@ -206,6 +206,7 @@ E2E_APP_URL=${app_url}
 E2E_MANAGER_URL=${manager_url}
 E2E_API_BASE=${api}
 E2E_SITE_URL=${site_url}
+E2E_DEFAULT_LOCALE=${DEFAULT_LOCALE:-en}
 EOF
 
   log_ok "derived frontend/.env, manager/.env, landing/.env, e2e/.env, docker/api/project.env"

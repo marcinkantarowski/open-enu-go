@@ -70,7 +70,7 @@ async function save() {
         </UiField>
 
         <UiField v-slot="field" :label="t('identity.language')">
-          <UiSelect :id="field.id" v-model="form.locale" :options="languages" :described-by="field.describedBy" />
+          <UiSelect :id="field.id" v-model="form.locale" :options="languages" data-testid="profile-locale" :described-by="field.describedBy" />
         </UiField>
 
         <div>

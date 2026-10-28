@@ -19,7 +19,9 @@ The home page is `index.md`. Every other file is served by `app/pages/[...slug].
 path its filename gives it: `content/en/about.md` is `/about`, and `content/pl/about.md` is
 `/pl/about` (`strategy: 'prefix_except_default'`, the default being `DEFAULT_LOCALE`).
 **Each language has its own URL** - unlike the two SPAs - because a crawler sends no cookie
-and no `Accept-Language`, so a language that shares a URL is never indexed. To put a page in
+and no `Accept-Language`, so a language that shares a URL is never indexed. For the same reason
+the site never redirects by the browser's language: `/` is always `DEFAULT_LOCALE`, and
+`make smoke` asks for it with the other language preferred. To put a page in
 the header or footer, add it to `nav` in `SiteHeader.vue` / `columns` in `SiteFooter.vue`,
 with a key in both catalogues.
 

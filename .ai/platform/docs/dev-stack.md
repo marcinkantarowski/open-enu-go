@@ -12,7 +12,7 @@ up            ports free? -> the shared edge -> compose up --build -> the edge j
 deps          npm install in the node container (one workspace, one node_modules volume)
 wait          healthchecks, then the API's body, then the edge's route to each host
 migrate       `openenu migrate` as the schema owner
-smoke         fourteen URLs, each asserting a body fragment, over the real certificate
+smoke         fifteen URLs, each asserting a body fragment, over the real certificate
 urls          the table
 ```
 

@@ -37,6 +37,10 @@ export default defineNuxtConfig({
     // cookie nor Accept-Language, so a language that shares its URL with another
     // is never indexed, and hreflang has nothing to point at.
     strategy: 'prefix_except_default',
+    // The URL is the choice, so the browser is never asked - stated here as
+    // well as in the layer, because detection on a prefixed site sends every
+    // other-language browser from `/` away: the default, unreachable at its URL.
+    detectBrowserLanguage: false,
     // No `langDir` - see .ai/platform/docs/i18n.md.
     locales: [
       { code: 'en', language: 'en-GB', files: ['en.ts'] },

@@ -54,9 +54,9 @@ docs, translations, typography, versions, budgets, the production stack and dead
 tenant and realm isolation from several directions (27 tests).
 
 **The three apps run against the real stack.** `make builddev` brings everything up under
-trusted HTTPS and `make smoke` checks 14 hosts for content; `make e2e` drives 15 browser
-tests in six specs - login, session restore, tenant switch, impersonation, realtime,
-uploads, the 409 conflict bar and a feature flag switched by an operator.
+trusted HTTPS and `make smoke` checks 15 URLs for content; `make e2e` drives 17 browser
+tests in seven specs - login, session restore, tenant switch, impersonation, realtime,
+uploads, the 409 conflict bar, a feature flag switched by an operator and the default language.
 
 **Agent interfaces.** `.ai/inventory.json` indexes every declared name, so "does this exist?"
 is a grep; `openenu mcp -key sk_...` offers the API to an MCP client as tools filtered to

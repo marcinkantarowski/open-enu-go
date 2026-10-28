@@ -57,15 +57,10 @@ export default defineNuxtConfig({
       { code: 'en', language: 'en-GB', files: ['en.ts'] },
       { code: 'pl', language: 'pl-PL', files: ['pl.ts'] },
     ],
-    detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: 'open_enu_locale',
-      // Not `Strict`: the landing site links into the app across subdomains, and
-      // a strict cookie would be dropped on exactly that navigation, resetting
-      // the language every time someone signs in.
-      cookieCrossOrigin: true,
-      redirectOn: 'root',
-    },
+    // Never the browser's language: until someone chooses, the apps speak
+    // DEFAULT_LOCALE. The module cannot remember a choice without also
+    // guessing one, so the choice is kept by app/plugins/locale.client.ts.
+    detectBrowserLanguage: false,
   },
 
   vite: {

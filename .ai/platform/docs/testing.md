@@ -67,13 +67,14 @@ route, asserting **content**, never only a status code.
 
 `e2e/` drives a real browser against the running dev stack - never a mocked API or a
 preview build - for what a Go test cannot see: cookie attributes, two realms sharing a
-signing key, a connection that stays open. Fifteen tests in six specs: the cookie login,
+signing key, a connection that stays open. Seventeen tests in seven specs: the cookie login,
 its refusals, session restore and sign-out (`login`); switching workspace
 (`tenant-switch`); an operator viewing a workspace as a member, and an operator token
 refused by the tenant API (`impersonation`); the event stream outliving the page that
 opened it (`realtime`); an upload (`upload`); and a project created in one session arriving
 in another but not in another tenant, the conflict bar, and an operator-switched flag
-starting a job with progress (`example`).
+starting a job with progress (`example`); and the language - `DEFAULT_LOCALE` until someone
+chooses, whatever the browser prefers, then the choice across a reload (`locale`).
 
 One worker, no retries: the tests share one database and one seeded workspace, and a retry
 would turn "the SSE connection never arrived" into "passed on the second try". `make e2e`

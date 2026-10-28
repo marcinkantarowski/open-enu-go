@@ -376,6 +376,7 @@ services:
       E2E_MANAGER_URL: https://manager.${DOMAIN}
       E2E_API_BASE: https://api.${DOMAIN}
       E2E_SITE_URL: https://${DOMAIN}
+      E2E_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     volumes:
       - .:/app

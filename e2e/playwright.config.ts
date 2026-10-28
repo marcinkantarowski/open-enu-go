@@ -14,6 +14,15 @@ import { defineConfig, devices } from '@playwright/test'
  * that (.ai/platform/docs/testing.md).
  */
 const appUrl = process.env.E2E_APP_URL ?? 'https://app.open-enu-go.local'
+const managerUrl = process.env.E2E_MANAGER_URL ?? 'https://manager.open-enu-go.local'
+
+// The suite reads English, whatever DEFAULT_LOCALE a project sets: every test
+// starts as someone who chose English in both apps. tests/locale.spec.ts clears
+// it to see what someone who never chose gets.
+const choseEnglish = (url: string) => ({
+  name: 'open_enu_locale', value: 'en', domain: new URL(url).hostname, path: '/',
+  expires: -1, httpOnly: false, secure: true, sameSite: 'None' as const,
+})
 
 export default defineConfig({
   testDir: './tests',
@@ -45,6 +54,8 @@ export default defineConfig({
     // container has no reason to trust it, and importing it would test the
     // certificate rather than the application.
     ignoreHTTPSErrors: true,
+
+    storageState: { cookies: [choseEnglish(appUrl), choseEnglish(managerUrl)], origins: [] },
 
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
