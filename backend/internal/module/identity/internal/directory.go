@@ -22,7 +22,11 @@ type Member struct {
 type Directory interface {
 	MembersOf(ctx context.Context, tenantID string) ([]Member, error)
 	CountMembersOf(ctx context.Context, tenantID string) (int, error)
+	WorkspacesOf(ctx context.Context, userID string) ([]Workspace, error)
 }
+
+// Workspace is contract.Workspace.
+type Workspace struct{ TenantID, Role string }
 
 // Operator is contract.Operator.
 type Operator struct {
@@ -50,4 +54,18 @@ func (d directory) MembersOf(ctx context.Context, tenantID string) ([]Member, er
 
 func (d directory) CountMembersOf(ctx context.Context, tenantID string) (int, error) {
 	return d.repo.countMembers(ctx, tenantID)
+}
+
+func (d directory) WorkspacesOf(ctx context.Context, userID string) ([]Workspace, error) {
+	ms, err := d.repo.membershipsOf(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := []Workspace{}
+	for _, m := range ms {
+		if m.Status == membershipActive {
+			out = append(out, Workspace{TenantID: m.TenantID, Role: m.Role})
+		}
+	}
+	return out, nil
 }

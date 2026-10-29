@@ -19,6 +19,10 @@ type Member = internal.Member
 // realm, whose authority is the realm itself.
 type Directory = internal.Directory
 
+// Workspace is one active membership of a person (WorkspacesOf): what a
+// consultant's view across their clients starts from.
+type Workspace = internal.Workspace
+
 // Operator names the person behind an impersonated session.
 type Operator = internal.Operator
 

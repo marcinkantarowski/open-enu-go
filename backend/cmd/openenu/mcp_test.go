@@ -34,7 +34,8 @@ func TestMCPCatalogueOffersExactlyThePermissionGuardedOperations(t *testing.T) {
 		}
 		// The operator realm refuses an api_key token on its aud claim, and
 		// the auth endpoints establish browser sessions a key has no use for.
-		if strings.HasPrefix(tool.Path, "/api/manager") || strings.HasPrefix(tool.Path, "/api/auth") {
+		// A segment, not a prefix: /api/authorization is a module's own.
+		if under(tool.Path, "/api/manager") || under(tool.Path, "/api/auth") {
 			t.Errorf("%s is offered but a key can never call %s", tool.Name, tool.Path)
 		}
 	}
@@ -51,3 +52,6 @@ func TestMCPCatalogueOffersExactlyThePermissionGuardedOperations(t *testing.T) {
 		}
 	}
 }
+
+// under is whether path is base or below it, by whole segments.
+func under(path, base string) bool { return path == base || strings.HasPrefix(path, base+"/") }

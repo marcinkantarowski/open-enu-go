@@ -27,6 +27,7 @@ import (
 	"github.com/open-enu/kernel/testdb"
 
 	"github.com/open-enu/app/internal/module/identity"
+	identityc "github.com/open-enu/app/internal/module/identity/contract"
 	"github.com/open-enu/app/internal/module/tenant"
 	tenantc "github.com/open-enu/app/internal/module/tenant/contract"
 )
@@ -371,6 +372,15 @@ func TestSwitchTenantAndLogout(t *testing.T) {
 	l := s.login()
 	if l.str("tenantId") != primary || len(l.body["memberships"].([]any)) != 2 {
 		t.Fatalf("login lands on the owner's workspace: %v", l.body)
+	}
+	ws, err := identityc.NewDirectory(s.svc).WorkspacesOf(s.ctx, res.UserID)
+	if err != nil || len(ws) != 2 || ws[0].TenantID == ws[1].TenantID {
+		t.Fatalf("workspaces of a person in two: %+v (%v)", ws, err)
+	}
+	for _, w := range ws {
+		if w.TenantID == res.TenantID && w.Role != "admin" {
+			t.Fatalf("the second workspace keeps its role: %+v", ws)
+		}
 	}
 	sw := s.do("POST", "/api/auth/switch-tenant", l.str("token"), map[string]any{"tenantId": res.TenantID}, l.refresh())
 	if sw.code != 200 || sw.str("tenantId") != res.TenantID || sw.str("role") != "admin" || sw.refresh() == nil {

@@ -29,7 +29,8 @@ the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
 
 ## Public contract
 
-`contract.Member` and `contract.Directory` (`MembersOf`, `CountMembersOf`) built by
+`contract.Member` and `contract.Directory` (`MembersOf`, `CountMembersOf`, `WorkspacesOf` - a
+person's active memberships as `contract.Workspace`, for a consultant's view) built by
 `contract.NewDirectory` - who belongs to a workspace, for the operator console;
 `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
 person another module vouches for:
