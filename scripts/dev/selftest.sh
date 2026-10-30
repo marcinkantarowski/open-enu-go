@@ -614,7 +614,7 @@ ci_git init --quiet; ci_git add -A; ci_git commit --quiet -m one
 ci_run() { MAKE="$FAKE_MAKE" "$CI_REPO/scripts/dev/ci.sh" >/dev/null 2>&1; }
 ci_fresh() { ( . "$WORK/scripts/lib/ci-stamp.sh"; ci_stamp_fresh "$CI_REPO" "$(git -C "$CI_REPO" rev-parse "$1^{tree}")" ) && echo yes || echo no; }
 
-: > "$CI_STAGES_RUN"; CI_RED=test ci_run
+: > "$CI_STAGES_RUN"; CI_RED="test" ci_run
 assert_eq "a red stage fails the gate" "1" "$?"
 assert_eq "nothing runs after it" "test" "$(tail -n 1 "$CI_STAGES_RUN")"
 assert_eq "a red gate leaves no record" "no" "$(ci_fresh HEAD)"
