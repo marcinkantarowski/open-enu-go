@@ -63,6 +63,12 @@ for port in 80 443; do
   # bash's /dev/tcp: no netcat dependency, and it is the same TCP connect.
   if timeout 5 bash -c "exec 3<>/dev/tcp/$TARGET/$port" 2>/dev/null; then
     log_ok "$port open"
+  elif [ "$port" = 80 ] && ! REMOTE true 2>/dev/null; then
+    warn "port 80 is closed on $TARGET and the server is not reachable to ask why - the SSH check below says more"
+  elif [ "$port" = 80 ] && ! REMOTE "ss -tln | grep -q ':80 '" 2>/dev/null; then
+    # A bare box: nothing listens yet and provisioning opens ufw after this
+    # gate. Only something listening and unreachable is a firewall in the way.
+    warn "nothing listens on port 80 yet - expected before the first deploy; provisioning opens it, a provider's firewall it cannot"
   elif [ "$port" = 80 ]; then
     die "port 80 is closed on $TARGET" \
       "Let's Encrypt HTTP-01 validation connects here - check ufw and the cloud security group" \
