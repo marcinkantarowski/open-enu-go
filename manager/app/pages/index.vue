@@ -14,6 +14,7 @@ interface TenantRow {
   name: string
   status: string
   members: number
+  consultants: string[]
   createdAt?: string
 }
 
@@ -53,6 +54,7 @@ const tones: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
           { key: 'name', label: t('manager.name') },
           { key: 'slug', label: t('manager.slug') },
           { key: 'status', label: t('manager.status') },
+          { key: 'consultants', label: t('manager.consultants') },
           { key: 'members', label: t('manager.members'), numeric: true },
         ]"
         :rows="data?.items ?? []"
@@ -63,6 +65,10 @@ const tones: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
           <NuxtLink :to="`/tenants/${row.id}`" class="text-brand-700 hover:underline" data-testid="tenant-link">
             {{ row.name }}
           </NuxtLink>
+        </template>
+
+        <template #cell-consultants="{ row }">
+          <span data-testid="tenant-consultants">{{ row.consultants.join(', ') || t('manager.consultantNone') }}</span>
         </template>
 
         <template #cell-status="{ row }">

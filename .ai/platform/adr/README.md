@@ -62,3 +62,4 @@ and departs from one of these by writing its own record that names it (ADR-0027)
 | [0025](0025-remote-deploy-over-ssh.md) | Deploy over SSH, building on the server |
 | [0026](0026-backups-are-offbox-and-verified.md) | Backups are off-box, encrypted, and restore-tested |
 | [0027](0027-platform-and-project-knowledge-are-separate-trees.md) | The platform's knowledge lives in `.ai/platform/`; the rest of `.ai/` is the project's |
+| [0028](0028-consultant-role.md) | A consultant is a role in the client's workspace, assigned by an operator |

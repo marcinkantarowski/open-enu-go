@@ -23,12 +23,14 @@ const (
 	LoginBurst         = 5
 )
 
-// Mount wires the two handlers and seven routes.
+// Mount wires the handlers and the routes.
 func Mount(mux *http.ServeMux, svc *platform.Services) {
 	repo := newRepository(svc)
-	h := handlers{tenants: tenantc.Provisioner{Bus: svc.Bus}, sessions: identityc.Sessions{Bus: svc.Bus}, log: svc.Log}
+	h := handlers{tenants: tenantc.Provisioner{Bus: svc.Bus}, sessions: identityc.Sessions{Bus: svc.Bus}, consultants: identityc.Consultants{Bus: svc.Bus}, log: svc.Log}
 	command.Register(svc.Bus, h.suspend)
 	command.Register(svc.Bus, h.startImpersonation)
+	command.Register(svc.Bus, h.assignConsultant)
+	command.Register(svc.Bus, h.unassignConsultant)
 	a := api{svc: service{bus: svc.Bus, repo: repo, signer: svc.Signer, hasher: svc.Passwords, tenants: tenantc.NewReader(svc),
 		people: identityc.NewDirectory(svc), minter: identityc.NewMinter(svc), audit: auditc.NewReader(svc)}}
 	badRequest := func(w http.ResponseWriter, r *http.Request, err error) {

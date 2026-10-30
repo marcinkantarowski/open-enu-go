@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -29,25 +30,23 @@ func newResolver(declared []string) resolver {
 	return r
 }
 
-// allows is the rule: owner everything but `.review`, admin everything but
-// ownerOnly, a plain member what reads (`.view`) and the everyday work a module
-// names `.use`. Anything else that changes state needs a role someone granted.
-// A `.review` is a check by someone other than the workspace's owner, so the
-// owner never holds one: checking your own work is no check.
+// allows is the rule: owner everything, admin everything but ownerOnly, a
+// consultant what an admin holds, a plain member what reads (`.view`) and the
+// everyday work a module names `.use`. Anything else that changes state needs a
+// role someone granted. A `.review` is a check from outside the client, so only
+// a consultant holds one: checking your own work is no check (ADR-0028).
 func (r resolver) allows(role, permission string) bool {
 	if !r.declared[permission] {
 		return false
 	}
+	review := strings.HasSuffix(permission, ".review")
 	switch role {
 	case roleOwner:
-		return !strings.HasSuffix(permission, ".review")
+		return !review
 	case roleAdmin:
-		for _, p := range ownerOnly {
-			if p == permission {
-				return false
-			}
-		}
-		return true
+		return !review && !slices.Contains(ownerOnly, permission)
+	case roleConsultant:
+		return !slices.Contains(ownerOnly, permission)
 	case roleMember:
 		return strings.HasSuffix(permission, ".view") || strings.HasSuffix(permission, ".use")
 	}

@@ -196,7 +196,8 @@ done
 # The domain the apps and the browser tests fall back to when the derived env
 # files are absent. Matched with its closing quote, so only the literal moves.
 for nf in frontend/nuxt.config.ts manager/nuxt.config.ts ui-kit/nuxt.config.ts landing/nuxt.config.ts \
-          e2e/playwright.config.ts e2e/tests/impersonation.spec.ts e2e/tests/example.spec.ts; do
+          e2e/playwright.config.ts e2e/tests/impersonation.spec.ts e2e/tests/example.spec.ts \
+          e2e/tests/consultants.spec.ts; do
   if [ -f "$ROOT/$nf" ]; then replace_exact "$ROOT/$nf" "$OLD_DOMAIN'" "$NEW_DOMAIN'"; fi
 done
 log_ok "compose fallbacks, the cache prefix default, the apps' fallback domain, the npm root, AGENTS.md"

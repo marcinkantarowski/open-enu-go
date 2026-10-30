@@ -19,6 +19,9 @@ import (
 const (
 	keyTokenInvalid i18n.Key = "identity.error.token_invalid"
 	keyRoleInvalid  i18n.Key = "identity.error.role_invalid"
+
+	keyConsultantUnknown i18n.Key = "identity.error.consultant_unknown"
+	keyConsultantIsOwner i18n.Key = "identity.error.consultant_is_owner"
 )
 
 // handlers are the only code that receives *scope.Tx (writeboundary).
@@ -226,6 +229,58 @@ func (h handlers) endTenantSessions(ctx context.Context, tx *scope.Tx, c EndTena
 	n, err := h.repo.revokeTenantRefresh(ctx, tx, c.TenantID)
 	tx.Snapshot(nil, map[string]any{"tenantId": c.TenantID, "sessionsEnded": n})
 	return n, err
+}
+
+// assignConsultant adds the membership, or moves a member of the workspace to
+// the role. The owner stays the owner: nobody checks their own workspace.
+func (h handlers) assignConsultant(ctx context.Context, tx *scope.Tx, c AssignConsultant) (struct{}, error) {
+	u, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(normalizeEmail(c.Email)))
+	if errors.Is(err, errNotFound) {
+		return struct{}{}, httpx.NotFound(keyConsultantUnknown)
+	}
+	if err != nil {
+		return struct{}{}, err
+	}
+	ms, err := h.repo.membershipsOfTx(ctx, tx, u.ID)
+	if err != nil {
+		return struct{}{}, err
+	}
+	for _, m := range ms {
+		if m.TenantID != c.TenantID {
+			continue
+		}
+		if m.Role == roleOwner {
+			return struct{}{}, httpx.BadRequest(keyConsultantIsOwner)
+		}
+		if m.Role == roleConsultant {
+			return struct{}{}, nil
+		}
+		updated := m
+		updated.Role = roleConsultant
+		tx.Update(m, updated)
+		return struct{}{}, h.repo.setMembershipRole(ctx, tx, updated)
+	}
+	m := newMembership(u.ID, c.TenantID, roleConsultant)
+	tx.Insert(m)
+	return struct{}{}, h.repo.insertMembership(ctx, tx, m)
+}
+
+func (h handlers) unassignConsultant(ctx context.Context, tx *scope.Tx, c UnassignConsultant) (struct{}, error) {
+	ms, err := h.repo.membershipsOfTx(ctx, tx, c.UserID)
+	if err != nil {
+		return struct{}{}, err
+	}
+	for _, m := range ms {
+		if m.TenantID != c.TenantID || m.Role != roleConsultant {
+			continue
+		}
+		tx.Snapshot(m.Snapshot(), nil)
+		if err := h.repo.deleteMembership(ctx, tx, m.ID); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, h.repo.revokeRefreshInto(ctx, tx, c.UserID, c.TenantID)
+	}
+	return struct{}{}, httpx.NotFound(httpx.KeyNotFound)
 }
 
 // createUser is idempotent by identity: an existing account keeps its

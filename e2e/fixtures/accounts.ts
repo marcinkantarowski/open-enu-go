@@ -15,6 +15,12 @@ export const OWNER = {
   displayName: 'E2E Owner',
 }
 
+/** Has an account and belongs to the second workspace; a client's consultant only in a test. */
+export const CONSULTANT = {
+  email: 'e2e-consultant@example.test',
+  password: 'e2e-correct-horse-battery',
+}
+
 // Not plain ASCII on purpose: a name like this has to survive every handoff.
 export const PRIMARY_TENANT = { name: 'E2E Główny', slug: 'e2e-primary' }
 export const SECOND_TENANT = { name: 'E2E Second', slug: 'e2e-second' }

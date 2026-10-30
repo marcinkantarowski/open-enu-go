@@ -21,9 +21,10 @@ const (
 	membershipActive    = "active"
 	membershipSuspended = "suspended"
 
-	roleOwner  = "owner"
-	roleAdmin  = "admin"
-	roleMember = "member"
+	roleOwner      = "owner"
+	roleAdmin      = "admin"
+	roleConsultant = "consultant"
+	roleMember     = "member"
 
 	purposeVerifyEmail   = "verify_email"
 	purposeResetPassword = "reset_password"
@@ -94,7 +95,7 @@ func (m membership) rank() int {
 	switch m.Role {
 	case roleOwner:
 		return 3
-	case roleAdmin:
+	case roleAdmin, roleConsultant:
 		return 2
 	case roleMember:
 		return 1
@@ -110,7 +111,9 @@ func newMembership(userID, tenantID, role string) membership {
 	return membership{ID: uuid.Must(uuid.NewV7()).String(), UserID: userID, TenantID: tenantID, Role: role, Status: membershipActive, CreatedAt: time.Now().UTC().Truncate(time.Microsecond)}
 }
 
-func validRole(r string) bool { return r == roleOwner || r == roleAdmin || r == roleMember }
+func validRole(r string) bool {
+	return r == roleOwner || r == roleAdmin || r == roleConsultant || r == roleMember
+}
 
 // refreshToken is one link in a family: each use mints the next and marks
 // this one used. A used token presented again is theft or a replay, and the

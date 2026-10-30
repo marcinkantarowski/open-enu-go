@@ -92,6 +92,18 @@
         ],
         "type": "object"
       },
+      "AssignConsultantRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
       "Attachment": {
         "properties": {
           "contentType": {
@@ -243,6 +255,73 @@
           "resource",
           "yourVersion",
           "currentVersion"
+        ],
+        "type": "object"
+      },
+      "Consultant": {
+        "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ConsultantClient"
+            },
+            "type": "array"
+          },
+          "displayName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "clients"
+        ],
+        "type": "object"
+      },
+      "ConsultantChanged": {
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId"
+        ],
+        "type": "object"
+      },
+      "ConsultantClient": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ConsultantList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Consultant"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -462,6 +541,13 @@
             "nullable": true,
             "type": "string"
           },
+          "consultants": {
+            "description": "Who serves it, by name or address.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -501,7 +587,8 @@
           "version",
           "createdAt",
           "activatedAt",
-          "members"
+          "members",
+          "consultants"
         ],
         "type": "object"
       },
@@ -669,6 +756,7 @@
             "enum": [
               "owner",
               "admin",
+              "consultant",
               "member"
             ],
             "type": "string"
@@ -808,6 +896,20 @@
           "status",
           "lastLoginAt",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "OperatorList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Operator"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -1234,6 +1336,7 @@
             "enum": [
               "owner",
               "admin",
+              "consultant",
               "member"
             ],
             "nullable": true,
@@ -2314,6 +2417,30 @@
         ]
       }
     },
+    "/api/manager/consultants": {
+      "get": {
+        "operationId": "get_manager_consultants",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Every consultant, with the workspaces they serve.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
     "/api/manager/login": {
       "post": {
         "operationId": "post_manager_login",
@@ -2344,6 +2471,30 @@
         },
         "security": [],
         "summary": "Operator login: the strictest rate limit in the system, no refresh, no reset, no registration.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/operators": {
+      "get": {
+        "operationId": "get_manager_operators",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Every operator of the platform.",
         "tags": [
           "manager"
         ]
@@ -2454,6 +2605,50 @@
         ]
       }
     },
+    "/api/manager/tenants/{id}/consultants": {
+      "post": {
+        "operationId": "post_manager_tenant_consultant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignConsultantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantChanged"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Assign a consultant by address. Needs a super operator; the person must have an account.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
     "/api/manager/tenants/{id}/suspend": {
       "post": {
         "operationId": "post_manager_tenant_suspend",
@@ -2483,6 +2678,48 @@
           }
         },
         "summary": "Suspend a workspace: its members and keys stop authenticating.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{tenantId}/consultants/{userId}": {
+      "delete": {
+        "operationId": "delete_manager_tenant_consultant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantChanged"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Remove a consultant from a workspace. Needs a super operator.",
         "tags": [
           "manager"
         ]

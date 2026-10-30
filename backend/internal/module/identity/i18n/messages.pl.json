@@ -7,7 +7,7 @@
   "identity.error.tenant_name_required": "Przestrzeń robocza wymaga nazwy do 200 znaków.",
   "identity.error.token_invalid": "Ten link nie jest już ważny. Poproś o nowy.",
   "identity.error.locale_unsupported": "Ten język nie jest dostępny.",
-  "identity.error.role_invalid": "Rola to owner, admin lub member.",
+  "identity.error.role_invalid": "Rola to owner, admin, consultant lub member.",
   "identity.error.not_a_person": "Klucz API nie ma profilu.",
   "identity.email.verify.subject": "Potwierdź swój adres e-mail",
   "identity.email.verify.body": "Potwierdź adres, aby dokończyć zakładanie konta.",
@@ -19,5 +19,7 @@
   "identity.email.expires": "Ten link wygasa za %hours% godz.",
   "identity.email.account_exists.subject": "Masz już konto",
   "identity.email.account_exists.body": "Ktoś - być może Ty - próbował założyć konto z tym adresem. Masz już konto: zaloguj się pierwszym linkiem albo ustaw nowe hasło drugim, jeśli go nie pamiętasz.",
-  "identity.email.account_exists.ignore": "Jeśli to nie Ty, zignoruj tę wiadomość - nic się nie zmieniło."
+  "identity.email.account_exists.ignore": "Jeśli to nie Ty, zignoruj tę wiadomość - nic się nie zmieniło.",
+  "identity.error.consultant_unknown": "Nie ma konta z tym adresem. Najpierw je załóż: openenu user create.",
+  "identity.error.consultant_is_owner": "Ta osoba jest właścicielem obszaru i nie może być jego konsultantem."
 }

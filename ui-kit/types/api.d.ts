@@ -243,6 +243,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/manager/consultants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every consultant, with the workspaces they serve. */
+        get: operations["get_manager_consultants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manager/login": {
         parameters: {
             query?: never;
@@ -254,6 +271,23 @@ export interface paths {
         put?: never;
         /** Operator login: the strictest rate limit in the system, no refresh, no reset, no registration. */
         post: operations["post_manager_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/operators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every operator of the platform. */
+        get: operations["get_manager_operators"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -311,6 +345,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/manager/tenants/{id}/consultants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign a consultant by address. Needs a super operator; the person must have an account. */
+        post: operations["post_manager_tenant_consultant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manager/tenants/{id}/suspend": {
         parameters: {
             query?: never;
@@ -323,6 +374,23 @@ export interface paths {
         /** Suspend a workspace: its members and keys stop authenticating. */
         post: operations["post_manager_tenant_suspend"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/tenants/{tenantId}/consultants/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a consultant from a workspace. Needs a super operator. */
+        delete: operations["delete_manager_tenant_consultant"];
         options?: never;
         head?: never;
         patch?: never;
@@ -673,6 +741,10 @@ export interface components {
             /** @description Active projects the job will archive. */
             total: number;
         };
+        AssignConsultantRequest: {
+            /** Format: email */
+            email: string;
+        };
         Attachment: {
             /** @description Sniffed from the bytes, never the client's claim. */
             contentType: string;
@@ -722,6 +794,22 @@ export interface components {
             resource: string;
             resourceId?: string;
             yourVersion: unknown;
+        };
+        Consultant: {
+            clients: components["schemas"]["ConsultantClient"][];
+            displayName: string | null;
+            email: string;
+            id: string;
+        };
+        ConsultantChanged: {
+            tenantId: string;
+        };
+        ConsultantClient: {
+            name: string;
+            tenantId: string;
+        };
+        ConsultantList: {
+            items: components["schemas"]["Consultant"][];
         };
         CreateApiKey: {
             expiresInDays?: number;
@@ -789,6 +877,8 @@ export interface components {
         ManagedTenant: {
             /** Format: date-time */
             activatedAt: string | null;
+            /** @description Who serves it, by name or address. */
+            consultants: string[];
             /** Format: date-time */
             createdAt: string;
             defaultLocale: string;
@@ -842,7 +932,7 @@ export interface components {
         Membership: {
             id: string;
             /** @enum {string} */
-            role: "owner" | "admin" | "member";
+            role: "owner" | "admin" | "consultant" | "member";
             /** @enum {string} */
             status: "active" | "suspended";
             tenantId: string;
@@ -880,6 +970,9 @@ export interface components {
             lastLoginAt: string | null;
             roles: string[];
             status: string;
+        };
+        OperatorList: {
+            items: components["schemas"]["Operator"][];
         };
         OperatorSession: {
             expiresIn: number;
@@ -1003,7 +1096,7 @@ export interface components {
             /** @description Advisory for the UI; the token carries the same list and the server checks that one. */
             permissions: string[];
             /** @enum {string|null} */
-            role: "owner" | "admin" | "member" | null;
+            role: "owner" | "admin" | "consultant" | "member" | null;
             tenantId: string | null;
             /** @description HS256 access token, 15 minutes. */
             token: string;
@@ -1536,6 +1629,27 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    get_manager_consultants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsultantList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     post_manager_login: {
         parameters: {
             query?: never;
@@ -1556,6 +1670,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OperatorSession"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    get_manager_operators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorList"];
                 };
             };
             default: components["responses"]["Error"];
@@ -1629,6 +1764,33 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    post_manager_tenant_consultant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignConsultantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsultantChanged"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     post_manager_tenant_suspend: {
         parameters: {
             query?: never;
@@ -1647,6 +1809,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Suspended"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    delete_manager_tenant_consultant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsultantChanged"];
                 };
             };
             default: components["responses"]["Error"];
@@ -2173,4 +2359,4 @@ export interface operations {
         };
     };
 }
-// generated from backend/openapi.json sha256:93d1b5ba2ab9b2c8fb600324ea55534b84bfdd889b9508bb08859e715d8a3c0a
+// generated from backend/openapi.json sha256:37e25e82bee8cc9f6087b98991c5e2a5dd3bce16203bfd797b5473fec93d2f3f

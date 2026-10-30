@@ -67,6 +67,19 @@ func (r repository) byID(ctx context.Context, id string) (o operator, err error)
 	return o, err
 }
 
+// all is every operator, oldest first.
+func (r repository) all(ctx context.Context) (out []operator, err error) {
+	err = r.db.Run(ctx, func(ctx context.Context, tx *scope.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT `+columns+` FROM platform_manager ORDER BY created_at`)
+		if err != nil {
+			return err
+		}
+		out, err = r.scan(rows)
+		return err
+	})
+	return out, err
+}
+
 func (r repository) insert(ctx context.Context, o operator) error {
 	email, err := r.crypto.Encrypt(o.Email, "")
 	if err != nil {

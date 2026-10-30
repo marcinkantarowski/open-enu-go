@@ -162,6 +162,16 @@ func (r repository) insertMembership(ctx context.Context, tx *scope.Tx, m member
 	return err
 }
 
+func (r repository) setMembershipRole(ctx context.Context, tx *scope.Tx, m membership) error {
+	_, err := tx.Exec(ctx, `UPDATE identity_membership SET role = $2 WHERE id = $1`, m.ID, m.Role)
+	return err
+}
+
+func (r repository) deleteMembership(ctx context.Context, tx *scope.Tx, id string) error {
+	_, err := tx.Exec(ctx, `DELETE FROM identity_membership WHERE id = $1`, id)
+	return err
+}
+
 func (r repository) membershipsOfTx(ctx context.Context, tx *scope.Tx, userID string) ([]membership, error) {
 	rows, err := tx.Query(ctx, `SELECT `+membershipColumns+` FROM identity_membership WHERE user_id = $1 ORDER BY created_at, id`, userID)
 	if err != nil {
@@ -189,9 +199,18 @@ func (r repository) membershipsOf(ctx context.Context, userID string) (ms []memb
 
 // membersOf is the operator console's list: every membership of a
 // workspace, with the person behind each.
-func (r repository) membersOf(ctx context.Context, tenantID string) (out []Member, err error) {
+func (r repository) membersOf(ctx context.Context, tenantID string) ([]Member, error) {
+	return r.members(ctx, `tenant_id = $1`, tenantID)
+}
+
+// consultants is every consultant's membership, in every workspace.
+func (r repository) consultants(ctx context.Context) ([]Member, error) {
+	return r.members(ctx, `role = $1`, roleConsultant)
+}
+
+func (r repository) members(ctx context.Context, where, arg string) (out []Member, err error) {
 	err = r.db.Run(ctx, func(ctx context.Context, tx *scope.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+membershipColumns+` FROM identity_membership WHERE tenant_id = $1 ORDER BY created_at, id`, tenantID)
+		rows, err := tx.Query(ctx, `SELECT `+membershipColumns+` FROM identity_membership WHERE `+where+` ORDER BY created_at, id`, arg)
 		if err != nil {
 			return err
 		}
@@ -230,7 +249,7 @@ func (r repository) membersOf(ctx context.Context, tenantID string) (out []Membe
 			if !ok {
 				continue
 			}
-			out = append(out, Member{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, Role: m.Role, Status: m.Status, Locale: u.Locale})
+			out = append(out, Member{ID: u.ID, TenantID: m.TenantID, Email: u.Email, DisplayName: u.DisplayName, Role: m.Role, Status: m.Status, Locale: u.Locale})
 		}
 		return nil
 	})
@@ -315,6 +334,13 @@ func (r repository) revokeTenantRefresh(ctx context.Context, tx *scope.Tx, tenan
 	tag, err := tx.Exec(ctx, `UPDATE identity_refresh_token SET revoked = true WHERE family IN
 		(SELECT family FROM identity_refresh_token WHERE tenant_id = $1 AND NOT revoked AND used_at IS NULL) AND NOT revoked`, tenantID)
 	return int(tag.RowsAffected()), err
+}
+
+// revokeRefreshInto ends one person's sessions into one workspace.
+func (r repository) revokeRefreshInto(ctx context.Context, tx *scope.Tx, userID, tenantID string) error {
+	_, err := tx.Exec(ctx, `UPDATE identity_refresh_token SET revoked = true WHERE family IN
+		(SELECT family FROM identity_refresh_token WHERE user_id = $1 AND tenant_id = $2) AND NOT revoked`, userID, tenantID)
+	return err
 }
 
 func (r repository) revokeAllRefreshOf(ctx context.Context, userID string) error {

@@ -9,6 +9,7 @@ import (
 // Member is contract.Member.
 type Member struct {
 	ID          string  `json:"id"`
+	TenantID    string  `json:"tenantId"`
 	Email       string  `json:"email"`
 	DisplayName *string `json:"displayName"`
 	Role        string  `json:"role"`
@@ -23,6 +24,8 @@ type Directory interface {
 	MembersOf(ctx context.Context, tenantID string) ([]Member, error)
 	CountMembersOf(ctx context.Context, tenantID string) (int, error)
 	WorkspacesOf(ctx context.Context, userID string) ([]Workspace, error)
+	// Consultants is every consultant's membership, one Member per workspace.
+	Consultants(ctx context.Context) ([]Member, error)
 }
 
 // Workspace is contract.Workspace.
@@ -54,6 +57,10 @@ func (d directory) MembersOf(ctx context.Context, tenantID string) ([]Member, er
 
 func (d directory) CountMembersOf(ctx context.Context, tenantID string) (int, error) {
 	return d.repo.countMembers(ctx, tenantID)
+}
+
+func (d directory) Consultants(ctx context.Context) ([]Member, error) {
+	return d.repo.consultants(ctx)
 }
 
 func (d directory) WorkspacesOf(ctx context.Context, userID string) ([]Workspace, error) {

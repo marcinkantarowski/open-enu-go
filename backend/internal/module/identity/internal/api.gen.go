@@ -37,15 +37,18 @@ func (e LoggedOutStatus) Valid() bool {
 
 // Defines values for MembershipRole.
 const (
-	MembershipRoleAdmin  MembershipRole = "admin"
-	MembershipRoleMember MembershipRole = "member"
-	MembershipRoleOwner  MembershipRole = "owner"
+	MembershipRoleAdmin      MembershipRole = "admin"
+	MembershipRoleConsultant MembershipRole = "consultant"
+	MembershipRoleMember     MembershipRole = "member"
+	MembershipRoleOwner      MembershipRole = "owner"
 )
 
 // Valid indicates whether the value is a known member of the MembershipRole enum.
 func (e MembershipRole) Valid() bool {
 	switch e {
 	case MembershipRoleAdmin:
+		return true
+	case MembershipRoleConsultant:
 		return true
 	case MembershipRoleMember:
 		return true
@@ -121,15 +124,18 @@ func (e SentStatus) Valid() bool {
 
 // Defines values for SessionRole.
 const (
-	SessionRoleAdmin  SessionRole = "admin"
-	SessionRoleMember SessionRole = "member"
-	SessionRoleOwner  SessionRole = "owner"
+	SessionRoleAdmin      SessionRole = "admin"
+	SessionRoleConsultant SessionRole = "consultant"
+	SessionRoleMember     SessionRole = "member"
+	SessionRoleOwner      SessionRole = "owner"
 )
 
 // Valid indicates whether the value is a known member of the SessionRole enum.
 func (e SessionRole) Valid() bool {
 	switch e {
 	case SessionRoleAdmin:
+		return true
+	case SessionRoleConsultant:
 		return true
 	case SessionRoleMember:
 		return true

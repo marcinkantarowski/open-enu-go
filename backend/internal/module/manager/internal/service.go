@@ -68,6 +68,14 @@ func (s service) page(ctx context.Context, page, size int) (ManagedTenantList, e
 	if err != nil {
 		return ManagedTenantList{}, err
 	}
+	consultants, err := s.people.Consultants(ctx)
+	if err != nil {
+		return ManagedTenantList{}, err
+	}
+	serving := map[string][]string{}
+	for _, c := range consultants {
+		serving[c.TenantID] = append(serving[c.TenantID], personName(c))
+	}
 	out := ManagedTenantList{Items: make([]ManagedTenant, 0, len(items)), Meta: ListMeta{Total: total, Page: page, Size: size, Pages: (total + size - 1) / size}}
 	for _, t := range items {
 		n, err := s.people.CountMembersOf(ctx, t.ID)
@@ -75,7 +83,7 @@ func (s service) page(ctx context.Context, page, size int) (ManagedTenantList, e
 			return ManagedTenantList{}, err
 		}
 		out.Items = append(out.Items, ManagedTenant{Id: t.ID, Slug: t.Slug, Name: t.Name, Status: t.Status, Plan: t.Plan, DefaultLocale: t.DefaultLocale,
-			Version: t.Version, CreatedAt: t.CreatedAt, ActivatedAt: t.ActivatedAt, Members: n})
+			Version: t.Version, CreatedAt: t.CreatedAt, ActivatedAt: t.ActivatedAt, Members: n, Consultants: append([]string{}, serving[t.ID]...)})
 	}
 	return out, nil
 }
@@ -117,18 +125,97 @@ func (s service) suspend(ctx context.Context, id string) error {
 	return err
 }
 
+// super reads the operator's row, not their token: a role taken away takes
+// effect now, not when the token runs out.
+func (s service) super(ctx context.Context, operatorID string) (operator, bool, error) {
+	o, err := s.repo.byID(ctx, operatorID)
+	if errors.Is(err, errNotFound) {
+		return o, false, nil
+	}
+	if err != nil {
+		return o, false, err
+	}
+	return o, o.Active && slices.Contains(o.Roles, roleSuper), nil
+}
+
+// personName is what a list shows for a person with no name.
+func personName(m identityc.Member) string {
+	if m.DisplayName != nil && *m.DisplayName != "" {
+		return *m.DisplayName
+	}
+	return m.Email
+}
+
+func (s service) operators(ctx context.Context) (OperatorList, error) {
+	all, err := s.repo.all(ctx)
+	if err != nil {
+		return OperatorList{}, err
+	}
+	out := OperatorList{Items: make([]Operator, 0, len(all))}
+	for _, o := range all {
+		out.Items = append(out.Items, o.view())
+	}
+	return out, nil
+}
+
+// consultants folds the memberships into one row per person, in the order they
+// first came, with each workspace's name.
+func (s service) consultants(ctx context.Context) (ConsultantList, error) {
+	memberships, err := s.people.Consultants(ctx)
+	if err != nil {
+		return ConsultantList{}, err
+	}
+	out := ConsultantList{Items: []Consultant{}}
+	at := map[string]int{}
+	for _, m := range memberships {
+		t, err := s.tenant(ctx, m.TenantID)
+		if err != nil {
+			return ConsultantList{}, err
+		}
+		i, seen := at[m.ID]
+		if !seen {
+			i = len(out.Items)
+			at[m.ID] = i
+			out.Items = append(out.Items, Consultant{Id: m.ID, Email: m.Email, DisplayName: m.DisplayName, Clients: []ConsultantClient{}})
+		}
+		out.Items[i].Clients = append(out.Items[i].Clients, ConsultantClient{TenantId: t.ID, Name: t.Name})
+	}
+	return out, nil
+}
+
+func (s service) assignConsultant(ctx context.Context, operatorID, tenantID, email string) error {
+	if _, err := s.tenant(ctx, tenantID); err != nil {
+		return err
+	}
+	_, super, err := s.super(ctx, operatorID)
+	if err != nil {
+		return err
+	}
+	_, err = s.bus.Dispatch(ctx, assignConsultant{TenantID: tenantID, Email: email, Super: super})
+	return err
+}
+
+func (s service) unassignConsultant(ctx context.Context, operatorID, tenantID, userID string) error {
+	if _, err := s.tenant(ctx, tenantID); err != nil {
+		return err
+	}
+	_, super, err := s.super(ctx, operatorID)
+	if err != nil {
+		return err
+	}
+	_, err = s.bus.Dispatch(ctx, unassignConsultant{TenantID: tenantID, UserID: userID, Super: super})
+	return err
+}
+
 // impersonate audits the attempt before the token exists, then mints.
 func (s service) impersonate(ctx context.Context, operatorID, tenantID, userID string) (map[string]any, error) {
 	if _, err := s.tenant(ctx, tenantID); err != nil {
 		return nil, err
 	}
-	// The row, not the token: a role taken away takes effect now, not when
-	// the operator's token runs out.
-	o, err := s.repo.byID(ctx, operatorID)
-	if err != nil && !errors.Is(err, errNotFound) {
+	o, super, err := s.super(ctx, operatorID)
+	if err != nil {
 		return nil, err
 	}
-	super := err == nil && o.Active && slices.Contains(o.Roles, roleSuper)
 	if _, err := s.bus.Dispatch(ctx, startImpersonation{TenantID: tenantID, UserID: userID, OperatorID: operatorID, Super: super}); err != nil {
 		return nil, err
 	}

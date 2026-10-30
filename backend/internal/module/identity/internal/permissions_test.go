@@ -10,7 +10,9 @@ func TestAReviewIsNeverTheOwners(t *testing.T) {
 	}{
 		{roleOwner, "x.manage", true},
 		{roleOwner, "x.review", false},
-		{roleAdmin, "x.review", true},
+		{roleAdmin, "x.review", false},
+		{roleConsultant, "x.review", true},
+		{roleConsultant, "x.manage", true},
 		{roleMember, "x.use", true},
 		{roleMember, "x.review", false},
 		{roleOwner, "x.undeclared", false},

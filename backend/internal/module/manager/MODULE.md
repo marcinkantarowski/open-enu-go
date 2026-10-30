@@ -14,13 +14,17 @@ modules only through their `contract/` packages.
 - API (`openapi.json`): `POST /api/manager/login` (five attempts, then one a minute; no
   refresh, no reset, no registration), `GET /api/manager/tenants`, `GET /api/manager/tenants/{id}`,
   `POST /api/manager/tenants/{id}/suspend`, `POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate`,
-  `GET /api/manager/audit`, `GET /api/manager/workers`
+  `GET /api/manager/audit`, `GET /api/manager/workers`, `GET /api/manager/operators`,
+  `GET /api/manager/consultants`, `POST /api/manager/tenants/{id}/consultants`,
+  `DELETE /api/manager/tenants/{tenantId}/consultants/{userId}`
 - Permissions: **none**. Operator authority is the realm (`auth.RequireOperator`), not a
   dotted permission - no tenant role can ever satisfy an operator check.
 - Commands: `manager.tenant.suspended` (then Tenant's own `tenant.suspended`, then
   Identity's `identity.sessions.ended` - the members' refresh tokens into it are revoked),
   `manager.impersonation.started` (recorded BEFORE the token exists; refused with 403
-  `manager.error.super_required` unless the operator's row holds `ROLE_PLATFORM_SUPER`)
+  `manager.error.super_required` unless the operator's row holds `ROLE_PLATFORM_SUPER`),
+  `manager.consultant.assigned` and `.unassigned` (the same refusal, then Identity's own
+  command; [ADR-0028](../../../../.ai/platform/adr/0028-consultant-role.md))
 - Tables: `platform_manager` (no RLS; e-mail and display name encrypted, `email_hash` lookup)
 - Console: `openenu manager create --email --password [--name --super]` - the only way the
   first operator comes to exist; there is no signup endpoint and there should never be one
@@ -46,4 +50,4 @@ for the console and the e2e fixtures.
 
 ## Depends on
 
-`tenant`, `identity` (`contract.Directory`, `contract.Minter`, `contract.Sessions`), `audit` (`contract.Reader`).
+`tenant`, `identity` (`contract.Directory`, `contract.Minter`, `contract.Sessions`, `contract.Consultants`), `audit` (`contract.Reader`).

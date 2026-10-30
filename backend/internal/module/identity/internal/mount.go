@@ -43,6 +43,8 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	command.Register(svc.Bus, h.updateProfile)
 	command.Register(svc.Bus, h.removeTenantMemberships)
 	command.Register(svc.Bus, h.endTenantSessions)
+	command.Register(svc.Bus, h.assignConsultant)
+	command.Register(svc.Bus, h.unassignConsultant)
 	command.Register(svc.Bus, h.createUser)
 	command.Register(svc.Bus, h.erase)
 	// A deleted workspace takes its memberships with it.

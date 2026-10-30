@@ -136,7 +136,9 @@
         "user"
       ],
       "commands": [
+        "AssignConsultant",
         "EndTenantSessions",
+        "UnassignConsultant",
         "createUser",
         "eraseUser",
         "registerUser",
@@ -148,6 +150,8 @@
         "verifyEmail"
       ],
       "contract": [
+        "AssignConsultant",
+        "Consultants",
         "Directory",
         "EndTenantSessions",
         "Member",
@@ -157,6 +161,7 @@
         "Operator",
         "Sessions",
         "Started",
+        "UnassignConsultant",
         "Workspace"
       ],
       "tables": [
@@ -195,18 +200,24 @@
         "operator"
       ],
       "commands": [
+        "assignConsultant",
         "startImpersonation",
-        "suspendTenant"
+        "suspendTenant",
+        "unassignConsultant"
       ],
       "tables": [
         "platform_manager"
       ],
       "routes": [
+        "DELETE /api/manager/tenants/{tenantId}/consultants/{userId} (delete_manager_tenant_consultant)",
         "GET /api/manager/audit (get_manager_audit_index)",
+        "GET /api/manager/consultants (get_manager_consultants)",
+        "GET /api/manager/operators (get_manager_operators)",
         "GET /api/manager/tenants (get_manager_tenant_index)",
         "GET /api/manager/tenants/{id} (get_manager_tenant_show)",
         "GET /api/manager/workers (get_manager_worker_status)",
         "POST /api/manager/login (post_manager_login)",
+        "POST /api/manager/tenants/{id}/consultants (post_manager_tenant_consultant)",
         "POST /api/manager/tenants/{id}/suspend (post_manager_tenant_suspend)",
         "POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate (post_manager_impersonate)"
       ]

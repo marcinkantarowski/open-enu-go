@@ -14,13 +14,14 @@ import (
 )
 
 // handlers are the only code that receives *scope.Tx (writeboundary).
-// Both commands here are decisions rather than rows: the trail entry is
+// The commands here are decisions rather than rows: the trail entry is
 // the write, and the work happens in another module's command or in the
 // token the controller mints afterwards.
 type handlers struct {
-	tenants  tenantc.Provisioner
-	sessions identityc.Sessions
-	log      *slog.Logger
+	tenants     tenantc.Provisioner
+	sessions    identityc.Sessions
+	consultants identityc.Consultants
+	log         *slog.Logger
 }
 
 func (h handlers) suspend(ctx context.Context, _ *scope.Tx, c suspendTenant) (struct{}, error) {
@@ -42,4 +43,18 @@ func (h handlers) startImpersonation(ctx context.Context, _ *scope.Tx, c startIm
 	}
 	h.log.WarnContext(ctx, "impersonation.started", "operator", c.OperatorID, "viewing_as", c.UserID, "tenant", c.TenantID)
 	return struct{}{}, nil
+}
+
+func (h handlers) assignConsultant(ctx context.Context, _ *scope.Tx, c assignConsultant) (struct{}, error) {
+	if !c.Super {
+		return struct{}{}, httpx.Forbidden(keySuperRequired)
+	}
+	return struct{}{}, h.consultants.Assign(ctx, c.TenantID, c.Email)
+}
+
+func (h handlers) unassignConsultant(ctx context.Context, _ *scope.Tx, c unassignConsultant) (struct{}, error) {
+	if !c.Super {
+		return struct{}{}, httpx.Forbidden(keySuperRequired)
+	}
+	return struct{}{}, h.consultants.Unassign(ctx, c.TenantID, c.UserID)
 }

@@ -106,3 +106,47 @@ func (a api) GetManagerWorkerStatus(ctx context.Context, _ GetManagerWorkerStatu
 	}
 	return GetManagerWorkerStatus200JSONResponse{Queues: queues, Failed: failed}, nil
 }
+
+func (a api) GetManagerOperators(ctx context.Context, _ GetManagerOperatorsRequestObject) (GetManagerOperatorsResponseObject, error) {
+	if _, err := auth.RequireOperator(ctx); err != nil {
+		return nil, err
+	}
+	out, err := a.svc.operators(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return GetManagerOperators200JSONResponse(out), nil
+}
+
+func (a api) GetManagerConsultants(ctx context.Context, _ GetManagerConsultantsRequestObject) (GetManagerConsultantsResponseObject, error) {
+	if _, err := auth.RequireOperator(ctx); err != nil {
+		return nil, err
+	}
+	out, err := a.svc.consultants(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return GetManagerConsultants200JSONResponse(out), nil
+}
+
+func (a api) PostManagerTenantConsultant(ctx context.Context, req PostManagerTenantConsultantRequestObject) (PostManagerTenantConsultantResponseObject, error) {
+	p, err := auth.RequireOperator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.svc.assignConsultant(ctx, p.Subject, req.Id, string(req.Body.Email)); err != nil {
+		return nil, err
+	}
+	return PostManagerTenantConsultant200JSONResponse(ConsultantChanged{TenantId: req.Id}), nil
+}
+
+func (a api) DeleteManagerTenantConsultant(ctx context.Context, req DeleteManagerTenantConsultantRequestObject) (DeleteManagerTenantConsultantResponseObject, error) {
+	p, err := auth.RequireOperator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.svc.unassignConsultant(ctx, p.Subject, req.TenantId, req.UserId); err != nil {
+		return nil, err
+	}
+	return DeleteManagerTenantConsultant200JSONResponse(ConsultantChanged{TenantId: req.TenantId}), nil
+}

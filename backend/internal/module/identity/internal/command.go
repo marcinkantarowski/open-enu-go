@@ -99,3 +99,21 @@ type eraseUser struct{ UserID string }
 
 func (eraseUser) AuditAction() string      { return "identity.user.erased" }
 func (c eraseUser) AuditSubjectID() string { return c.UserID }
+
+// AssignConsultant - `identity.consultant.assigned`: the person with this
+// address serves this workspace. Exported for contract.Consultants: Manager
+// dispatches it. Their address finds them; no account is created here.
+type AssignConsultant struct{ TenantID, Email string }
+
+func (AssignConsultant) AuditAction() string      { return "identity.consultant.assigned" }
+func (c AssignConsultant) AuditSubjectID() string { return c.TenantID }
+func (c AssignConsultant) AuditTenantID() string  { return c.TenantID }
+
+// UnassignConsultant - `identity.consultant.unassigned`: the membership goes,
+// and the person's refresh tokens into this workspace with it. Access tokens
+// already issued run out within fifteen minutes.
+type UnassignConsultant struct{ TenantID, UserID string }
+
+func (UnassignConsultant) AuditAction() string      { return "identity.consultant.unassigned" }
+func (c UnassignConsultant) AuditSubjectID() string { return c.UserID }
+func (c UnassignConsultant) AuditTenantID() string  { return c.TenantID }

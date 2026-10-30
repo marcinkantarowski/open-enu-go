@@ -25,5 +25,7 @@ openenu user create --email "$OWNER_EMAIL" --password "$OWNER_PASSWORD" --name "
 openenu user create --email "$OWNER_EMAIL" --password "$OWNER_PASSWORD" --name "E2E Owner" \
   --tenant "E2E Second" --slug e2e-second --role owner --seed
 log_ok "owner $OWNER_EMAIL is a member of e2e-primary and e2e-second, both seeded"
+openenu user create --email "e2e-consultant@example.test" --password "$OWNER_PASSWORD" --name "E2E Consultant" \
+  --tenant "E2E Second" --slug e2e-second --role member
 openenu manager create --email "$OPERATOR_EMAIL" --password "$OPERATOR_PASSWORD" --name "E2E Operator" --super
 log_ok "operator $OPERATOR_EMAIL exists (super: impersonation needs it)"

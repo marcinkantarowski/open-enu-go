@@ -75,3 +75,17 @@ func TestAnUndeclaredPermissionIsRefusedToEveryone(t *testing.T) {
 		t.Fatalf("an undeclared permission on a key: %d %s", r.code, r.raw)
 	}
 }
+
+func TestAConsultantHoldsWhatAnAdminHolds(t *testing.T) {
+	s := newStack(t)
+	s.register(ownerEmail, "Acme")
+	admin, consultant := perms(s.member("admin@example.test", "acme", "admin")), perms(s.member("iod@example.test", "acme", "consultant"))
+	if len(consultant) != len(admin) {
+		t.Fatalf("consultant %d vs admin %d: %v", len(consultant), len(admin), consultant)
+	}
+	for _, ownersAlone := range []string{"tenant.delete", "api_key.manage"} {
+		if has(consultant, ownersAlone) {
+			t.Fatalf("a consultant holds %s", ownersAlone)
+		}
+	}
+}

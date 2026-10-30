@@ -261,6 +261,140 @@
           }
         }
       }
+    },
+    "/api/manager/operators": {
+      "get": {
+        "operationId": "get_manager_operators",
+        "summary": "Every operator of the platform.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/manager/consultants": {
+      "get": {
+        "operationId": "get_manager_consultants",
+        "summary": "Every consultant, with the workspaces they serve.",
+        "tags": [
+          "manager"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/manager/tenants/{id}/consultants": {
+      "post": {
+        "operationId": "post_manager_tenant_consultant",
+        "summary": "Assign a consultant by address. Needs a super operator; the person must have an account.",
+        "tags": [
+          "manager"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignConsultantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantChanged"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/manager/tenants/{tenantId}/consultants/{userId}": {
+      "delete": {
+        "operationId": "delete_manager_tenant_consultant",
+        "summary": "Remove a consultant from a workspace. Needs a super operator.",
+        "tags": [
+          "manager"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultantChanged"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -359,7 +493,8 @@
           "version",
           "createdAt",
           "activatedAt",
-          "members"
+          "members",
+          "consultants"
         ],
         "properties": {
           "id": {
@@ -394,6 +529,13 @@
           },
           "members": {
             "type": "integer"
+          },
+          "consultants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Who serves it, by name or address."
           }
         }
       },
@@ -624,6 +766,99 @@
           "failed": {
             "type": "integer",
             "description": "Jobs River discarded after their last retry."
+          }
+        }
+      },
+      "OperatorList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Operator"
+            }
+          }
+        }
+      },
+      "ConsultantList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consultant"
+            }
+          }
+        }
+      },
+      "Consultant": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "clients"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsultantClient"
+            }
+          }
+        }
+      },
+      "ConsultantClient": {
+        "type": "object",
+        "required": [
+          "tenantId",
+          "name"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AssignConsultantRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "ConsultantChanged": {
+        "type": "object",
+        "required": [
+          "tenantId"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string"
           }
         }
       }

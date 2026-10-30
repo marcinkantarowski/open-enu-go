@@ -11,3 +11,4 @@ What the platform is today is described in [`../ARCHITECTURE.md`](../ARCHITECTUR
 | Spec | Summary | Status |
 |---|---|---|
 | [Production's data on a development machine](2026-10-30-copy-prod-data.md) | `make copyproddata`: the database re-encrypted with the dev key, nothing copied reaches the outside | done |
+| [Consultant role, and operators and consultants in the console](2026-10-30-consultant-role.md) | `consultant` membership with `.review`; assigned by a super operator; two lists in the console | in progress |

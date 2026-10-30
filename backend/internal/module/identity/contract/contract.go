@@ -65,3 +65,26 @@ func (s Sessions) EndTenant(ctx context.Context, tenantID string) error {
 	_, err := s.Bus.Dispatch(ctx, EndTenantSessions{TenantID: tenantID})
 	return err
 }
+
+// AssignConsultant and UnassignConsultant are the commands behind Consultants
+// (ADR-0028).
+type (
+	AssignConsultant   = internal.AssignConsultant
+	UnassignConsultant = internal.UnassignConsultant
+)
+
+// Consultants is who serves a workspace, as methods. Each dispatch joins the
+// caller's transaction when the caller is itself a handler.
+type Consultants struct{ Bus *command.Bus }
+
+// Assign makes the person with this address a consultant of the workspace.
+func (c Consultants) Assign(ctx context.Context, tenantID, email string) error {
+	_, err := c.Bus.Dispatch(ctx, AssignConsultant{TenantID: tenantID, Email: email})
+	return err
+}
+
+// Unassign removes them from it.
+func (c Consultants) Unassign(ctx context.Context, tenantID, userID string) error {
+	_, err := c.Bus.Dispatch(ctx, UnassignConsultant{TenantID: tenantID, UserID: userID})
+	return err
+}

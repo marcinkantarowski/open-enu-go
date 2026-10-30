@@ -17,6 +17,8 @@ const moduleNavigation = import.meta.glob<{ default: NavigationItem[] }>(
 
 const links = computed(() => [
   { to: '/', label: t('manager.tenants'), order: 10 },
+  { to: '/consultants', label: t('manager.consultants'), order: 12 },
+  { to: '/operators', label: t('manager.operators'), order: 14 },
   { to: '/audit', label: t('manager.audit'), order: 20 },
   { to: '/flags', label: t('manager.flags'), order: 30 },
   { to: '/workers', label: t('manager.workers'), order: 40 },

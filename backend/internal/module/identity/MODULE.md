@@ -2,7 +2,7 @@
 
 Owns people: accounts, memberships (a person in a workspace with a role), sessions
 (access token + rotating refresh cookie) and the single-use tokens for e-mail verification
-and password reset. It decides what a role may do (owner / admin / member) over the
+and password reset. It decides what a role may do (owner / admin / consultant / member) over the
 permissions every module declared. It does not own the workspace (Tenant), machine access
 (ApiKey) or operators (Manager). Its tables span tenants and are **not** RLS-scoped;
 the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
@@ -22,8 +22,10 @@ the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
   `Path=/api/auth`, 30 days, rotated on every use; a replayed token revokes its family.
 - Permissions: `identity.member.view`, `identity.member.invite`, `identity.member.manage`,
   `identity.profile.manage`
-- Roles: owner → every declared permission; admin → all but `tenant.delete` and
-  `api_key.manage`; member → `*.view` and `*.use`. An undeclared permission is nobody's.
+- Roles: owner → every declared permission but `*.review`; admin → those, minus
+  `tenant.delete` and `api_key.manage`; consultant → what an admin holds plus `*.review`,
+  which nobody else holds ([ADR-0028](../../../../.ai/platform/adr/0028-consultant-role.md));
+  member → `*.view` and `*.use`. An undeclared permission is nobody's.
 - Events: none published; subscribes to `tenant.deleted` (drops memberships and revokes
   the refresh tokens into that workspace)
 - Mail: `identity.email.*` keys, links under `APP_URL`
@@ -34,10 +36,12 @@ the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
 
 ## Public contract
 
-`contract.Member` and `contract.Directory` (`MembersOf`, `CountMembersOf`, `WorkspacesOf` - a
-person's active memberships as `contract.Workspace`, for a consultant's view) built by
+`contract.Member` and `contract.Directory` (`MembersOf`, `CountMembersOf`, `Consultants`,
+`WorkspacesOf` - a person's active memberships as `contract.Workspace`, for a consultant's
+view) built by
 `contract.NewDirectory` - who belongs to a workspace, for the operator console;
-`contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
+`contract.Consultants` (`Assign`, `Unassign`: `identity.consultant.assigned`, `.unassigned`,
+for Manager); `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
 person another module vouches for:
 
 - `Impersonate` - the one designed way to act as a member without their password

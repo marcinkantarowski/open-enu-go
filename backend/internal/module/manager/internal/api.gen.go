@@ -36,6 +36,11 @@ func (e SuspendedStatus) Valid() bool {
 	}
 }
 
+// AssignConsultantRequest defines model for AssignConsultantRequest.
+type AssignConsultantRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // ConflictDetails error.details of a 409: both versions, so the client can offer reload, overwrite or diff.
 type ConflictDetails struct {
 	Current        *map[string]interface{} `json:"current,omitempty"`
@@ -43,6 +48,30 @@ type ConflictDetails struct {
 	Resource       string                  `json:"resource"`
 	ResourceId     *string                 `json:"resourceId,omitempty"`
 	YourVersion    interface{}             `json:"yourVersion"`
+}
+
+// Consultant defines model for Consultant.
+type Consultant struct {
+	Clients     []ConsultantClient `json:"clients"`
+	DisplayName *string            `json:"displayName"`
+	Email       string             `json:"email"`
+	Id          string             `json:"id"`
+}
+
+// ConsultantChanged defines model for ConsultantChanged.
+type ConsultantChanged struct {
+	TenantId string `json:"tenantId"`
+}
+
+// ConsultantClient defines model for ConsultantClient.
+type ConsultantClient struct {
+	Name     string `json:"name"`
+	TenantId string `json:"tenantId"`
+}
+
+// ConsultantList defines model for ConsultantList.
+type ConsultantList struct {
+	Items []Consultant `json:"items"`
 }
 
 // Error The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change.
@@ -71,16 +100,19 @@ type ListMeta struct {
 
 // ManagedTenant defines model for ManagedTenant.
 type ManagedTenant struct {
-	ActivatedAt   *time.Time `json:"activatedAt"`
-	CreatedAt     time.Time  `json:"createdAt"`
-	DefaultLocale string     `json:"defaultLocale"`
-	Id            string     `json:"id"`
-	Members       int        `json:"members"`
-	Name          string     `json:"name"`
-	Plan          string     `json:"plan"`
-	Slug          string     `json:"slug"`
-	Status        string     `json:"status"`
-	Version       int        `json:"version"`
+	ActivatedAt *time.Time `json:"activatedAt"`
+
+	// Consultants Who serves it, by name or address.
+	Consultants   []string  `json:"consultants"`
+	CreatedAt     time.Time `json:"createdAt"`
+	DefaultLocale string    `json:"defaultLocale"`
+	Id            string    `json:"id"`
+	Members       int       `json:"members"`
+	Name          string    `json:"name"`
+	Plan          string    `json:"plan"`
+	Slug          string    `json:"slug"`
+	Status        string    `json:"status"`
+	Version       int       `json:"version"`
 }
 
 // ManagedTenantDetail defines model for ManagedTenantDetail.
@@ -140,6 +172,11 @@ type Operator struct {
 	Status      string     `json:"status"`
 }
 
+// OperatorList defines model for OperatorList.
+type OperatorList struct {
+	Items []Operator `json:"items"`
+}
+
 // OperatorSession defines model for OperatorSession.
 type OperatorSession struct {
 	ExpiresIn int      `json:"expiresIn"`
@@ -192,23 +229,38 @@ type GetManagerTenantIndexParams struct {
 // PostManagerLoginJSONRequestBody defines body for PostManagerLogin for application/json ContentType.
 type PostManagerLoginJSONRequestBody = ManagerLoginRequest
 
+// PostManagerTenantConsultantJSONRequestBody defines body for PostManagerTenantConsultant for application/json ContentType.
+type PostManagerTenantConsultantJSONRequestBody = AssignConsultantRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetManagerAuditIndex The trail across every workspace, or one of them.
 	// (GET /api/manager/audit)
 	GetManagerAuditIndex(w http.ResponseWriter, r *http.Request, params GetManagerAuditIndexParams)
+	// GetManagerConsultants Every consultant, with the workspaces they serve.
+	// (GET /api/manager/consultants)
+	GetManagerConsultants(w http.ResponseWriter, r *http.Request)
 	// PostManagerLogin Operator login: the strictest rate limit in the system, no refresh, no reset, no registration.
 	// (POST /api/manager/login)
 	PostManagerLogin(w http.ResponseWriter, r *http.Request)
+	// GetManagerOperators Every operator of the platform.
+	// (GET /api/manager/operators)
+	GetManagerOperators(w http.ResponseWriter, r *http.Request)
 	// GetManagerTenantIndex Every workspace on the platform, newest first, with member counts.
 	// (GET /api/manager/tenants)
 	GetManagerTenantIndex(w http.ResponseWriter, r *http.Request, params GetManagerTenantIndexParams)
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(w http.ResponseWriter, r *http.Request, id string)
+	// PostManagerTenantConsultant Assign a consultant by address. Needs a super operator; the person must have an account.
+	// (POST /api/manager/tenants/{id}/consultants)
+	PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request, id string)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.
 	// (POST /api/manager/tenants/{id}/suspend)
 	PostManagerTenantSuspend(w http.ResponseWriter, r *http.Request, id string)
+	// DeleteManagerTenantConsultant Remove a consultant from a workspace. Needs a super operator.
+	// (DELETE /api/manager/tenants/{tenantId}/consultants/{userId})
+	DeleteManagerTenantConsultant(w http.ResponseWriter, r *http.Request, tenantId string, userId string)
 	// PostManagerImpersonate Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.
 	// (POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate)
 	PostManagerImpersonate(w http.ResponseWriter, r *http.Request, tenantId string, userId string)
@@ -272,11 +324,39 @@ func (siw *ServerInterfaceWrapper) GetManagerAuditIndex(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// GetManagerConsultants operation middleware
+func (siw *ServerInterfaceWrapper) GetManagerConsultants(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetManagerConsultants(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostManagerLogin operation middleware
 func (siw *ServerInterfaceWrapper) PostManagerLogin(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostManagerLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetManagerOperators operation middleware
+func (siw *ServerInterfaceWrapper) GetManagerOperators(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetManagerOperators(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -358,6 +438,32 @@ func (siw *ServerInterfaceWrapper) GetManagerTenantShow(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// PostManagerTenantConsultant operation middleware
+func (siw *ServerInterfaceWrapper) PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostManagerTenantConsultant(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostManagerTenantSuspend operation middleware
 func (siw *ServerInterfaceWrapper) PostManagerTenantSuspend(w http.ResponseWriter, r *http.Request) {
 
@@ -375,6 +481,41 @@ func (siw *ServerInterfaceWrapper) PostManagerTenantSuspend(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostManagerTenantSuspend(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteManagerTenantConsultant operation middleware
+func (siw *ServerInterfaceWrapper) DeleteManagerTenantConsultant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenantId" -------------
+	var tenantId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenantId", r.PathValue("tenantId"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteManagerTenantConsultant(w, r, tenantId, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -554,10 +695,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/audit", wrapper.GetManagerAuditIndex)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/consultants", wrapper.GetManagerConsultants)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/login", wrapper.PostManagerLogin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/operators", wrapper.GetManagerOperators)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/tenants", wrapper.GetManagerTenantIndex)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/tenants/{id}", wrapper.GetManagerTenantShow)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/consultants", wrapper.PostManagerTenantConsultant)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/suspend", wrapper.PostManagerTenantSuspend)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/consultants/{userId}", wrapper.DeleteManagerTenantConsultant)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/users/{userId}/impersonate", wrapper.PostManagerImpersonate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/workers", wrapper.GetManagerWorkerStatus)
 
@@ -605,6 +750,44 @@ func (response GetManagerAuditIndexdefaultJSONResponse) VisitGetManagerAuditInde
 	return err
 }
 
+type GetManagerConsultantsRequestObject struct {
+}
+
+type GetManagerConsultantsResponseObject interface {
+	VisitGetManagerConsultantsResponse(w http.ResponseWriter) error
+}
+
+type GetManagerConsultants200JSONResponse ConsultantList
+
+func (response GetManagerConsultants200JSONResponse) VisitGetManagerConsultantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetManagerConsultantsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetManagerConsultantsdefaultJSONResponse) VisitGetManagerConsultantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostManagerLoginRequestObject struct {
 	Body *PostManagerLoginJSONRequestBody
 }
@@ -633,6 +816,44 @@ type PostManagerLogindefaultJSONResponse struct {
 }
 
 func (response PostManagerLogindefaultJSONResponse) VisitPostManagerLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetManagerOperatorsRequestObject struct {
+}
+
+type GetManagerOperatorsResponseObject interface {
+	VisitGetManagerOperatorsResponse(w http.ResponseWriter) error
+}
+
+type GetManagerOperators200JSONResponse OperatorList
+
+func (response GetManagerOperators200JSONResponse) VisitGetManagerOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetManagerOperatorsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetManagerOperatorsdefaultJSONResponse) VisitGetManagerOperatorsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -722,6 +943,46 @@ func (response GetManagerTenantShowdefaultJSONResponse) VisitGetManagerTenantSho
 	return err
 }
 
+type PostManagerTenantConsultantRequestObject struct {
+	Id   string `json:"id"`
+	Body *PostManagerTenantConsultantJSONRequestBody
+}
+
+type PostManagerTenantConsultantResponseObject interface {
+	VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error
+}
+
+type PostManagerTenantConsultant200JSONResponse ConsultantChanged
+
+func (response PostManagerTenantConsultant200JSONResponse) VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostManagerTenantConsultantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PostManagerTenantConsultantdefaultJSONResponse) VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostManagerTenantSuspendRequestObject struct {
 	Id string `json:"id"`
 }
@@ -750,6 +1011,46 @@ type PostManagerTenantSuspenddefaultJSONResponse struct {
 }
 
 func (response PostManagerTenantSuspenddefaultJSONResponse) VisitPostManagerTenantSuspendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteManagerTenantConsultantRequestObject struct {
+	TenantId string `json:"tenantId"`
+	UserId   string `json:"userId"`
+}
+
+type DeleteManagerTenantConsultantResponseObject interface {
+	VisitDeleteManagerTenantConsultantResponse(w http.ResponseWriter) error
+}
+
+type DeleteManagerTenantConsultant200JSONResponse ConsultantChanged
+
+func (response DeleteManagerTenantConsultant200JSONResponse) VisitDeleteManagerTenantConsultantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteManagerTenantConsultantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteManagerTenantConsultantdefaultJSONResponse) VisitDeleteManagerTenantConsultantResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -844,18 +1145,30 @@ type StrictServerInterface interface {
 	// GetManagerAuditIndex The trail across every workspace, or one of them.
 	// (GET /api/manager/audit)
 	GetManagerAuditIndex(ctx context.Context, request GetManagerAuditIndexRequestObject) (GetManagerAuditIndexResponseObject, error)
+	// GetManagerConsultants Every consultant, with the workspaces they serve.
+	// (GET /api/manager/consultants)
+	GetManagerConsultants(ctx context.Context, request GetManagerConsultantsRequestObject) (GetManagerConsultantsResponseObject, error)
 	// PostManagerLogin Operator login: the strictest rate limit in the system, no refresh, no reset, no registration.
 	// (POST /api/manager/login)
 	PostManagerLogin(ctx context.Context, request PostManagerLoginRequestObject) (PostManagerLoginResponseObject, error)
+	// GetManagerOperators Every operator of the platform.
+	// (GET /api/manager/operators)
+	GetManagerOperators(ctx context.Context, request GetManagerOperatorsRequestObject) (GetManagerOperatorsResponseObject, error)
 	// GetManagerTenantIndex Every workspace on the platform, newest first, with member counts.
 	// (GET /api/manager/tenants)
 	GetManagerTenantIndex(ctx context.Context, request GetManagerTenantIndexRequestObject) (GetManagerTenantIndexResponseObject, error)
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(ctx context.Context, request GetManagerTenantShowRequestObject) (GetManagerTenantShowResponseObject, error)
+	// PostManagerTenantConsultant Assign a consultant by address. Needs a super operator; the person must have an account.
+	// (POST /api/manager/tenants/{id}/consultants)
+	PostManagerTenantConsultant(ctx context.Context, request PostManagerTenantConsultantRequestObject) (PostManagerTenantConsultantResponseObject, error)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.
 	// (POST /api/manager/tenants/{id}/suspend)
 	PostManagerTenantSuspend(ctx context.Context, request PostManagerTenantSuspendRequestObject) (PostManagerTenantSuspendResponseObject, error)
+	// DeleteManagerTenantConsultant Remove a consultant from a workspace. Needs a super operator.
+	// (DELETE /api/manager/tenants/{tenantId}/consultants/{userId})
+	DeleteManagerTenantConsultant(ctx context.Context, request DeleteManagerTenantConsultantRequestObject) (DeleteManagerTenantConsultantResponseObject, error)
 	// PostManagerImpersonate Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.
 	// (POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate)
 	PostManagerImpersonate(ctx context.Context, request PostManagerImpersonateRequestObject) (PostManagerImpersonateResponseObject, error)
@@ -929,6 +1242,30 @@ func (sh *strictHandler) GetManagerAuditIndex(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// GetManagerConsultants operation middleware
+func (sh *strictHandler) GetManagerConsultants(w http.ResponseWriter, r *http.Request) {
+	var request GetManagerConsultantsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetManagerConsultants(ctx, request.(GetManagerConsultantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetManagerConsultants")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetManagerConsultantsResponseObject); ok {
+		if err := validResponse.VisitGetManagerConsultantsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostManagerLogin operation middleware
 func (sh *strictHandler) PostManagerLogin(w http.ResponseWriter, r *http.Request) {
 	var request PostManagerLoginRequestObject
@@ -953,6 +1290,30 @@ func (sh *strictHandler) PostManagerLogin(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostManagerLoginResponseObject); ok {
 		if err := validResponse.VisitPostManagerLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetManagerOperators operation middleware
+func (sh *strictHandler) GetManagerOperators(w http.ResponseWriter, r *http.Request) {
+	var request GetManagerOperatorsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetManagerOperators(ctx, request.(GetManagerOperatorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetManagerOperators")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetManagerOperatorsResponseObject); ok {
+		if err := validResponse.VisitGetManagerOperatorsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1012,6 +1373,39 @@ func (sh *strictHandler) GetManagerTenantShow(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// PostManagerTenantConsultant operation middleware
+func (sh *strictHandler) PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request, id string) {
+	var request PostManagerTenantConsultantRequestObject
+
+	request.Id = id
+
+	var body PostManagerTenantConsultantJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostManagerTenantConsultant(ctx, request.(PostManagerTenantConsultantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostManagerTenantConsultant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostManagerTenantConsultantResponseObject); ok {
+		if err := validResponse.VisitPostManagerTenantConsultantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostManagerTenantSuspend operation middleware
 func (sh *strictHandler) PostManagerTenantSuspend(w http.ResponseWriter, r *http.Request, id string) {
 	var request PostManagerTenantSuspendRequestObject
@@ -1031,6 +1425,33 @@ func (sh *strictHandler) PostManagerTenantSuspend(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostManagerTenantSuspendResponseObject); ok {
 		if err := validResponse.VisitPostManagerTenantSuspendResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteManagerTenantConsultant operation middleware
+func (sh *strictHandler) DeleteManagerTenantConsultant(w http.ResponseWriter, r *http.Request, tenantId string, userId string) {
+	var request DeleteManagerTenantConsultantRequestObject
+
+	request.TenantId = tenantId
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteManagerTenantConsultant(ctx, request.(DeleteManagerTenantConsultantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteManagerTenantConsultant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteManagerTenantConsultantResponseObject); ok {
+		if err := validResponse.VisitDeleteManagerTenantConsultantResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

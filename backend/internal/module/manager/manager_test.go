@@ -91,7 +91,7 @@ type reply struct {
 
 func (r reply) str(k string) string { v, _ := r.body[k].(string); return v }
 
-func (s *stack) do(method, path, authz string, payload any) reply {
+func (s *stack) do(method, path, authz string, payload any, cookies ...*http.Cookie) reply {
 	s.t.Helper()
 	var body io.Reader
 	if payload != nil {
@@ -103,6 +103,9 @@ func (s *stack) do(method, path, authz string, payload any) reply {
 	req.Header.Set("Content-Type", "application/json")
 	if authz != "" {
 		req.Header.Set("Authorization", "Bearer "+authz)
+	}
+	for _, c := range cookies {
+		req.AddCookie(&http.Cookie{Name: c.Name, Value: c.Value})
 	}
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, req)
@@ -368,5 +371,116 @@ func TestOnlyASuperOperatorMayImpersonateAndAPlainOnesAttemptIsOnRecord(t *testi
 	// The super operator may.
 	if ok := s.do("POST", "/api/manager/tenants/"+s.a+"/users/"+s.user+"/impersonate", s.operator(), nil); ok.code != 200 || ok.body["impersonating"] != true || ok.str("token") == "" {
 		t.Fatalf("super operator: %d %s", ok.code, ok.raw)
+	}
+}
+
+// A consultant is assigned by address, moves an existing member, is refused for
+// the owner, shows in both lists, and on the trail twice; removal ends the
+// membership and the person's way back in.
+func TestAConsultantIsAssignedAndRemovedByASuperOperator(t *testing.T) {
+	s := newStack(t)
+	op := s.operator()
+	if _, err := identity.CreateUser(s.ctx, s.svc, identity.CreateUserInput{Email: "iod@example.test", Password: password, TenantSlug: "doradca", TenantName: "Doradca", Role: "owner"}); err != nil {
+		t.Fatal(err)
+	}
+	assign := func(tok, tenant, email string) reply {
+		return s.do("POST", "/api/manager/tenants/"+tenant+"/consultants", tok, map[string]any{"email": email})
+	}
+
+	if r := assign(op, s.a, "nobody@example.test"); r.code != 404 || !strings.Contains(string(r.raw), "identity.error.consultant_unknown") {
+		t.Fatalf("an unknown address: %d %s", r.code, r.raw)
+	}
+	if r := assign(op, s.a, userEmail); r.code != 400 || !strings.Contains(string(r.raw), "identity.error.consultant_is_owner") {
+		t.Fatalf("the owner: %d %s", r.code, r.raw)
+	}
+	if r := assign(op, s.a, "iod@example.test"); r.code != 200 || r.str("tenantId") != s.a {
+		t.Fatalf("assign: %d %s", r.code, r.raw)
+	}
+	if r := assign(op, s.b, "iod@example.test"); r.code != 200 {
+		t.Fatalf("a second client: %d %s", r.code, r.raw)
+	}
+	if r := assign(op, s.a, "iod@example.test"); r.code != 200 {
+		t.Fatalf("assigning twice changes nothing: %d %s", r.code, r.raw)
+	}
+
+	list := s.do("GET", "/api/manager/consultants", op, nil)
+	items, _ := list.body["items"].([]any)
+	if list.code != 200 || len(items) != 1 {
+		t.Fatalf("consultants: %d %s", list.code, list.raw)
+	}
+	one, _ := items[0].(map[string]any)
+	clients, _ := one["clients"].([]any)
+	if one["email"] != "iod@example.test" || len(clients) != 2 {
+		t.Fatalf("one person, two clients: %s", list.raw)
+	}
+	id, _ := one["id"].(string)
+	if page := s.do("GET", "/api/manager/tenants", op, nil); !strings.Contains(string(page.raw), `"consultants":["iod@example.test"]`) {
+		t.Fatalf("the workspace list does not name the consultant: %s", page.raw)
+	}
+
+	var byOperator, byIdentity bool
+	for _, e := range s.trail() {
+		byOperator = byOperator || e.Action == "manager.consultant.assigned" && e.Succeeded
+		byIdentity = byIdentity || e.Action == "identity.consultant.assigned" && e.Succeeded
+	}
+	if !byOperator || !byIdentity {
+		t.Fatalf("the trail: operator %t, identity %t", byOperator, byIdentity)
+	}
+
+	login := s.do("POST", "/api/auth/login", "", map[string]any{"email": "iod@example.test", "password": password})
+	if login.code != 200 {
+		t.Fatalf("consultant login: %d %s", login.code, login.raw)
+	}
+	in := s.do("POST", "/api/auth/switch-tenant", "", map[string]any{"tenantId": s.a}, login.cookies...)
+	if in.code != 200 || in.str("role") != "consultant" {
+		t.Fatalf("into the client: %d %s", in.code, in.raw)
+	}
+	if r := s.do("DELETE", "/api/manager/tenants/"+s.a+"/consultants/"+s.user, op, nil); r.code != 404 {
+		t.Fatalf("removing someone who is no consultant: %d %s", r.code, r.raw)
+	}
+	if r := s.do("DELETE", "/api/manager/tenants/"+s.a+"/consultants/"+id, op, nil); r.code != 200 {
+		t.Fatalf("remove: %d %s", r.code, r.raw)
+	}
+	if back := s.do("POST", "/api/auth/refresh", "", nil, in.cookies...); back.code == 200 {
+		t.Fatalf("a session into the client still renews: %s", back.raw)
+	}
+	again := s.do("POST", "/api/auth/login", "", map[string]any{"email": "iod@example.test", "password": password})
+	if sw := s.do("POST", "/api/auth/switch-tenant", "", map[string]any{"tenantId": s.a}, again.cookies...); sw.code == 200 {
+		t.Fatalf("still enters the client: %s", sw.raw)
+	}
+	if d := s.do("GET", "/api/manager/tenants/"+s.a, op, nil); strings.Contains(string(d.raw), "iod@example.test") {
+		t.Fatalf("still a member: %s", d.raw)
+	}
+}
+
+// Reading is any operator's; opening a client's data to a person is a super's.
+func TestOnlyASuperOperatorMayAssignAndATenantTokenSeesNoneOfThis(t *testing.T) {
+	s := newStack(t)
+	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: "plain@example.test", Password: opPassword}); err != nil {
+		t.Fatal(err)
+	}
+	plain := s.do("POST", "/api/manager/login", "", map[string]any{"email": "plain@example.test", "password": opPassword}).str("token")
+	ops := s.do("GET", "/api/manager/operators", plain, nil)
+	if items, _ := ops.body["items"].([]any); ops.code != 200 || len(items) != 2 || !strings.Contains(string(ops.raw), opEmail) || !strings.Contains(string(ops.raw), "ROLE_PLATFORM_SUPER") {
+		t.Fatalf("operators: %d %s", ops.code, ops.raw)
+	}
+	if r := s.do("POST", "/api/manager/tenants/"+s.a+"/consultants", plain, map[string]any{"email": "other@example.test"}); r.code != 403 {
+		t.Fatalf("a plain operator assigned: %d %s", r.code, r.raw)
+	}
+	if r := s.do("DELETE", "/api/manager/tenants/"+s.a+"/consultants/"+s.user, plain, nil); r.code != 403 {
+		t.Fatalf("a plain operator removed: %d %s", r.code, r.raw)
+	}
+	var refused bool
+	for _, e := range s.trail() {
+		refused = refused || e.Action == "manager.consultant.assigned" && !e.Succeeded
+	}
+	if !refused {
+		t.Fatal("the refused attempt is not on the trail")
+	}
+	tenant := s.owner()
+	for _, path := range []string{"/api/manager/operators", "/api/manager/consultants"} {
+		if r := s.do("GET", path, tenant, nil); r.code == 200 {
+			t.Fatalf("a tenant token read %s", path)
+		}
 	}
 }
