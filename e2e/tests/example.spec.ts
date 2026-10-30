@@ -57,8 +57,8 @@ test('a project created in one session appears in another, and not in another te
   // live connection open.
   await openProjects(watcher)
   await openProjects(otherTenant)
-  await expect(watcher.getByRole('banner').getByTestId('realtime-indicator')).toContainText(/live/i)
-  await expect(otherTenant.getByRole('banner').getByTestId('realtime-indicator')).toContainText(/live/i)
+  await expect(watcher.getByRole('banner').getByTestId('realtime-indicator')).toContainText(/live|na żywo/i)
+  await expect(otherTenant.getByRole('banner').getByTestId('realtime-indicator')).toContainText(/live|na żywo/i)
 
   const name = unique('Broadcast')
   await openProjects(actor)
@@ -124,7 +124,7 @@ test('a stale save is refused and the conflict bar offers a real choice', async 
   // read rather than an abstraction.
   await expect(bar).toContainText(aliceName)
 
-  await bar.getByRole('button', { name: /load theirs/i }).click()
+  await bar.getByRole('button', { name: /load theirs|wczytaj cudze/i }).click()
   await expect(bar).toBeHidden()
   await expect(bob.getByTestId('example-item-name').first()).toHaveText(aliceName)
 
@@ -153,7 +153,7 @@ test('an operator can switch the archive flag on, and the job then reports progr
   // Off by default, so the route is a 404 and the page must present that as
   // unavailable rather than as a missing page.
   await user.getByTestId('example-archive').click()
-  await expect(user.getByTestId('toast')).toContainText(/switched off/i)
+  await expect(user.getByTestId('toast')).toContainText(/switched off|wyłączon/i)
   await expect(user.getByTestId('job-progress')).toBeHidden()
 
   // The operator turns it on for this workspace only.
@@ -171,7 +171,7 @@ test('an operator can switch the archive flag on, and the job then reports progr
   // cookie by design (.ai/platform/docs/auth.md), so a full page load signs them
   // out - which is the correct behaviour and a trap for anyone writing a test
   // against it.
-  await operator.getByRole('link', { name: /flags/i }).click()
+  await operator.getByRole('link', { name: /flags|flagi/i }).click()
   await operator.getByTestId('flag-tenant').fill(tenantId)
   await Promise.all([
     operator.waitForResponse(r => r.url().includes('/settings/example.archive') && r.request().method() === 'PUT'),
@@ -193,7 +193,7 @@ test('an operator can switch the archive flag on, and the job then reports progr
     // The toast is the stronger claim anyway: it only fires from the bar's
     // `@done`, so seeing it proves the component mounted, polled the progress
     // API, saw the worker finish, and reported the count back.
-    await expect(user.getByTestId('toast')).toContainText(/archived/i, { timeout: 30_000 })
+    await expect(user.getByTestId('toast')).toContainText(/archived|zarchiwizowano/i, { timeout: 30_000 })
   } finally {
     // Back to how it was found, so this spec can run in any order and twice.
     //

@@ -22,5 +22,5 @@ test('the stream stays live after leaving the one page that listens', async ({ p
   await expect(page).toHaveURL(/\/$/)
 
   await expect(indicator).toHaveAttribute('data-status', 'live')
-  await expect(indicator).toContainText(/live/i)
+  await expect(indicator).toContainText(/live|na żywo/i)
 })
