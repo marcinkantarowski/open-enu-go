@@ -10,6 +10,7 @@ import { defineStore } from 'pinia'
 export const useUiStore = defineStore('ui', {
   state: () => ({
     sidebarOpen: true,
+    collapsedGroups: [] as string[],
     locale: 'en',
   }),
 
@@ -17,6 +18,17 @@ export const useUiStore = defineStore('ui', {
     toggleSidebar() {
       this.sidebarOpen = !this.sidebarOpen
       this.persist()
+    },
+
+    toggleGroup(group: string) {
+      this.collapsedGroups = this.collapsedGroups.includes(group)
+        ? this.collapsedGroups.filter(entry => entry !== group)
+        : [...this.collapsedGroups, group]
+      this.persist()
+    },
+
+    expandGroup(group: string) {
+      if (this.collapsedGroups.includes(group)) this.toggleGroup(group)
     },
 
     setLocale(locale: string) {

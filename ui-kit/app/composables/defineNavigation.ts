@@ -17,7 +17,8 @@ export interface NavigationItem {
   order?: number
   /**
    * Translation key of the heading this entry sits under. Headings follow the
-   * lowest `order` among their entries; entries without one come as they are.
+   * lowest `order` among their entries and collapse on a click; entries without
+   * one come as they are.
    */
   group?: string
   /** A gear in the top bar instead of a line in the menu: where settings live. */
