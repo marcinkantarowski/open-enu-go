@@ -321,7 +321,8 @@ export interface paths {
         /** Every workspace on the platform, newest first, with member counts. */
         get: operations["get_manager_tenant_index"];
         put?: never;
-        post?: never;
+        /** Create a workspace, active at once, with every module's defaults. */
+        post: operations["post_manager_tenant_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -345,7 +346,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/manager/tenants/{id}/consultants": {
+    "/api/manager/tenants/{id}/members": {
         parameters: {
             query?: never;
             header?: never;
@@ -354,8 +355,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Assign a consultant by address. Needs a super operator; the person must have an account. */
-        post: operations["post_manager_tenant_consultant"];
+        /** Add a person to a workspace, with an account if they have none. Needs a super operator. */
+        post: operations["post_manager_tenant_member"];
         delete?: never;
         options?: never;
         head?: never;
@@ -718,6 +719,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddMemberRequest: {
+            displayName?: string;
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "consultant" | "member";
+        };
+        AddedMember: {
+            /** @description A new account's single-use link. Shown once; nothing keeps it. */
+            setPasswordUrl: string | null;
+            userId: string;
+        };
         ApiKey: {
             /** Format: date-time */
             createdAt: string;
@@ -740,10 +753,6 @@ export interface components {
             jobId: string;
             /** @description Active projects the job will archive. */
             total: number;
-        };
-        AssignConsultantRequest: {
-            /** Format: email */
-            email: string;
         };
         Attachment: {
             /** @description Sniffed from the bytes, never the client's claim. */
@@ -825,6 +834,10 @@ export interface components {
             description?: string | null;
             name: string;
         };
+        CreateTenantRequest: {
+            name: string;
+            slug: string;
+        };
         CreateWebhookEndpoint: {
             /** @description Event names, e.g. example.project.created. At least one. */
             events: string[];
@@ -834,6 +847,9 @@ export interface components {
         CreatedApiKey: components["schemas"]["ApiKey"] & {
             secret: string;
             warning: string;
+        };
+        CreatedTenant: {
+            id: string;
         };
         /** @description The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change. */
         Error: {
@@ -1741,6 +1757,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    post_manager_tenant_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTenantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedTenant"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     get_manager_tenant_show: {
         parameters: {
             query?: never;
@@ -1764,7 +1805,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    post_manager_tenant_consultant: {
+    post_manager_tenant_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -1775,7 +1816,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssignConsultantRequest"];
+                "application/json": components["schemas"]["AddMemberRequest"];
             };
         };
         responses: {
@@ -1785,7 +1826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConsultantChanged"];
+                    "application/json": components["schemas"]["AddedMember"];
                 };
             };
             default: components["responses"]["Error"];
@@ -2359,4 +2400,4 @@ export interface operations {
         };
     };
 }
-// generated from backend/openapi.json sha256:37e25e82bee8cc9f6087b98991c5e2a5dd3bce16203bfd797b5473fec93d2f3f
+// generated from backend/openapi.json sha256:e983ce5d57e16f6921561fa74f023ed8dc7d6e1e999bdae9827e74cbc7db1d0b

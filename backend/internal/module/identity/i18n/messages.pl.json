@@ -20,6 +20,6 @@
   "identity.email.account_exists.subject": "Masz już konto",
   "identity.email.account_exists.body": "Ktoś - być może Ty - próbował założyć konto z tym adresem. Masz już konto: zaloguj się pierwszym linkiem albo ustaw nowe hasło drugim, jeśli go nie pamiętasz.",
   "identity.email.account_exists.ignore": "Jeśli to nie Ty, zignoruj tę wiadomość - nic się nie zmieniło.",
-  "identity.error.consultant_unknown": "Nie ma konta z tym adresem. Najpierw je załóż: openenu user create.",
-  "identity.error.consultant_is_owner": "Ta osoba jest właścicielem obszaru i nie może być jego konsultantem."
+  "identity.error.consultant_is_owner": "Ta osoba jest właścicielem obszaru i nie może być jego konsultantem.",
+  "identity.error.already_member": "Ta osoba już tu należy; rolę można zmienić tylko na konsultanta."
 }

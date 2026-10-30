@@ -13,6 +13,49 @@
       }
     },
     "schemas": {
+      "AddMemberRequest": {
+        "properties": {
+          "displayName": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "consultant",
+              "member"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AddedMember": {
+        "properties": {
+          "setPasswordUrl": {
+            "description": "A new account's single-use link. Shown once; nothing keeps it.",
+            "nullable": true,
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "setPasswordUrl"
+        ],
+        "type": "object"
+      },
       "ApiKey": {
         "properties": {
           "createdAt": {
@@ -89,18 +132,6 @@
         "required": [
           "jobId",
           "total"
-        ],
-        "type": "object"
-      },
-      "AssignConsultantRequest": {
-        "properties": {
-          "email": {
-            "format": "email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
         ],
         "type": "object"
       },
@@ -376,6 +407,22 @@
         ],
         "type": "object"
       },
+      "CreateTenantRequest": {
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ],
+        "type": "object"
+      },
       "CreateWebhookEndpoint": {
         "properties": {
           "events": {
@@ -417,6 +464,17 @@
             "type": "object"
           }
         ]
+      },
+      "CreatedTenant": {
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
       },
       "Error": {
         "description": "The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change.",
@@ -2569,6 +2627,38 @@
         "tags": [
           "manager"
         ]
+      },
+      "post": {
+        "operationId": "post_manager_tenant_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTenant"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Create a workspace, active at once, with every module's defaults.",
+        "tags": [
+          "manager"
+        ]
       }
     },
     "/api/manager/tenants/{id}": {
@@ -2605,9 +2695,9 @@
         ]
       }
     },
-    "/api/manager/tenants/{id}/consultants": {
+    "/api/manager/tenants/{id}/members": {
       "post": {
-        "operationId": "post_manager_tenant_consultant",
+        "operationId": "post_manager_tenant_member",
         "parameters": [
           {
             "in": "path",
@@ -2622,7 +2712,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignConsultantRequest"
+                "$ref": "#/components/schemas/AddMemberRequest"
               }
             }
           },
@@ -2633,7 +2723,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsultantChanged"
+                  "$ref": "#/components/schemas/AddedMember"
                 }
               }
             },
@@ -2643,7 +2733,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "summary": "Assign a consultant by address. Needs a super operator; the person must have an account.",
+        "summary": "Add a person to a workspace, with an account if they have none. Needs a super operator.",
         "tags": [
           "manager"
         ]

@@ -136,8 +136,9 @@
         "user"
       ],
       "commands": [
-        "AssignConsultant",
+        "AddMember",
         "EndTenantSessions",
+        "MemberAdded",
         "UnassignConsultant",
         "createUser",
         "eraseUser",
@@ -150,11 +151,12 @@
         "verifyEmail"
       ],
       "contract": [
-        "AssignConsultant",
-        "Consultants",
+        "AddMember",
         "Directory",
         "EndTenantSessions",
         "Member",
+        "MemberAdded",
+        "Members",
         "Minter",
         "NewDirectory()",
         "NewMinter()",
@@ -200,7 +202,8 @@
         "operator"
       ],
       "commands": [
-        "assignConsultant",
+        "addMember",
+        "createTenant",
         "startImpersonation",
         "suspendTenant",
         "unassignConsultant"
@@ -217,7 +220,8 @@
         "GET /api/manager/tenants/{id} (get_manager_tenant_show)",
         "GET /api/manager/workers (get_manager_worker_status)",
         "POST /api/manager/login (post_manager_login)",
-        "POST /api/manager/tenants/{id}/consultants (post_manager_tenant_consultant)",
+        "POST /api/manager/tenants (post_manager_tenant_create)",
+        "POST /api/manager/tenants/{id}/members (post_manager_tenant_member)",
         "POST /api/manager/tenants/{id}/suspend (post_manager_tenant_suspend)",
         "POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate (post_manager_impersonate)"
       ]

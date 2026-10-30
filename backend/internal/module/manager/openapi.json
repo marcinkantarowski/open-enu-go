@@ -81,6 +81,38 @@
             }
           }
         ]
+      },
+      "post": {
+        "operationId": "post_manager_tenant_create",
+        "summary": "Create a workspace, active at once, with every module's defaults.",
+        "tags": [
+          "manager"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTenant"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/api/manager/tenants/{id}": {
@@ -310,50 +342,6 @@
         }
       }
     },
-    "/api/manager/tenants/{id}/consultants": {
-      "post": {
-        "operationId": "post_manager_tenant_consultant",
-        "summary": "Assign a consultant by address. Needs a super operator; the person must have an account.",
-        "tags": [
-          "manager"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssignConsultantRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConsultantChanged"
-                }
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
     "/api/manager/tenants/{tenantId}/consultants/{userId}": {
       "delete": {
         "operationId": "delete_manager_tenant_consultant",
@@ -386,6 +374,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsultantChanged"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/manager/tenants/{id}/members": {
+      "post": {
+        "operationId": "post_manager_tenant_member",
+        "summary": "Add a person to a workspace, with an account if they have none. Needs a super operator.",
+        "tags": [
+          "manager"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddedMember"
                 }
               }
             }
@@ -839,18 +871,6 @@
           }
         }
       },
-      "AssignConsultantRequest": {
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email"
-          }
-        }
-      },
       "ConsultantChanged": {
         "type": "object",
         "required": [
@@ -859,6 +879,76 @@
         "properties": {
           "tenantId": {
             "type": "string"
+          }
+        }
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "CreatedTenant": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "AddMemberRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "consultant",
+              "member"
+            ]
+          }
+        }
+      },
+      "AddedMember": {
+        "type": "object",
+        "required": [
+          "userId",
+          "setPasswordUrl"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "setPasswordUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "A new account's single-use link. Shown once; nothing keeps it."
           }
         }
       }

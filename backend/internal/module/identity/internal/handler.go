@@ -20,8 +20,8 @@ const (
 	keyTokenInvalid i18n.Key = "identity.error.token_invalid"
 	keyRoleInvalid  i18n.Key = "identity.error.role_invalid"
 
-	keyConsultantUnknown i18n.Key = "identity.error.consultant_unknown"
 	keyConsultantIsOwner i18n.Key = "identity.error.consultant_is_owner"
+	keyAlreadyMember     i18n.Key = "identity.error.already_member"
 )
 
 // handlers are the only code that receives *scope.Tx (writeboundary).
@@ -231,38 +231,64 @@ func (h handlers) endTenantSessions(ctx context.Context, tx *scope.Tx, c EndTena
 	return n, err
 }
 
-// assignConsultant adds the membership, or moves a member of the workspace to
-// the role. The owner stays the owner: nobody checks their own workspace.
-func (h handlers) assignConsultant(ctx context.Context, tx *scope.Tx, c AssignConsultant) (struct{}, error) {
-	u, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(normalizeEmail(c.Email)))
-	if errors.Is(err, errNotFound) {
-		return struct{}{}, httpx.NotFound(keyConsultantUnknown)
+// addMember finds the person or creates them, then adds the membership. A new
+// account has a password nobody knows and a single-use link to set one, which
+// the operator hands over: it works with no mail, and no operator ever knows a
+// password. Only a move to consultant changes an existing membership; the owner
+// stays the owner, because nobody checks their own workspace.
+func (h handlers) addMember(ctx context.Context, tx *scope.Tx, c AddMember) (MemberAdded, error) {
+	if !validRole(c.Role) {
+		return MemberAdded{}, httpx.BadRequest(keyRoleInvalid)
 	}
-	if err != nil {
-		return struct{}{}, err
+	email := normalizeEmail(c.Email)
+	if !validEmail(email) {
+		return MemberAdded{}, httpx.BadRequest(keyEmailInvalid)
 	}
+	var out MemberAdded
+	u, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(email))
+	switch {
+	case errors.Is(err, errNotFound):
+		verifier, err := h.hasher.Hash(newRawToken())
+		if err != nil {
+			return out, err
+		}
+		u = newUser(email, verifier, c.DisplayName, nil, userActive)
+		if err := h.repo.insertUser(ctx, tx, u); err != nil {
+			return out, err
+		}
+		raw, err := h.repo.issueSecurityToken(ctx, tx, purposeResetPassword, &u.ID, &c.TenantID, nil, setPasswordTTL)
+		if err != nil {
+			return out, err
+		}
+		out.SetPasswordURL = h.mail.appURL + "/reset-password?token=" + raw
+	case err != nil:
+		return out, err
+	}
+	out.UserID = u.ID
 	ms, err := h.repo.membershipsOfTx(ctx, tx, u.ID)
 	if err != nil {
-		return struct{}{}, err
+		return out, err
 	}
 	for _, m := range ms {
 		if m.TenantID != c.TenantID {
 			continue
 		}
-		if m.Role == roleOwner {
-			return struct{}{}, httpx.BadRequest(keyConsultantIsOwner)
-		}
-		if m.Role == roleConsultant {
-			return struct{}{}, nil
+		switch {
+		case m.Role == c.Role:
+			return out, nil
+		case c.Role != roleConsultant:
+			return out, httpx.BadRequest(keyAlreadyMember)
+		case m.Role == roleOwner:
+			return out, httpx.BadRequest(keyConsultantIsOwner)
 		}
 		updated := m
 		updated.Role = roleConsultant
 		tx.Update(m, updated)
-		return struct{}{}, h.repo.setMembershipRole(ctx, tx, updated)
+		return out, h.repo.setMembershipRole(ctx, tx, updated)
 	}
-	m := newMembership(u.ID, c.TenantID, roleConsultant)
+	m := newMembership(u.ID, c.TenantID, c.Role)
 	tx.Insert(m)
-	return struct{}{}, h.repo.insertMembership(ctx, tx, m)
+	return out, h.repo.insertMembership(ctx, tx, m)
 }
 
 func (h handlers) unassignConsultant(ctx context.Context, tx *scope.Tx, c UnassignConsultant) (struct{}, error) {

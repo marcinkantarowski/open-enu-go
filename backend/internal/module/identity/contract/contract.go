@@ -66,25 +66,25 @@ func (s Sessions) EndTenant(ctx context.Context, tenantID string) error {
 	return err
 }
 
-// AssignConsultant and UnassignConsultant are the commands behind Consultants
-// (ADR-0028).
+// AddMember and UnassignConsultant are the commands behind Members (ADR-0028);
+// MemberAdded is what adding answers.
 type (
-	AssignConsultant   = internal.AssignConsultant
+	AddMember          = internal.AddMember
+	MemberAdded        = internal.MemberAdded
 	UnassignConsultant = internal.UnassignConsultant
 )
 
-// Consultants is who serves a workspace, as methods. Each dispatch joins the
+// Members is who belongs to a workspace, as methods. Each dispatch joins the
 // caller's transaction when the caller is itself a handler.
-type Consultants struct{ Bus *command.Bus }
+type Members struct{ Bus *command.Bus }
 
-// Assign makes the person with this address a consultant of the workspace.
-func (c Consultants) Assign(ctx context.Context, tenantID, email string) error {
-	_, err := c.Bus.Dispatch(ctx, AssignConsultant{TenantID: tenantID, Email: email})
-	return err
+// Add puts a person in a workspace, with an account if they have none.
+func (m Members) Add(ctx context.Context, c AddMember) (MemberAdded, error) {
+	return command.Dispatch[MemberAdded](ctx, m.Bus, c)
 }
 
-// Unassign removes them from it.
-func (c Consultants) Unassign(ctx context.Context, tenantID, userID string) error {
-	_, err := c.Bus.Dispatch(ctx, UnassignConsultant{TenantID: tenantID, UserID: userID})
+// UnassignConsultant removes a consultant from a workspace.
+func (m Members) UnassignConsultant(ctx context.Context, tenantID, userID string) error {
+	_, err := m.Bus.Dispatch(ctx, UnassignConsultant{TenantID: tenantID, UserID: userID})
 	return err
 }

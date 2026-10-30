@@ -100,14 +100,26 @@ type eraseUser struct{ UserID string }
 func (eraseUser) AuditAction() string      { return "identity.user.erased" }
 func (c eraseUser) AuditSubjectID() string { return c.UserID }
 
-// AssignConsultant - `identity.consultant.assigned`: the person with this
-// address serves this workspace. Exported for contract.Consultants: Manager
-// dispatches it. Their address finds them; no account is created here.
-type AssignConsultant struct{ TenantID, Email string }
+// AddMember - `identity.member.added`: the person with this address joins the
+// workspace, with an account if they have none. Exported for contract.Members:
+// Manager dispatches it. DisplayName is used only for a new account.
+type AddMember struct {
+	TenantID    string
+	Email       string
+	DisplayName *string
+	Role        string
+}
 
-func (AssignConsultant) AuditAction() string      { return "identity.consultant.assigned" }
-func (c AssignConsultant) AuditSubjectID() string { return c.TenantID }
-func (c AssignConsultant) AuditTenantID() string  { return c.TenantID }
+func (AddMember) AuditAction() string      { return "identity.member.added" }
+func (c AddMember) AuditSubjectID() string { return c.TenantID }
+func (c AddMember) AuditTenantID() string  { return c.TenantID }
+
+// MemberAdded is what AddMember answers. SetPasswordURL is set for a new
+// account only: it is single-use, it is shown once, and no copy of it is kept.
+type MemberAdded struct {
+	UserID         string
+	SetPasswordURL string
+}
 
 // UnassignConsultant - `identity.consultant.unassigned`: the membership goes,
 // and the person's refresh tokens into this workspace with it. Access tokens

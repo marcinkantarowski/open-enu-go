@@ -25,4 +25,5 @@ both open a client's data to a person.
 
 ## Consequences
 - A product with no consultants has no one who can pass a `.review`; it declares none.
-- A person needs an account before being assigned.
+- An operator adds a person with no password: a new account gets a single-use link, shown to
+  the operator once, so no operator ever knows a password and no mail is needed.

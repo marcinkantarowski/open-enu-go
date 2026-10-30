@@ -18,10 +18,10 @@ import (
 // the write, and the work happens in another module's command or in the
 // token the controller mints afterwards.
 type handlers struct {
-	tenants     tenantc.Provisioner
-	sessions    identityc.Sessions
-	consultants identityc.Consultants
-	log         *slog.Logger
+	tenants  tenantc.Provisioner
+	sessions identityc.Sessions
+	members  identityc.Members
+	log      *slog.Logger
 }
 
 func (h handlers) suspend(ctx context.Context, _ *scope.Tx, c suspendTenant) (struct{}, error) {
@@ -45,16 +45,24 @@ func (h handlers) startImpersonation(ctx context.Context, _ *scope.Tx, c startIm
 	return struct{}{}, nil
 }
 
-func (h handlers) assignConsultant(ctx context.Context, _ *scope.Tx, c assignConsultant) (struct{}, error) {
-	if !c.Super {
-		return struct{}{}, httpx.Forbidden(keySuperRequired)
+func (h handlers) createTenant(ctx context.Context, _ *scope.Tx, c createTenant) (tenantc.Info, error) {
+	t, err := h.tenants.Create(ctx, tenantc.Create{Name: c.Name, Slug: c.Slug})
+	if err != nil {
+		return tenantc.Info{}, err
 	}
-	return struct{}{}, h.consultants.Assign(ctx, c.TenantID, c.Email)
+	return t, h.tenants.Activate(ctx, t.ID)
+}
+
+func (h handlers) addMember(ctx context.Context, _ *scope.Tx, c addMember) (identityc.MemberAdded, error) {
+	if !c.Super {
+		return identityc.MemberAdded{}, httpx.Forbidden(keySuperRequired)
+	}
+	return h.members.Add(ctx, identityc.AddMember{TenantID: c.TenantID, Email: c.Email, DisplayName: c.DisplayName, Role: c.Role})
 }
 
 func (h handlers) unassignConsultant(ctx context.Context, _ *scope.Tx, c unassignConsultant) (struct{}, error) {
 	if !c.Super {
 		return struct{}{}, httpx.Forbidden(keySuperRequired)
 	}
-	return struct{}{}, h.consultants.Unassign(ctx, c.TenantID, c.UserID)
+	return struct{}{}, h.members.UnassignConsultant(ctx, c.TenantID, c.UserID)
 }

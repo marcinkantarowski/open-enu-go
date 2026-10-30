@@ -29,10 +29,13 @@ const (
 	purposeVerifyEmail   = "verify_email"
 	purposeResetPassword = "reset_password"
 
-	verifyTTL  = 24 * time.Hour
-	resetTTL   = time.Hour
-	refreshTTL = 30 * 24 * time.Hour
-	accessTTL  = 15 * time.Minute
+	verifyTTL = 24 * time.Hour
+	resetTTL  = time.Hour
+	// setPasswordTTL is the link someone added by an operator starts with:
+	// it is handed over by a person, not by a mail read at once.
+	setPasswordTTL = 7 * 24 * time.Hour
+	refreshTTL     = 30 * 24 * time.Hour
+	accessTTL      = 15 * time.Minute
 )
 
 // user is the row decrypted. Email and display name are ciphertext in the

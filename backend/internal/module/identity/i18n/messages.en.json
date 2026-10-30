@@ -20,6 +20,6 @@
   "identity.email.account_exists.subject": "You already have an account",
   "identity.email.account_exists.body": "Someone - perhaps you - tried to create an account with this address. You already have one: sign in with the first link, or choose a new password with the second if you no longer know it.",
   "identity.email.account_exists.ignore": "If it was not you, you can ignore this email - nothing has changed.",
-  "identity.error.consultant_unknown": "No account has that address. Create it first: openenu user create.",
-  "identity.error.consultant_is_owner": "This person owns the workspace; an owner cannot be its consultant."
+  "identity.error.consultant_is_owner": "This person owns the workspace; an owner cannot be its consultant.",
+  "identity.error.already_member": "This person is already a member here; only a move to consultant changes a role."
 }

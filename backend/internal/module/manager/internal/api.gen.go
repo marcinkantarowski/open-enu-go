@@ -21,6 +21,30 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AddMemberRequestRole.
+const (
+	AddMemberRequestRoleAdmin      AddMemberRequestRole = "admin"
+	AddMemberRequestRoleConsultant AddMemberRequestRole = "consultant"
+	AddMemberRequestRoleMember     AddMemberRequestRole = "member"
+	AddMemberRequestRoleOwner      AddMemberRequestRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the AddMemberRequestRole enum.
+func (e AddMemberRequestRole) Valid() bool {
+	switch e {
+	case AddMemberRequestRoleAdmin:
+		return true
+	case AddMemberRequestRoleConsultant:
+		return true
+	case AddMemberRequestRoleMember:
+		return true
+	case AddMemberRequestRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SuspendedStatus.
 const (
 	SuspendedStatusSuspended SuspendedStatus = "suspended"
@@ -36,9 +60,21 @@ func (e SuspendedStatus) Valid() bool {
 	}
 }
 
-// AssignConsultantRequest defines model for AssignConsultantRequest.
-type AssignConsultantRequest struct {
-	Email openapi_types.Email `json:"email"`
+// AddMemberRequest defines model for AddMemberRequest.
+type AddMemberRequest struct {
+	DisplayName *string              `json:"displayName,omitempty"`
+	Email       openapi_types.Email  `json:"email"`
+	Role        AddMemberRequestRole `json:"role"`
+}
+
+// AddMemberRequestRole defines model for AddMemberRequest.Role.
+type AddMemberRequestRole string
+
+// AddedMember defines model for AddedMember.
+type AddedMember struct {
+	// SetPasswordUrl A new account's single-use link. Shown once; nothing keeps it.
+	SetPasswordUrl *string `json:"setPasswordUrl"`
+	UserId         string  `json:"userId"`
 }
 
 // ConflictDetails error.details of a 409: both versions, so the client can offer reload, overwrite or diff.
@@ -72,6 +108,17 @@ type ConsultantClient struct {
 // ConsultantList defines model for ConsultantList.
 type ConsultantList struct {
 	Items []Consultant `json:"items"`
+}
+
+// CreateTenantRequest defines model for CreateTenantRequest.
+type CreateTenantRequest struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// CreatedTenant defines model for CreatedTenant.
+type CreatedTenant struct {
+	Id string `json:"id"`
 }
 
 // Error The one failure shape every endpoint returns. Branch on error.code; error.message is translated and may change.
@@ -229,8 +276,11 @@ type GetManagerTenantIndexParams struct {
 // PostManagerLoginJSONRequestBody defines body for PostManagerLogin for application/json ContentType.
 type PostManagerLoginJSONRequestBody = ManagerLoginRequest
 
-// PostManagerTenantConsultantJSONRequestBody defines body for PostManagerTenantConsultant for application/json ContentType.
-type PostManagerTenantConsultantJSONRequestBody = AssignConsultantRequest
+// PostManagerTenantCreateJSONRequestBody defines body for PostManagerTenantCreate for application/json ContentType.
+type PostManagerTenantCreateJSONRequestBody = CreateTenantRequest
+
+// PostManagerTenantMemberJSONRequestBody defines body for PostManagerTenantMember for application/json ContentType.
+type PostManagerTenantMemberJSONRequestBody = AddMemberRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -249,12 +299,15 @@ type ServerInterface interface {
 	// GetManagerTenantIndex Every workspace on the platform, newest first, with member counts.
 	// (GET /api/manager/tenants)
 	GetManagerTenantIndex(w http.ResponseWriter, r *http.Request, params GetManagerTenantIndexParams)
+	// PostManagerTenantCreate Create a workspace, active at once, with every module's defaults.
+	// (POST /api/manager/tenants)
+	PostManagerTenantCreate(w http.ResponseWriter, r *http.Request)
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(w http.ResponseWriter, r *http.Request, id string)
-	// PostManagerTenantConsultant Assign a consultant by address. Needs a super operator; the person must have an account.
-	// (POST /api/manager/tenants/{id}/consultants)
-	PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request, id string)
+	// PostManagerTenantMember Add a person to a workspace, with an account if they have none. Needs a super operator.
+	// (POST /api/manager/tenants/{id}/members)
+	PostManagerTenantMember(w http.ResponseWriter, r *http.Request, id string)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.
 	// (POST /api/manager/tenants/{id}/suspend)
 	PostManagerTenantSuspend(w http.ResponseWriter, r *http.Request, id string)
@@ -412,6 +465,20 @@ func (siw *ServerInterfaceWrapper) GetManagerTenantIndex(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// PostManagerTenantCreate operation middleware
+func (siw *ServerInterfaceWrapper) PostManagerTenantCreate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostManagerTenantCreate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetManagerTenantShow operation middleware
 func (siw *ServerInterfaceWrapper) GetManagerTenantShow(w http.ResponseWriter, r *http.Request) {
 
@@ -438,8 +505,8 @@ func (siw *ServerInterfaceWrapper) GetManagerTenantShow(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
-// PostManagerTenantConsultant operation middleware
-func (siw *ServerInterfaceWrapper) PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request) {
+// PostManagerTenantMember operation middleware
+func (siw *ServerInterfaceWrapper) PostManagerTenantMember(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -454,7 +521,7 @@ func (siw *ServerInterfaceWrapper) PostManagerTenantConsultant(w http.ResponseWr
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostManagerTenantConsultant(w, r, id)
+		siw.Handler.PostManagerTenantMember(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -699,8 +766,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/login", wrapper.PostManagerLogin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/operators", wrapper.GetManagerOperators)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/tenants", wrapper.GetManagerTenantIndex)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants", wrapper.PostManagerTenantCreate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/tenants/{id}", wrapper.GetManagerTenantShow)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/consultants", wrapper.PostManagerTenantConsultant)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/members", wrapper.PostManagerTenantMember)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/suspend", wrapper.PostManagerTenantSuspend)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/consultants/{userId}", wrapper.DeleteManagerTenantConsultant)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/users/{userId}/impersonate", wrapper.PostManagerImpersonate)
@@ -904,6 +972,45 @@ func (response GetManagerTenantIndexdefaultJSONResponse) VisitGetManagerTenantIn
 	return err
 }
 
+type PostManagerTenantCreateRequestObject struct {
+	Body *PostManagerTenantCreateJSONRequestBody
+}
+
+type PostManagerTenantCreateResponseObject interface {
+	VisitPostManagerTenantCreateResponse(w http.ResponseWriter) error
+}
+
+type PostManagerTenantCreate200JSONResponse CreatedTenant
+
+func (response PostManagerTenantCreate200JSONResponse) VisitPostManagerTenantCreateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostManagerTenantCreatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PostManagerTenantCreatedefaultJSONResponse) VisitPostManagerTenantCreateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetManagerTenantShowRequestObject struct {
 	Id string `json:"id"`
 }
@@ -943,18 +1050,18 @@ func (response GetManagerTenantShowdefaultJSONResponse) VisitGetManagerTenantSho
 	return err
 }
 
-type PostManagerTenantConsultantRequestObject struct {
+type PostManagerTenantMemberRequestObject struct {
 	Id   string `json:"id"`
-	Body *PostManagerTenantConsultantJSONRequestBody
+	Body *PostManagerTenantMemberJSONRequestBody
 }
 
-type PostManagerTenantConsultantResponseObject interface {
-	VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error
+type PostManagerTenantMemberResponseObject interface {
+	VisitPostManagerTenantMemberResponse(w http.ResponseWriter) error
 }
 
-type PostManagerTenantConsultant200JSONResponse ConsultantChanged
+type PostManagerTenantMember200JSONResponse AddedMember
 
-func (response PostManagerTenantConsultant200JSONResponse) VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error {
+func (response PostManagerTenantMember200JSONResponse) VisitPostManagerTenantMemberResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -966,12 +1073,12 @@ func (response PostManagerTenantConsultant200JSONResponse) VisitPostManagerTenan
 	return err
 }
 
-type PostManagerTenantConsultantdefaultJSONResponse struct {
+type PostManagerTenantMemberdefaultJSONResponse struct {
 	Body       Error
 	StatusCode int
 }
 
-func (response PostManagerTenantConsultantdefaultJSONResponse) VisitPostManagerTenantConsultantResponse(w http.ResponseWriter) error {
+func (response PostManagerTenantMemberdefaultJSONResponse) VisitPostManagerTenantMemberResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1157,12 +1264,15 @@ type StrictServerInterface interface {
 	// GetManagerTenantIndex Every workspace on the platform, newest first, with member counts.
 	// (GET /api/manager/tenants)
 	GetManagerTenantIndex(ctx context.Context, request GetManagerTenantIndexRequestObject) (GetManagerTenantIndexResponseObject, error)
+	// PostManagerTenantCreate Create a workspace, active at once, with every module's defaults.
+	// (POST /api/manager/tenants)
+	PostManagerTenantCreate(ctx context.Context, request PostManagerTenantCreateRequestObject) (PostManagerTenantCreateResponseObject, error)
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(ctx context.Context, request GetManagerTenantShowRequestObject) (GetManagerTenantShowResponseObject, error)
-	// PostManagerTenantConsultant Assign a consultant by address. Needs a super operator; the person must have an account.
-	// (POST /api/manager/tenants/{id}/consultants)
-	PostManagerTenantConsultant(ctx context.Context, request PostManagerTenantConsultantRequestObject) (PostManagerTenantConsultantResponseObject, error)
+	// PostManagerTenantMember Add a person to a workspace, with an account if they have none. Needs a super operator.
+	// (POST /api/manager/tenants/{id}/members)
+	PostManagerTenantMember(ctx context.Context, request PostManagerTenantMemberRequestObject) (PostManagerTenantMemberResponseObject, error)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.
 	// (POST /api/manager/tenants/{id}/suspend)
 	PostManagerTenantSuspend(ctx context.Context, request PostManagerTenantSuspendRequestObject) (PostManagerTenantSuspendResponseObject, error)
@@ -1347,6 +1457,37 @@ func (sh *strictHandler) GetManagerTenantIndex(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// PostManagerTenantCreate operation middleware
+func (sh *strictHandler) PostManagerTenantCreate(w http.ResponseWriter, r *http.Request) {
+	var request PostManagerTenantCreateRequestObject
+
+	var body PostManagerTenantCreateJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostManagerTenantCreate(ctx, request.(PostManagerTenantCreateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostManagerTenantCreate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostManagerTenantCreateResponseObject); ok {
+		if err := validResponse.VisitPostManagerTenantCreateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetManagerTenantShow operation middleware
 func (sh *strictHandler) GetManagerTenantShow(w http.ResponseWriter, r *http.Request, id string) {
 	var request GetManagerTenantShowRequestObject
@@ -1373,13 +1514,13 @@ func (sh *strictHandler) GetManagerTenantShow(w http.ResponseWriter, r *http.Req
 	}
 }
 
-// PostManagerTenantConsultant operation middleware
-func (sh *strictHandler) PostManagerTenantConsultant(w http.ResponseWriter, r *http.Request, id string) {
-	var request PostManagerTenantConsultantRequestObject
+// PostManagerTenantMember operation middleware
+func (sh *strictHandler) PostManagerTenantMember(w http.ResponseWriter, r *http.Request, id string) {
+	var request PostManagerTenantMemberRequestObject
 
 	request.Id = id
 
-	var body PostManagerTenantConsultantJSONRequestBody
+	var body PostManagerTenantMemberJSONRequestBody
 	if err := runtime.BindJSONBody(r, &body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -1387,18 +1528,18 @@ func (sh *strictHandler) PostManagerTenantConsultant(w http.ResponseWriter, r *h
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PostManagerTenantConsultant(ctx, request.(PostManagerTenantConsultantRequestObject))
+		return sh.ssi.PostManagerTenantMember(ctx, request.(PostManagerTenantMemberRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PostManagerTenantConsultant")
+		handler = middleware(handler, "PostManagerTenantMember")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PostManagerTenantConsultantResponseObject); ok {
-		if err := validResponse.VisitPostManagerTenantConsultantResponse(w); err != nil {
+	} else if validResponse, ok := response.(PostManagerTenantMemberResponseObject); ok {
+		if err := validResponse.VisitPostManagerTenantMemberResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

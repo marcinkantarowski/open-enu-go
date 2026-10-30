@@ -24,18 +24,27 @@ func (startImpersonation) AuditAction() string      { return "manager.impersonat
 func (c startImpersonation) AuditSubjectID() string { return c.UserID }
 func (c startImpersonation) AuditTenantID() string  { return c.TenantID }
 
-// assignConsultant - `manager.consultant.assigned`: the operator's decision, on
-// the trail against that tenant, before Identity's own command does the work.
-// Super is read as for startImpersonation: this opens a client's data to a person.
-type assignConsultant struct {
-	TenantID string
-	Email    string
-	Super    bool
+// createTenant - `manager.tenant.created`: an operator opens a client's
+// workspace, and Tenant's own commands do the work.
+type createTenant struct{ Name, Slug string }
+
+func (createTenant) AuditAction() string    { return "manager.tenant.created" }
+func (createTenant) AuditSubjectID() string { return "" }
+
+// addMember - `manager.member.added`: the operator's decision, on the trail
+// against that tenant, before Identity's own command does the work. Super is
+// read as for startImpersonation: this opens a client's data to a person.
+type addMember struct {
+	TenantID    string
+	Email       string
+	DisplayName *string
+	Role        string
+	Super       bool
 }
 
-func (assignConsultant) AuditAction() string      { return "manager.consultant.assigned" }
-func (c assignConsultant) AuditSubjectID() string { return c.TenantID }
-func (c assignConsultant) AuditTenantID() string  { return c.TenantID }
+func (addMember) AuditAction() string      { return "manager.member.added" }
+func (c addMember) AuditSubjectID() string { return c.TenantID }
+func (c addMember) AuditTenantID() string  { return c.TenantID }
 
 // unassignConsultant - `manager.consultant.unassigned`.
 type unassignConsultant struct {

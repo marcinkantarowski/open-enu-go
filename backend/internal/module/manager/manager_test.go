@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -374,30 +375,81 @@ func TestOnlyASuperOperatorMayImpersonateAndAPlainOnesAttemptIsOnRecord(t *testi
 	}
 }
 
-// A consultant is assigned by address, moves an existing member, is refused for
+// An operator opens a client's workspace; it is active at once and its slug is
+// its own. A person added to it gets an account and a link only the operator
+// sees, which works once.
+func TestAnOperatorCreatesAClientAndAddsAPersonWithALinkToSetAPassword(t *testing.T) {
+	s := newStack(t)
+	op := s.operator()
+	created := s.do("POST", "/api/manager/tenants", op, map[string]any{"name": "Nowy Klient", "slug": "nowy-klient"})
+	id := created.str("id")
+	if created.code != 200 || id == "" {
+		t.Fatalf("create: %d %s", created.code, created.raw)
+	}
+	if d := s.do("GET", "/api/manager/tenants/"+id, op, nil); d.str("status") != "active" || d.str("slug") != "nowy-klient" {
+		t.Fatalf("not active at once: %s", d.raw)
+	}
+	if again := s.do("POST", "/api/manager/tenants", op, map[string]any{"name": "Drugi", "slug": "nowy-klient"}); again.code != 409 {
+		t.Fatalf("a slug taken twice: %d %s", again.code, again.raw)
+	}
+
+	add := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "Wlasciciel@Example.test", "displayName": "Jan", "role": "owner"})
+	link := add.str("setPasswordUrl")
+	if add.code != 200 || !strings.Contains(link, "/reset-password?token=") {
+		t.Fatalf("add: %d %s", add.code, add.raw)
+	}
+	for _, e := range s.trail() {
+		if strings.Contains(fmt.Sprintf("%+v", e), link[strings.Index(link, "token=")+6:]) {
+			t.Fatal("the link is on the trail")
+		}
+	}
+	token := link[strings.Index(link, "token=")+6:]
+	const chosen = "a-password-they-chose"
+	if r := s.do("POST", "/api/auth/reset-password", "", map[string]any{"token": token, "password": chosen}); r.code >= 300 {
+		t.Fatalf("set password: %d %s", r.code, r.raw)
+	}
+	in := s.do("POST", "/api/auth/login", "", map[string]any{"email": "wlasciciel@example.test", "password": chosen})
+	if in.code != 200 || in.str("tenantId") != id || in.str("role") != "owner" {
+		t.Fatalf("their login: %d %s", in.code, in.raw)
+	}
+	if r := s.do("POST", "/api/auth/reset-password", "", map[string]any{"token": token, "password": "another-password-here"}); r.code < 400 {
+		t.Fatalf("the link worked twice: %d", r.code)
+	}
+
+	// An account that exists gets no link, and a role cannot be changed here.
+	second := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "other@example.test", "role": "member"})
+	if second.code != 200 || second.body["setPasswordUrl"] != nil {
+		t.Fatalf("an existing account: %d %s", second.code, second.raw)
+	}
+	if r := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "other@example.test", "role": "admin"}); r.code != 400 || !strings.Contains(string(r.raw), "identity.error.already_member") {
+		t.Fatalf("a role changed: %d %s", r.code, r.raw)
+	}
+}
+
+// A consultant is added by address, moves an existing member, is refused for
 // the owner, shows in both lists, and on the trail twice; removal ends the
 // membership and the person's way back in.
-func TestAConsultantIsAssignedAndRemovedByASuperOperator(t *testing.T) {
+func TestAConsultantIsAddedAndRemovedByASuperOperator(t *testing.T) {
 	s := newStack(t)
 	op := s.operator()
 	if _, err := identity.CreateUser(s.ctx, s.svc, identity.CreateUserInput{Email: "iod@example.test", Password: password, TenantSlug: "doradca", TenantName: "Doradca", Role: "owner"}); err != nil {
 		t.Fatal(err)
 	}
 	assign := func(tok, tenant, email string) reply {
-		return s.do("POST", "/api/manager/tenants/"+tenant+"/consultants", tok, map[string]any{"email": email})
+		return s.do("POST", "/api/manager/tenants/"+tenant+"/members", tok, map[string]any{"email": email, "role": "consultant"})
 	}
 
-	if r := assign(op, s.a, "nobody@example.test"); r.code != 404 || !strings.Contains(string(r.raw), "identity.error.consultant_unknown") {
-		t.Fatalf("an unknown address: %d %s", r.code, r.raw)
-	}
 	if r := assign(op, s.a, userEmail); r.code != 400 || !strings.Contains(string(r.raw), "identity.error.consultant_is_owner") {
 		t.Fatalf("the owner: %d %s", r.code, r.raw)
 	}
-	if r := assign(op, s.a, "iod@example.test"); r.code != 200 || r.str("tenantId") != s.a {
+	if r := s.do("POST", "/api/manager/tenants/"+s.b+"/members", op, map[string]any{"email": "iod@example.test", "role": "member"}); r.code != 200 {
+		t.Fatalf("a member first: %d %s", r.code, r.raw)
+	}
+	if r := assign(op, s.a, "iod@example.test"); r.code != 200 || r.body["setPasswordUrl"] != nil {
 		t.Fatalf("assign: %d %s", r.code, r.raw)
 	}
 	if r := assign(op, s.b, "iod@example.test"); r.code != 200 {
-		t.Fatalf("a second client: %d %s", r.code, r.raw)
+		t.Fatalf("a member moved to consultant: %d %s", r.code, r.raw)
 	}
 	if r := assign(op, s.a, "iod@example.test"); r.code != 200 {
 		t.Fatalf("assigning twice changes nothing: %d %s", r.code, r.raw)
@@ -420,8 +472,8 @@ func TestAConsultantIsAssignedAndRemovedByASuperOperator(t *testing.T) {
 
 	var byOperator, byIdentity bool
 	for _, e := range s.trail() {
-		byOperator = byOperator || e.Action == "manager.consultant.assigned" && e.Succeeded
-		byIdentity = byIdentity || e.Action == "identity.consultant.assigned" && e.Succeeded
+		byOperator = byOperator || e.Action == "manager.member.added" && e.Succeeded
+		byIdentity = byIdentity || e.Action == "identity.member.added" && e.Succeeded
 	}
 	if !byOperator || !byIdentity {
 		t.Fatalf("the trail: operator %t, identity %t", byOperator, byIdentity)
@@ -464,7 +516,7 @@ func TestOnlyASuperOperatorMayAssignAndATenantTokenSeesNoneOfThis(t *testing.T) 
 	if items, _ := ops.body["items"].([]any); ops.code != 200 || len(items) != 2 || !strings.Contains(string(ops.raw), opEmail) || !strings.Contains(string(ops.raw), "ROLE_PLATFORM_SUPER") {
 		t.Fatalf("operators: %d %s", ops.code, ops.raw)
 	}
-	if r := s.do("POST", "/api/manager/tenants/"+s.a+"/consultants", plain, map[string]any{"email": "other@example.test"}); r.code != 403 {
+	if r := s.do("POST", "/api/manager/tenants/"+s.a+"/members", plain, map[string]any{"email": "other@example.test", "role": "consultant"}); r.code != 403 {
 		t.Fatalf("a plain operator assigned: %d %s", r.code, r.raw)
 	}
 	if r := s.do("DELETE", "/api/manager/tenants/"+s.a+"/consultants/"+s.user, plain, nil); r.code != 403 {
@@ -472,7 +524,7 @@ func TestOnlyASuperOperatorMayAssignAndATenantTokenSeesNoneOfThis(t *testing.T) 
 	}
 	var refused bool
 	for _, e := range s.trail() {
-		refused = refused || e.Action == "manager.consultant.assigned" && !e.Succeeded
+		refused = refused || e.Action == "manager.member.added" && !e.Succeeded
 	}
 	if !refused {
 		t.Fatal("the refused attempt is not on the trail")

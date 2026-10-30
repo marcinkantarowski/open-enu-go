@@ -129,15 +129,27 @@ func (a api) GetManagerConsultants(ctx context.Context, _ GetManagerConsultantsR
 	return GetManagerConsultants200JSONResponse(out), nil
 }
 
-func (a api) PostManagerTenantConsultant(ctx context.Context, req PostManagerTenantConsultantRequestObject) (PostManagerTenantConsultantResponseObject, error) {
+func (a api) PostManagerTenantCreate(ctx context.Context, req PostManagerTenantCreateRequestObject) (PostManagerTenantCreateResponseObject, error) {
+	if _, err := auth.RequireOperator(ctx); err != nil {
+		return nil, err
+	}
+	out, err := a.svc.createTenant(ctx, req.Body.Name, req.Body.Slug)
+	if err != nil {
+		return nil, err
+	}
+	return PostManagerTenantCreate200JSONResponse(out), nil
+}
+
+func (a api) PostManagerTenantMember(ctx context.Context, req PostManagerTenantMemberRequestObject) (PostManagerTenantMemberResponseObject, error) {
 	p, err := auth.RequireOperator(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.svc.assignConsultant(ctx, p.Subject, req.Id, string(req.Body.Email)); err != nil {
+	out, err := a.svc.addMember(ctx, p.Subject, req.Id, *req.Body)
+	if err != nil {
 		return nil, err
 	}
-	return PostManagerTenantConsultant200JSONResponse(ConsultantChanged{TenantId: req.Id}), nil
+	return PostManagerTenantMember200JSONResponse(out), nil
 }
 
 func (a api) DeleteManagerTenantConsultant(ctx context.Context, req DeleteManagerTenantConsultantRequestObject) (DeleteManagerTenantConsultantResponseObject, error) {

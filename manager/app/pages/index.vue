@@ -19,9 +19,36 @@ interface TenantRow {
 }
 
 const api = useApi()
+const toast = useToast()
 const { t } = useI18n()
 
 const page = ref(1)
+
+const client = reactive({ name: '', slug: '' })
+const creating = ref(false)
+
+// The slug follows the name until someone edits it.
+function slugOf(name: string) {
+  return name.toLowerCase().replaceAll('ł', 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function onName() {
+  client.slug = slugOf(client.name)
+}
+
+async function createClient() {
+  creating.value = true
+
+  try {
+    const created = await api.post<{ id: string }>('/api/manager/tenants', { ...client })
+    await navigateTo(`/tenants/${created.id}`)
+  } catch (error) {
+    toast.error((error as Error).message)
+  } finally {
+    creating.value = false
+  }
+}
 
 const { data, pending } = await useAsyncData(
   'manager-tenants',
@@ -47,6 +74,27 @@ const tones: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
       <h1 class="text-lg font-semibold text-fg">{{ t('manager.tenants') }}</h1>
       <p class="text-sm text-fg-muted">{{ t('manager.tenantsHint') }}</p>
     </div>
+
+    <UiCard :title="t('manager.tenantCreate')" :description="t('manager.tenantCreateHint')">
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="createClient">
+        <UiField v-slot="field" :label="t('manager.tenantName')" class="min-w-64 flex-1">
+          <UiInput
+            :id="field.id"
+            v-model="client.name"
+            required
+            data-testid="tenant-name"
+            :described-by="field.describedBy"
+            @input="onName"
+          />
+        </UiField>
+        <UiField v-slot="field" :label="t('manager.slug')" class="min-w-48">
+          <UiInput :id="field.id" v-model="client.slug" required data-testid="tenant-slug" :described-by="field.describedBy" />
+        </UiField>
+        <UiButton type="submit" variant="primary" :loading="creating" data-testid="tenant-create">
+          {{ t('manager.tenantCreateSubmit') }}
+        </UiButton>
+      </form>
+    </UiCard>
 
     <UiCard>
       <UiTable

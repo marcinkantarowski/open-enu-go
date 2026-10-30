@@ -35,22 +35,38 @@ const { data, pending, refresh } = await useAsyncData(
 )
 
 const busy = ref(false)
-const consultantEmail = ref('')
-const assigning = ref(false)
+const person = reactive({ email: '', displayName: '', role: 'owner' })
+const adding = ref(false)
+const link = ref<string | null>(null)
 
-async function assignConsultant() {
-  assigning.value = true
+const roles = computed(() => ['owner', 'admin', 'consultant', 'member']
+  .map(value => ({ value, label: t(`manager.roles.${value}`) })))
+
+async function addPerson() {
+  adding.value = true
+  link.value = null
 
   try {
-    await api.post(`/api/manager/tenants/${id.value}/consultants`, { email: consultantEmail.value })
-    toast.success(t('manager.consultantAssigned'))
-    consultantEmail.value = ''
+    const added = await api.post<{ setPasswordUrl: string | null }>(`/api/manager/tenants/${id.value}/members`, {
+      email: person.email,
+      role: person.role,
+      ...(person.displayName ? { displayName: person.displayName } : {}),
+    })
+
+    link.value = added.setPasswordUrl
+    toast.success(t(added.setPasswordUrl ? 'manager.memberAdded' : 'manager.memberExisted'))
+    Object.assign(person, { email: '', displayName: '' })
     await refresh()
   } catch (error) {
     toast.error((error as Error).message)
   } finally {
-    assigning.value = false
+    adding.value = false
   }
+}
+
+async function copyLink() {
+  await navigator.clipboard.writeText(link.value ?? '')
+  toast.success(t('manager.memberLinkCopied'))
 }
 
 async function removeConsultant(member: Member) {
@@ -165,22 +181,36 @@ async function viewAs(member: Member) {
       </UiTable>
     </UiCard>
 
-    <UiCard :title="t('manager.consultants')" :description="t('manager.consultantAssignHint')">
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="assignConsultant">
-        <UiField v-slot="field" :label="t('manager.consultantEmail')" class="min-w-64 flex-1">
+    <UiCard :title="t('manager.memberAdd')" :description="t('manager.memberAddHint')">
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="addPerson">
+        <UiField v-slot="field" :label="t('auth.email')" class="min-w-64 flex-1">
           <UiInput
             :id="field.id"
-            v-model="consultantEmail"
+            v-model="person.email"
             type="email"
             required
-            data-testid="consultant-email"
+            data-testid="member-email"
             :described-by="field.describedBy"
           />
         </UiField>
-        <UiButton type="submit" variant="primary" :loading="assigning" data-testid="consultant-assign">
-          {{ t('manager.consultantAssign') }}
+        <UiField v-slot="field" :label="t('manager.name')" class="min-w-48 flex-1">
+          <UiInput :id="field.id" v-model="person.displayName" data-testid="member-name" :described-by="field.describedBy" />
+        </UiField>
+        <UiField v-slot="field" :label="t('manager.role')">
+          <UiSelect :id="field.id" v-model="person.role" :options="roles" data-testid="member-role-select" :described-by="field.describedBy" />
+        </UiField>
+        <UiButton type="submit" variant="primary" :loading="adding" data-testid="member-add">
+          {{ t('manager.memberAddSubmit') }}
         </UiButton>
       </form>
+
+      <UiAlert v-if="link" tone="warning" :title="t('manager.memberLink')" class="mt-4" data-testid="member-link">
+        <p>{{ t('manager.memberLinkHint') }}</p>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <code class="break-all text-xs" data-testid="member-link-url">{{ link }}</code>
+          <UiButton size="sm" data-testid="member-link-copy" @click="copyLink">{{ t('manager.memberLinkCopy') }}</UiButton>
+        </div>
+      </UiAlert>
     </UiCard>
 
     <!-- What each module knows about this tenant - its balance, its limits, its
