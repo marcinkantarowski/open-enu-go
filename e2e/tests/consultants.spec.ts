@@ -15,10 +15,11 @@ test('an operator assigns a consultant to a client, sees it in the lists, and re
 
   await signInAsOperator(page, managerUrl, OPERATOR.email, OPERATOR.password)
 
-  await page.goto(`${managerUrl}/operators`)
+  // By the menu: an operator's session is in memory, and a reload ends it.
+  await page.locator('a[href="/operators"]').click()
   await expect(page.getByTestId('operator-email').filter({ hasText: OPERATOR.email })).toHaveCount(1)
 
-  await page.goto(managerUrl)
+  await page.locator('a[href="/"]').first().click()
   await page.getByRole('link', { name: PRIMARY_TENANT.name }).first().click()
   await page.getByTestId('consultant-email').fill(CONSULTANT.email)
   await page.getByTestId('consultant-assign').click()
@@ -30,10 +31,10 @@ test('an operator assigns a consultant to a client, sees it in the lists, and re
   await page.getByTestId('consultant-assign').click()
   await expect(page.getByTestId('toast').last()).toContainText(/owner|właściciel/i)
 
-  await page.goto(`${managerUrl}/consultants`)
+  await page.locator('a[href="/consultants"]').click()
   await expect(page.getByRole('row').filter({ hasText: CONSULTANT.email })).toContainText(PRIMARY_TENANT.name)
 
-  await page.goto(managerUrl)
+  await page.locator('a[href="/"]').first().click()
   await expect(page.getByRole('row').filter({ hasText: PRIMARY_TENANT.name }).getByTestId('tenant-consultants'))
     .not.toHaveText(/^(None|Brak)$/)
 
