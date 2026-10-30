@@ -334,6 +334,8 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     "awk '!d && /tls.certresolver=letsencrypt/ {d=1; next} {print}' '$WORK/docker/compose.prod.yml' > '$WORK/prod.tmp' && mv '$WORK/prod.tmp' '$WORK/docker/compose.prod.yml'"
   prodcase "prod-check catches a backend container built from the dev target" \
     "awk '!d && /target: prod/ {sub(/target: prod/, \"target: dev\"); d=1} {print}' '$WORK/docker/compose.prod.yml' > '$WORK/prod.tmp' && mv '$WORK/prod.tmp' '$WORK/docker/compose.prod.yml'"
+  prodcase "prod-check catches MANAGER_LOGIN_BURST in production" \
+    "sed_inplace_copy 's|^  REDIS_ADDR: redis:6379|  REDIS_ADDR: redis:6379\n  MANAGER_LOGIN_BURST: \"1000\"|' '$WORK/docker/compose.prod.yml'"
   prodcase "prod-check catches WEBHOOK_ALLOW_PRIVATE in production" \
     "sed_inplace_copy 's|^  REDIS_ADDR: redis:6379|  REDIS_ADDR: redis:6379\n  WEBHOOK_ALLOW_PRIVATE: \"true\"|' '$WORK/docker/compose.prod.yml'"
   prodcase "prod-check catches Mercure publishing and subscribing with one key" \

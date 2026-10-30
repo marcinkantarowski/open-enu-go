@@ -162,6 +162,15 @@ else
   log_ok "webhooks may not reach a private address"
 fi
 
+# make e2e raises the operator's login limit; a server never does.
+if grep -qE '^\s+MANAGER_LOGIN_BURST:' <<<"$CONFIG"; then
+  bad "MANAGER_LOGIN_BURST is set in the production stack" \
+      "it lets anyone guess an operator's password faster, and that account reaches every tenant" \
+      "it belongs to make e2e only"
+else
+  log_ok "the operator's login keeps its limit"
+fi
+
 # ── 7. Mercure's two keys are two keys ──────────────────────────────────────
 # Compared rendered, so two variables holding one value are caught too: the
 # subscriber key signs a cookie every browser holds, and must not publish.

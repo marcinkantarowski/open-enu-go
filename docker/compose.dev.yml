@@ -172,6 +172,8 @@ services:
     environment:
       <<: *backend_env
       API_ADDR: ":8080"
+      # Set by make e2e for as long as the tests run; empty is the real limit.
+      MANAGER_LOGIN_BURST: ${MANAGER_LOGIN_BURST:-}
     env_file: [./docker/api/project.env]
     volumes: *backend_volumes
     networks: [net]

@@ -26,8 +26,10 @@ E2E_DB="${DEV_DB}_e2e"
 
 psql_dev() { "${COMPOSE[@]}" exec -T postgres psql -U "$DB_USER" -v ON_ERROR_STOP=1 -q "$@"; }
 # Up on one database or the other; --no-deps, or Postgres would be recreated
-# for the name it was made with.
-point_at() { DB_NAME="$1" "${COMPOSE[@]}" up -d --no-deps --wait api worker scheduler >/dev/null 2>&1; }
+# for the name it was made with. A second argument raises the operator's login
+# limit: the suite signs in from one address, and waiting it out costs a minute
+# a login. Back on the development database it is empty, so the limit is real.
+point_at() { DB_NAME="$1" MANAGER_LOGIN_BURST="${2:-}" "${COMPOSE[@]}" up -d --no-deps --wait api worker scheduler >/dev/null 2>&1; }
 flush() {
   "${COMPOSE[@]}" exec -T redis redis-cli -a "$(env_value REDIS_PASSWORD)" --no-auth-warning FLUSHALL >/dev/null \
     || log_warn "could not flush the cache"
@@ -54,7 +56,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 log_step "Pointing the API, the worker and the scheduler at $E2E_DB"
-point_at "$E2E_DB" || die "they did not come up on $E2E_DB"
+point_at "$E2E_DB" 1000 || die "they did not come up on $E2E_DB"
 flush
 log_ok "ready"
 

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/open-enu/kernel/command"
@@ -23,6 +25,16 @@ const (
 	LoginBurst         = 5
 )
 
+// loginBurst is LoginBurst, unless MANAGER_LOGIN_BURST raises it for `make e2e`,
+// which signs in from one address more often than any person. Never in
+// production: make prod-check refuses it.
+func loginBurst() int {
+	if n, err := strconv.Atoi(os.Getenv("MANAGER_LOGIN_BURST")); err == nil && n > 0 {
+		return n
+	}
+	return LoginBurst
+}
+
 // Mount wires the handlers and the routes.
 func Mount(mux *http.ServeMux, svc *platform.Services) {
 	repo := newRepository(svc)
@@ -40,7 +52,7 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	inner := http.NewServeMux()
 	strict := NewStrictHandlerWithOptions(a, nil, StrictHTTPServerOptions{RequestErrorHandlerFunc: badRequest, ResponseErrorHandlerFunc: httpx.WriteError})
 	HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: inner, ErrorHandlerFunc: badRequest})
-	mux.Handle("/api/manager/login", httpx.RateLimit(LoginRatePerMinute, LoginBurst)(inner))
+	mux.Handle("/api/manager/login", httpx.RateLimit(LoginRatePerMinute, loginBurst())(inner))
 	mux.Handle("/api/manager/", inner)
 }
 

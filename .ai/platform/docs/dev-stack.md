@@ -58,6 +58,7 @@ keeps: [`env-vars.md`](env-vars.md).
 | `MERCURE_URL`, `MERCURE_PUBLISHER_JWT_SECRET` | compose, `.env` | `realtime.Hub` (publishing); the hub's `MERCURE_PUBLISHER_JWT_KEY` |
 | `MERCURE_JWT_SECRET` | `MERCURE_SUBSCRIBER_JWT_SECRET` in `.env` | `realtime.Tokens` (the subscriber cookie); the hub's `MERCURE_SUBSCRIBER_JWT_KEY`. A separate key, so the one every browser's cookie is signed with cannot publish |
 | `WEBHOOK_ALLOW_PRIVATE` | `"true"` in `compose.dev.yml` only | the Webhook module: lets a delivery reach a private address, which is where `webhook-echo` lives. Never in production - `make prod-check` refuses it |
+| `MANAGER_LOGIN_BURST` | set by `make e2e` only, for as long as it runs | Manager: raises the five attempts at the operator's login, because the suite signs in from one address. `make prod-check` refuses it |
 | `HEARTBEAT_FILE` | `/tmp/openenu-heartbeat` in `compose.prod.yml` | `openenu worker/scheduler` touch it; their healthcheck is `openenu health -heartbeat` |
 | `API_URL`, `APP_URL`, `MANAGER_URL`, `SITE_URL` | `https://…${DOMAIN}` | signed URLs; the CORS allowlist (exact origins) |
 | `STORAGE_ROOT` | the `storage` volume | `storage.Local` |
