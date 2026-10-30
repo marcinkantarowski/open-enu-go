@@ -35,6 +35,8 @@ export function useNavigation() {
       // Hidden, not disabled: an entry someone cannot use is noise, and the
       // server refuses the request regardless of what renders here.
       .filter(item => !item.permission || auth.can(item.permission))
+      .filter(item => !item.minWorkspaces
+        || auth.memberships.filter(m => m.status === 'active').length >= item.minWorkspaces)
       // The reference module is the platform showing itself off. A product
       // keeps the module - tests stand on it - and stops advertising it.
       .filter(item => !item.demo || cfg.demoContent)

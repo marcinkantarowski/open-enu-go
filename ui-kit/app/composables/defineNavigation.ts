@@ -12,6 +12,8 @@ export interface NavigationItem {
   icon?: string
   /** Hidden unless the session grants it. The server still enforces it. */
   permission?: string
+  /** Hidden until the session has this many active workspaces: a view across them. */
+  minWorkspaces?: number
   order?: number
   /**
    * Part of the platform's own demonstration, not of a product: shown only

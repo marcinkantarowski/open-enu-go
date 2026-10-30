@@ -91,8 +91,9 @@ need. A test mounts with `platform.InMemory(nil)`.
 
 Permissions are global and prefixed with the owner. `<name>.view` - and `<name>.use`, for a
 module's everyday work - is what every member holds; anything else needs a role somebody
-granted (owner and admin; the rule is `identity/internal/permissions.go`). The registry
-refuses a permission without the prefix and a string declared twice.
+granted (owner and admin; the rule is `identity/internal/permissions.go`). `<name>.review` is
+a check by someone other than the workspace's owner: an admin holds it, the owner does not.
+The registry refuses a permission without the prefix and a string declared twice.
 
 ### Visibility is the module boundary
 
