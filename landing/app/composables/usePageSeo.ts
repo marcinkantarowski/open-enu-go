@@ -49,7 +49,7 @@ export function usePageSeo(page: Ref<Page | null | undefined>) {
     link: () => [
       { rel: 'canonical' as const, href: canonical.value },
       ...locales.value.map(l => ({ rel: 'alternate' as const, hreflang: language(l.code), href: absolute(switchLocalePath(l.code)) })),
-      { rel: 'alternate' as const, hreflang: 'x-default', href: absolute(switchLocalePath(cfg.defaultLocale as 'en' | 'pl')) },
+      { rel: 'alternate' as const, hreflang: 'x-default', href: absolute(switchLocalePath(cfg.defaultLocale as typeof locale.value)) },
     ],
     script: () => [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd()) }],
   })
