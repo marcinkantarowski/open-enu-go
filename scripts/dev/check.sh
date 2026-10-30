@@ -85,8 +85,8 @@ if [ "$fails" -gt 0 ]; then
 fi
 
 if [ "$elapsed" -gt 60 ]; then
-  log_warn "passed, but took ${elapsed}s - over the 60s budget"
   log_info "a slow inner loop stops being run; treat this as a bug in the harness"
+  log_warn "all checks passed, but took ${elapsed}s - over the 60s budget"
 else
   log_ok "all checks passed in ${elapsed}s"
 fi
