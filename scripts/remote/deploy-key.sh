@@ -65,7 +65,8 @@ if [ -z "$EXPECTED" ]; then
     "check this machine's network, then re-run"
 fi
 
-SCANNED="$(REMOTE "ssh-keyscan -t ed25519 github.com 2>/dev/null" | head -1)"
+# OpenSSH 10 prints a `# host:port banner` comment on stdout before the key.
+SCANNED="$(REMOTE "ssh-keyscan -t ed25519 github.com 2>/dev/null" | grep -v '^#' | head -1)"
 [ -n "$SCANNED" ] || die "the server could not reach github.com on port 22" \
   "check its egress firewall - the clone will fail for the same reason"
 
