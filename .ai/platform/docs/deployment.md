@@ -129,6 +129,9 @@ make deployprod HOST=deploy@203.0.113.42 DOMAIN=example.com REF=v1.4.0
 
 Runs `make ci` locally first and refuses if it is red, then releases that ref with the same
 `scripts/remote/release.sh` promote uses. `SKIP_CI=1` exists and is a footgun.
+The gate is not run twice: if `make ci` passed in the last 15 minutes (`CI_FRESH_SECONDS`) on
+exactly the content REF holds on origin, the deploy says so and goes on. Anything else, a
+single changed file included, and it runs (`scripts/lib/ci-stamp.sh`).
 
 **Not zero-downtime.** `docker compose up -d` recreates changed containers and a
 single-replica service is unavailable for the seconds that takes. Two replicas behind

@@ -597,6 +597,39 @@ cp "$BK/env.held" "$WORK/.env"; rm -rf "$WORK/backups" "$BK"
 assert_eq "01-init.sh and restore.sh both apply grant-app.psql" "1 1" \
   "$(grep -c 'grant-app.psql' "$WORK/docker/postgres/init/01-init.sh" | awk '{print ($1 > 0)}') $(grep -c 'docker/postgres/init/grant-app.psql' "$WORK/scripts/remote/restore.sh" | awk '{print ($1 > 0)}')"
 
+# The gate is only worth its green if a red stage stops it, and a deploy may
+# trust that green only for the exact content it was given.
+log_step "make ci stops at a red stage, and a deploy skips it only for what it proved"
+CI_REPO="$WORK/ci-repo"; FAKE_MAKE="$WORK/fake-make"
+CI_STAGES_RUN="$WORK/ci-stages"; export CI_STAGES_RUN
+cat > "$FAKE_MAKE" <<'FAKE'
+#!/usr/bin/env bash
+echo "${@: -1}" >> "$CI_STAGES_RUN"
+[ "${@: -1}" != "${CI_RED:-}" ]
+FAKE
+chmod +x "$FAKE_MAKE"
+mkdir -p "$CI_REPO/scripts"; cp -r "$WORK/scripts/dev" "$WORK/scripts/lib" "$CI_REPO/scripts/"
+ci_git() { git -C "$CI_REPO" -c user.name=selftest -c user.email=selftest@example.test "$@"; }
+ci_git init --quiet; ci_git add -A; ci_git commit --quiet -m one
+ci_run() { MAKE="$FAKE_MAKE" "$CI_REPO/scripts/dev/ci.sh" >/dev/null 2>&1; }
+ci_fresh() { ( . "$WORK/scripts/lib/ci-stamp.sh"; ci_stamp_fresh "$CI_REPO" "$(git -C "$CI_REPO" rev-parse "$1^{tree}")" ) && echo yes || echo no; }
+
+: > "$CI_STAGES_RUN"; CI_RED=test ci_run
+assert_eq "a red stage fails the gate" "1" "$?"
+assert_eq "nothing runs after it" "test" "$(tail -n 1 "$CI_STAGES_RUN")"
+assert_eq "a red gate leaves no record" "no" "$(ci_fresh HEAD)"
+: > "$CI_STAGES_RUN"; ci_run
+assert_eq "all green: every stage ran, e2e last" "0 e2e 8" \
+  "$? $(tail -n 1 "$CI_STAGES_RUN") $(wc -l < "$CI_STAGES_RUN" | tr -d ' ')"
+assert_eq "a green gate is recorded for its content" "yes" "$(ci_fresh HEAD)"
+assert_eq "the window closes" "no" "$(CI_FRESH_SECONDS=0 ci_fresh HEAD)"
+echo two > "$CI_REPO/changed"; ci_run
+ci_git add -A; assert_eq "green on uncommitted work holds once it is committed" "yes" \
+  "$(ci_git commit --quiet -m two; ci_fresh HEAD)"
+assert_eq "and not for the commit before it" "no" "$(ci_fresh HEAD~1)"
+CI_RED=e2e ci_run
+assert_eq "a later red gate withdraws the green" "no" "$(ci_fresh HEAD)"
+
 echo
 if [ "$FAIL" -eq 0 ]; then log_ok "selftest: $PASS passed"; exit 0; fi
 log_fail "selftest: $FAIL failed, $PASS passed"; exit 1

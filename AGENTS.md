@@ -198,7 +198,7 @@ A capability that does not exist is not to be improvised. Say so instead.
 
 ```bash
 make check       # THE INNER LOOP - gofmt, vet, test -short, analyzers, generated-file freshness, docs, translations, budgets, typography, versions. ~15 s warm, no Docker
-make ci          # check-tools + arch + selftest + test + typecheck + smoke + e2e - needs Docker and the stack up
+make ci          # eight stages with their times, stops at the first red one: check-tools, arch, selftest, test, route-coverage, typecheck, smoke, e2e - needs Docker and the stack up
 make test-security  # the isolation and credential suite (backend/internal/security) - needs Docker
 make test        # every Go test; starts one Postgres and one Redis through testcontainers
 make arch        # every guardrail, dead code included; route coverage runs in `make ci`

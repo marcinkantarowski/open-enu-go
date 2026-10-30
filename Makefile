@@ -317,7 +317,8 @@ check: ## THE INNER LOOP - run after every edit (budget: 60s, no Docker)
 	@$(DEV)/check.sh
 
 .PHONY: ci
-ci: check-tools arch selftest test route-coverage typecheck smoke e2e ## The full gate; what CI runs - needs Docker and the dev stack up
+ci: ## The full gate, stage by stage; what CI runs - needs Docker and the dev stack up
+	@MAKE="$(MAKE)" $(DEV)/ci.sh
 
 .PHONY: test-security
 test-security: ## The suite that proves isolation and credential handling (needs Docker)
