@@ -70,9 +70,9 @@ test('an operator opens a client and a new person sets their own password from t
 
   const person = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage()
   await person.goto(link ?? '')
-  await person.getByLabel(/^(New password|Nowe hasło|Password|Hasło)/).first().fill(chosen)
-  await person.getByRole('button').first().click()
-  await person.goto(new URL('/login', link ?? '').href)
+  await person.locator('input[type="password"]').fill(chosen)
+  await person.locator('button[type="submit"]').click()
+  await expect(person).toHaveURL(/\/login/)
   await person.getByTestId('login-email').fill(email)
   await person.getByTestId('login-password').fill(chosen)
   await person.getByTestId('login-submit').click()
