@@ -80,7 +80,7 @@ for pair in "$LATEST:dump" "$STORAGE_LATEST:storage"; do
   name="${pair%%:*}"; file="$WORK/${pair##*:}"
   [[ "$name" == *.age ]] || continue
   [ -n "${BACKUP_AGE_KEY_FILE:-}" ] || die "this backup is encrypted and no private key was given" \
-    "BACKUP_AGE_KEY_FILE=~/.config/age/${SLUG}.txt make backup-verify HOST=$HOST" \
+    "make backup-verify HOST=$HOST BACKUP_AGE_KEY_FILE=\$HOME/.config/age/${SLUG}.txt   # an argument: the Makefile loads .env, and an empty value there beats the environment" \
     "the private half is deliberately NOT on the server - that is the point of it"
   age --decrypt -i "$BACKUP_AGE_KEY_FILE" -o "$file.plain" "$file" \
     || die "decrypting $name failed - wrong key?"
