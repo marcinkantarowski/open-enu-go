@@ -70,7 +70,7 @@ async function viewAs(member: Member) {
       `/api/manager/tenants/${id.value}/users/${member.id}/impersonate`,
     )
 
-    const handoff = encodeURIComponent(btoa(JSON.stringify(session)))
+    const handoff = encodeURIComponent(JSON.stringify(session))
     window.open(`${String(cfg.appUrl)}/impersonate#${handoff}`, '_blank', 'noopener')
   } catch (error) {
     toast.error((error as Error).message)

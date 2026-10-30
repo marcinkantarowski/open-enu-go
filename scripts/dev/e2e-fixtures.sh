@@ -21,7 +21,7 @@ openenu() { "${COMPOSE[@]}" exec -T api go run ./cmd/openenu "$@"; }
 
 log_step "e2e fixtures"
 openenu user create --email "$OWNER_EMAIL" --password "$OWNER_PASSWORD" --name "E2E Owner" \
-  --tenant "E2E Primary" --slug e2e-primary --role owner --seed
+  --tenant "E2E Główny" --slug e2e-primary --role owner --seed
 openenu user create --email "$OWNER_EMAIL" --password "$OWNER_PASSWORD" --name "E2E Owner" \
   --tenant "E2E Second" --slug e2e-second --role owner --seed
 log_ok "owner $OWNER_EMAIL is a member of e2e-primary and e2e-second, both seeded"

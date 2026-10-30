@@ -23,7 +23,7 @@ onMounted(async () => {
   const raw = window.location.hash.replace(/^#/, '')
 
   try {
-    const session = JSON.parse(atob(decodeURIComponent(raw))) as Session
+    const session = JSON.parse(decodeURIComponent(raw)) as Session
 
     if (!session.token) throw new Error('No token in the handoff.')
 

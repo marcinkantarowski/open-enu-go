@@ -15,7 +15,8 @@ export const OWNER = {
   displayName: 'E2E Owner',
 }
 
-export const PRIMARY_TENANT = { name: 'E2E Primary', slug: 'e2e-primary' }
+// Not plain ASCII on purpose: a name like this has to survive every handoff.
+export const PRIMARY_TENANT = { name: 'E2E Główny', slug: 'e2e-primary' }
 export const SECOND_TENANT = { name: 'E2E Second', slug: 'e2e-second' }
 
 export const OPERATOR = {
