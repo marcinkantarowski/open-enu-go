@@ -183,7 +183,8 @@ cmd_up() {
   # edge from before the socket proxy would keep the raw Docker socket - or,
   # merely restarted, come back on a network without the proxy and see nothing.
   local want_image have_image want_hash have_hash
-  want_image="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --images traefik 2>/dev/null | head -1)"
+  # --images lists the service's dependencies too, in no fixed order.
+  want_image="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --images traefik 2>/dev/null | grep -m1 traefik)"
   have_image="$(docker inspect -f '{{.Config.Image}}' "$EDGE" 2>/dev/null)"
   want_hash="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --hash traefik 2>/dev/null | awk '{print $2}')"
   have_hash="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$EDGE" 2>/dev/null)"
