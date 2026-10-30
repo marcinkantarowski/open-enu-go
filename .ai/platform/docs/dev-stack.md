@@ -109,10 +109,12 @@ the retries: no session, or no workspace, is not fixed by asking again.
 
 ## Browser tests
 
-`make e2e` runs Playwright in the `e2e` profile against this stack; `SPEC=tests/x.spec.ts`
-narrows it. `make e2e-fixtures` (run by `make e2e`) creates the accounts the suite signs in
-as through `openenu user create` and the operator through `openenu manager create`,
-idempotently. The specs are in `e2e/tests/`; `make e2e` is part of `make ci`
+`make e2e` runs Playwright in the `e2e` profile against this stack, on a database of its own
+(`scripts/dev/e2e.sh`): `${DB_NAME}_e2e` is made from nothing, the API, the worker and the
+scheduler point at it for the run, and they return to the dev database on every way out;
+`make up` also puts them back. `SPEC=tests/x.spec.ts` narrows it. `scripts/dev/e2e-fixtures.sh`
+creates the accounts the suite signs in as through `openenu user create` and the operator
+through `openenu manager create`. The specs are in `e2e/tests/`; `make e2e` is part of `make ci`
 ([`testing.md`](testing.md)).
 
 ## When something is wrong

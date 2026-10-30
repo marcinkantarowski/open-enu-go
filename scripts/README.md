@@ -12,8 +12,9 @@ executed.
   `check-prod-compose.sh`, `check-ports.sh`, `check-route-coverage.sh` (reads the trace
   `make test` wrote), `check-dead-code.sh` (unused TypeScript and unreachable application Go
   are blocking; unreached kernel exports advisory), `deps.sh`, `certs.sh`, `hosts.sh`,
-  `edge.sh`, `urls.sh`, `wait.sh`, `smoke.sh`, `typecheck.sh`, `e2e-fixtures.sh` (the
-  accounts the browser tests log in as, through `openenu user create` and `manager create`).
+  `edge.sh`, `urls.sh`, `wait.sh`, `smoke.sh`, `typecheck.sh`, `e2e.sh` (the browser
+  tests on their own database), `e2e-fixtures.sh` (the accounts they log in as, through
+  `openenu user create` and `manager create`), `db-reset.sh`.
 - `remote/` - `preflight.sh` (read-only), `dns-check.sh`, `dns-emit.sh`, `deploy-key.sh`,
   `provision.sh`, `install-units.sh`, `release.sh` (ships the one static binary's image),
   `deploy.sh`, `promote.sh`, `stack.sh`, `urls.sh`, `backup.sh`, `backup-verify.sh`,

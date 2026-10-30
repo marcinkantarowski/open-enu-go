@@ -303,7 +303,8 @@ anything runs on it: the script refuses anything but `APP_STAGE=local` and a Mai
 `MAILER_DSN`, keeps the worker and the scheduler stopped while it empties the River queue
 and switches every webhook endpoint off, and re-encrypts the encrypted values with the dev
 key - the production master key never leaves the server. Uploaded files are not copied.
-Back to an empty database with the e2e accounts: `make db-reset`.
+The browser tests never touch the copy: they run on their own database. Back to an empty
+database: `make db-reset`.
 
 **What `restore` does, in order:** a `pre-restore` backup of the current state; stop `api`,
 `worker` and `scheduler` (the only writers; postgres stays up); drop and create the

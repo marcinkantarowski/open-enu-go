@@ -300,17 +300,13 @@ typecheck: ## Type-check all three Nuxt apps against ui-kit/types/api.d.ts
 	@$(DEV)/typecheck.sh
 
 .PHONY: db-reset
-db-reset: ## Empty the dev database, migrate it and create the e2e accounts (the way back from copyproddata)
+db-reset: ## Empty the dev database and migrate it (the way back from copyproddata)
 	@$(DEV)/db-reset.sh
 
-.PHONY: e2e-fixtures
-e2e-fixtures: ## Create the accounts the browser tests log in as (idempotent; needs the stack up)
-	@$(DEV)/e2e-fixtures.sh
-
 .PHONY: e2e
-e2e: e2e-fixtures ## Browser tests against the running dev stack (SPEC=tests/x.spec.ts)
+e2e: ## Browser tests on their own fresh database, ${DB_NAME}_e2e; the stack goes back afterwards (SPEC=tests/x.spec.ts)
 	@test -n "$(PLAYWRIGHT_VERSION)" || { echo "  no exact @playwright/test version in e2e/package.json" >&2; exit 1; }
-	@PLAYWRIGHT_VERSION=$(PLAYWRIGHT_VERSION) $(COMPOSE) --profile e2e run --rm e2e npx playwright test $(if $(SPEC),$(SPEC),)
+	@PLAYWRIGHT_VERSION=$(PLAYWRIGHT_VERSION) $(DEV)/e2e.sh $(SPEC)
 
 # ═════════════════════════════════════════════════════════════════════════════
 ##@ Quality

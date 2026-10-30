@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  make db-reset - an empty development database, with the e2e accounts.
+#  make db-reset - an empty development database.
 # =============================================================================
 #  The way back from make copyproddata. Refuses anything but a local stack.
 # =============================================================================
@@ -28,4 +28,3 @@ psql_dev -d "$DB_NAME" -v app_role="${DB_USER}_app" < "$ROOT/docker/postgres/ini
   || log_warn "could not flush the cache"
 "${COMPOSE[@]}" up -d worker scheduler >/dev/null 2>&1 || die "could not start the worker and the scheduler"
 log_ok "$DB_NAME is empty and migrated"
-bash "$HERE/e2e-fixtures.sh"

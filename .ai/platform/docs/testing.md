@@ -78,7 +78,10 @@ chooses, whatever the browser prefers, then the choice across a reload (`locale`
 
 One worker, no retries: the tests share one database and one seeded workspace, and a retry
 would turn "the SSE connection never arrived" into "passed on the second try". `make e2e`
-creates the accounts first (`make e2e-fixtures`); `SPEC=tests/x.spec.ts` narrows it
+runs on its own database, `${DB_NAME}_e2e`, made from nothing each time: the API, the worker
+and the scheduler point at it for the run and return to the dev database on every way out,
+so a copy of production survives `make ci`. It creates the accounts first;
+`SPEC=tests/x.spec.ts` narrows it
 ([`dev-stack.md`](dev-stack.md) → *Browser tests*).
 
 ## Timings to expect

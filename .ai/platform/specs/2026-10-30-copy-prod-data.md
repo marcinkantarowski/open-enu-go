@@ -12,7 +12,7 @@ and edge cases look like, without touching production.
 `make copyproddata` (`scripts/remote/copyproddata.sh`) replaces the dev database with
 production's. Production is only read: `scripts/remote/prod-data.sh dump|encrypted` writes
 to stdout over SSH and leaves no file on the server. `make db-reset` goes back to an empty
-database with the e2e accounts.
+database.
 
 ## Decisions
 
@@ -45,3 +45,4 @@ skipped, a value that does not open refused.
 ## Changelog
 
 - 2026-10-30 - first version.
+- 2026-10-30 - `make e2e` moved to its own database, so a copy survives `make ci` and a deploy.
