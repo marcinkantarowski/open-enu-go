@@ -45,6 +45,7 @@ const nav = computed(() => [
         </NuxtLink>
 
         <select
+          v-if="locales.length > 1"
           :value="locale"
           class="rounded-md border border-border bg-surface py-1 pl-2 pr-6 text-sm text-fg-muted"
           :aria-label="t('site.nav.language')"

@@ -27,6 +27,7 @@ Translatable *entity fields* - a tenant's own content in several languages - are
 of the foundation; that is a product feature.
 
 ## Consequences
+- Both ship; a project may offer one (`LOCALES`, [`i18n.md`](../docs/i18n.md)).
 - Two locale files per module, scaffolded by `make module`.
 - A third language is files, not a project.
 - Some friction on every string. That is the mechanism working

@@ -43,9 +43,9 @@ export default defineNuxtConfig({
     detectBrowserLanguage: false,
     // No `langDir` - see .ai/platform/docs/i18n.md.
     locales: [
-      { code: 'en', language: 'en-GB', files: ['en.ts'] },
-      { code: 'pl', language: 'pl-PL', files: ['pl.ts'] },
-    ],
+      { code: 'en' as const, language: 'en-GB', files: ['en.ts'] },
+      { code: 'pl' as const, language: 'pl-PL', files: ['pl.ts'] },
+    ].filter(l => (process.env.NUXT_PUBLIC_LOCALES || 'en,pl').split(',').includes(l.code)),
   },
 
   runtimeConfig: {

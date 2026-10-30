@@ -45,7 +45,8 @@ func (c *Catalogue) Enabled() []string { return append([]string(nil), c.enabled.
 
 // Load reads messages.<locale>.json for every enabled locale from fsys
 // (nil is "no catalogue"), after checking that every locale has the same
-// keys. A key already loaded from
+// keys. A catalogue for a locale that is not enabled is a language this
+// deployment does not offer, and is left out. A key already loaded from
 // another origin is an error: two modules translating the same key is a
 // namespace violation, not a merge.
 func (c *Catalogue) Load(origin string, fsys fs.FS) error {
@@ -58,7 +59,7 @@ func (c *Catalogue) Load(origin string, fsys fs.FS) error {
 	}
 	for locale, msgs := range files {
 		if _, enabled := c.msgs[locale]; !enabled {
-			return fmt.Errorf("%s: messages.%s.json is for a locale that is not enabled (%v)", origin, locale, c.enabled)
+			continue
 		}
 		for k, v := range msgs {
 			if other, dup := c.owner[k]; dup && other != origin {

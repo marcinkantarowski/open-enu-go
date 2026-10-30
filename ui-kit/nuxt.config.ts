@@ -54,13 +54,20 @@ export default defineNuxtConfig({
     // by default, and every layer here follows that. Overriding it is how the
     // path ends up doubled - the module already joins its own `i18n/` prefix.
     locales: [
-      { code: 'en', language: 'en-GB', files: ['en.ts'] },
-      { code: 'pl', language: 'pl-PL', files: ['pl.ts'] },
-    ],
+      { code: 'en' as const, language: 'en-GB', files: ['en.ts'] },
+      { code: 'pl' as const, language: 'pl-PL', files: ['pl.ts'] },
+    ].filter(l => (process.env.NUXT_PUBLIC_LOCALES || 'en,pl').split(',').includes(l.code)),
     // Never the browser's language: until someone chooses, the apps speak
     // DEFAULT_LOCALE. The module cannot remember a choice without also
     // guessing one, so the choice is kept by app/plugins/locale.client.ts.
     detectBrowserLanguage: false,
+  },
+
+  runtimeConfig: {
+    public: {
+      // The languages offered; with one, nobody is offered a choice (LOCALES).
+      locales: process.env.NUXT_PUBLIC_LOCALES || 'en,pl',
+    },
   },
 
   vite: {

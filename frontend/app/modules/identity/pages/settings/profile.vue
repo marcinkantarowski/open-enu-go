@@ -19,10 +19,11 @@ const form = reactive({
 
 const busy = ref(false)
 
+const offered = String(useRuntimeConfig().public.locales).split(',')
 const languages = [
   { value: 'en', label: 'English' },
   { value: 'pl', label: 'Polski' },
-]
+].filter(language => offered.includes(language.value))
 
 async function save() {
   busy.value = true
@@ -69,7 +70,7 @@ async function save() {
           />
         </UiField>
 
-        <UiField v-slot="field" :label="t('identity.language')">
+        <UiField v-if="languages.length > 1" v-slot="field" :label="t('identity.language')">
           <UiSelect :id="field.id" v-model="form.locale" :options="languages" data-testid="profile-locale" :described-by="field.describedBy" />
         </UiField>
 

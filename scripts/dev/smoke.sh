@@ -45,6 +45,8 @@ CA="$(mkcert -CAROOT 2>/dev/null)/rootCA.pem"
 DEFAULT_LOCALE="$(sed -n 's/^DEFAULT_LOCALE=//p' "$ROOT/.env" | head -1)"
 DEFAULT_LOCALE="${DEFAULT_LOCALE:-en}"
 OTHER_LOCALE=pl; [ "$DEFAULT_LOCALE" = pl ] && OTHER_LOCALE=en
+LOCALES="$(sed -n 's/^LOCALES=//p' "$ROOT/.env" | head -1)"
+OFFERS_OTHER=0; case ",${LOCALES:-en,pl}," in *",$OTHER_LOCALE,"*) OFFERS_OTHER=1 ;; esac
 
 # host | path | status | body must contain | what it is [| request header]
 TARGETS=(
@@ -52,9 +54,8 @@ TARGETS=(
   "www.$DOMAIN|/|200|content=\"marketing\"|landing (www)"
   "$DOMAIN|/|200|lang=\"$DEFAULT_LOCALE\"|landing, default language ($DEFAULT_LOCALE)"
   "$DOMAIN|/|200|lang=\"$DEFAULT_LOCALE\"|landing, / for a browser preferring $OTHER_LOCALE|Accept-Language: $OTHER_LOCALE"
-  "$DOMAIN|/$OTHER_LOCALE|200|lang=\"$OTHER_LOCALE\"|landing, /$OTHER_LOCALE"
   "$DOMAIN|/robots.txt|200|User-agent:|landing robots.txt"
-  "$DOMAIN|/sitemap.xml|200|hreflang=\"pl-PL\"|landing sitemap"
+  "$DOMAIN|/sitemap.xml|200|hreflang=\"x-default\"|landing sitemap"
   "$DOMAIN|/llms.txt|200|## Pages|landing llms.txt"
   "app.$DOMAIN|/|200|content=\"tenant\"|frontend"
   "manager.$DOMAIN|/|200|content=\"operator\"|manager"
@@ -63,6 +64,9 @@ TARGETS=(
   "api.$DOMAIN|/.well-known/mercure|400|missing \"match\"|Mercure hub (on the API host)"
   "traefik.$DOMAIN|/dashboard/|200|<!DOCTYPE html>|Traefik dashboard"
   "mail.$DOMAIN|/|200|Mailpit|Mailpit"
+)
+[ "$OFFERS_OTHER" = 0 ] || TARGETS+=(
+  "$DOMAIN|/$OTHER_LOCALE|200|lang=\"$OTHER_LOCALE\"|landing, /$OTHER_LOCALE"
 )
 # With a token set, the readiness probe must also refuse a caller without it.
 # Without one it answers private addresses, and through the dev edge every

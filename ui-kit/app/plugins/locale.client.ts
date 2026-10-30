@@ -22,7 +22,7 @@ export default defineNuxtPlugin({
     // a strict cookie would be dropped on exactly that navigation.
     const chosen = useCookie<string | null>(COOKIE, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'none', secure: true })
 
-    const known = i18n.availableLocales as string[]
+    const known = String(useRuntimeConfig().public.locales).split(',')
     if (chosen.value && known.includes(chosen.value) && chosen.value !== i18n.locale.value) {
       await i18n.setLocale(chosen.value as typeof i18n.locale.value)
     }

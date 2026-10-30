@@ -47,6 +47,7 @@ x-backend-env: &backend_env
   # (empty: only loopback and private addresses). /health stays public.
   HEALTH_TOKEN: ${HEALTH_TOKEN:-}
   APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
+  APP_LOCALES: ${LOCALES:-en,pl}
   PROJECT_SLUG: ${PROJECT_SLUG}
   DATABASE_URL: postgres://${DB_USER}_app:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
   DATABASE_ADMIN_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}

@@ -59,9 +59,6 @@ func TestPlaceholdersAndModuleLoad(t *testing.T) {
 	if err := c.Load("empty", nil); err != nil {
 		t.Fatal("nil FS is no catalogue")
 	}
-	if err := c.Load("x", fstest.MapFS{"messages.de.json": {Data: []byte(`{}`)}}); err == nil || !strings.Contains(err.Error(), "not enabled") {
-		t.Fatalf("locale not enabled: %v", err)
-	}
 	if err := c.Load("y", fstest.MapFS{"messages.en.json": {Data: []byte(`{"y.a":"a"}`)}}); err == nil || !strings.Contains(err.Error(), "messages.pl.json is missing") {
 		t.Fatalf("missing locale file: %v", err)
 	}
@@ -109,5 +106,24 @@ func TestNegotiate(t *testing.T) {
 		if got := Negotiate(header, enabled, "en"); got != want {
 			t.Errorf("%q: got %s want %s", header, got, want)
 		}
+	}
+}
+
+// A language this deployment does not offer is left out, not refused: the
+// catalogues ship with the module whatever one deployment offers.
+func TestALocaleNotOfferedIsLeftOut(t *testing.T) {
+	c, err := NewCatalogue("pl", "pl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fsys := fstest.MapFS{
+		"messages.pl.json": {Data: []byte(`{"x.a":"polski"}`)},
+		"messages.en.json": {Data: []byte(`{"x.a":"english"}`)},
+	}
+	if err := c.Load("x", fsys); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Has("pl", "x.a") || c.Has("en", "x.a") {
+		t.Fatalf("pl %t, en %t", c.Has("pl", "x.a"), c.Has("en", "x.a"))
 	}
 }

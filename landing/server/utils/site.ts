@@ -35,14 +35,15 @@ export function siteConfig(event: H3Event) {
     url: String(cfg.siteUrl),
     indexable: cfg.indexable === true,
     defaultLocale: String(cfg.defaultLocale),
+    locales: String(cfg.locales).split(','),
   }
 }
 
 export async function sitePages(event: H3Event): Promise<SitePage[]> {
-  const { url, defaultLocale } = siteConfig(event)
+  const { url, defaultLocale, locales } = siteConfig(event)
   const pages = new Map<string, SitePage>()
 
-  for (const locale of LOCALES) {
+  for (const locale of LOCALES.filter(l => locales.includes(l.code))) {
     const prefix = locale.code === defaultLocale ? '' : `/${locale.code}`
     const rows = await queryCollection(event, locale.collection)
       .select('path', 'title', 'description', 'noindex', 'updated')

@@ -32,6 +32,12 @@ test('a language chosen in the profile is kept across a reload', async ({ page }
   await page.goto('/settings/profile')
 
   const language = page.getByTestId('profile-locale')
+  if (!(process.env.E2E_LOCALES ?? 'en,pl').split(',').includes(otherLocale)) {
+    await expect(page.getByTestId('profile-save')).toBeVisible()
+    await expect(language).toHaveCount(0)
+    return
+  }
+
   await language.selectOption(otherLocale)
   await page.getByTestId('profile-save').click()
   await expect(page.locator('html')).toHaveAttribute('lang', otherLocale)
