@@ -1,4 +1,4 @@
-import type { NavigationItem, SettingsTab } from '@ui-kit/composables/defineNavigation'
+import type { NavigationItem, NavigationSection, SettingsTab } from '@ui-kit/composables/defineNavigation'
 import { useAuthStore } from '@ui-kit/stores/auth'
 
 /**
@@ -44,6 +44,25 @@ export function useNavigation() {
       .map(translate),
   )
 
+  const sections = computed<NavigationSection[]>(() => {
+    const out: NavigationSection[] = []
+
+    for (const item of items.value.filter(entry => !entry.topbar)) {
+      const group = item.group ?? ''
+      let section = out.find(entry => entry.group === group)
+
+      if (!section) {
+        section = { group, label: group ? t(group) : '', items: [] }
+        out.push(section)
+      }
+      section.items.push(item)
+    }
+
+    return out
+  })
+
+  const topbar = computed(() => items.value.filter(item => item.topbar))
+
   const settingsTabs = computed<SettingsTab[]>(() =>
     Object.values(settingsModules)
       .flatMap(mod => mod.default ?? [])
@@ -52,5 +71,5 @@ export function useNavigation() {
       .map(translate),
   )
 
-  return { items, settingsTabs }
+  return { sections, topbar, settingsTabs }
 }
