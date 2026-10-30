@@ -14,6 +14,7 @@ ships the analyzers that force modules to use them.
 | `cache` | the only cache a module may use: `Tenant` prefixes every key with the tenant and tags it `tenant.<id>` / `module.<name>`; `Memory` and `Redis` backends |
 | `storage` | tenant-scoped files: `<tenant>/<module>/<id>-<name>` keys, `Local` and `Memory` backends, `Signer` and `Download` serving signed, expiring URLs |
 | `crypto` | `Encryptor` (AES-256-GCM, HKDF per tenant, pinned to a fixed test vector), `Encryptor.HashForLookup` (HMAC under an HKDF sub-key of the master) for the sibling `*_hash` column, `DeriveKey` for a per-purpose sub-key of a secret, `PasswordHasher` |
+| `crypto/columns` | `Export` and `Import`: a database's encrypted values, found from the data, moved from one master key to another with their lookup hashes |
 | `event` | typed domain events, the `Broadcast` marker, the `Envelope` the browser reads, `Broadcaster` publishing on `/tenants/{tid}/events` |
 | `outbox` | events and jobs as River jobs inserted in the caller's transaction (`Publish`, `Enqueue`, `Handle`, `Subscribe`); the worker restores the scope, broadcasts and calls subscribers, with retries and a dead-letter state |
 | `realtime` | the Mercure `Hub` the broadcaster publishes to, and the subscriber-token endpoint a browser needs for SSE |

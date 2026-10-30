@@ -100,6 +100,12 @@ is no column type that does it implicitly, so the pair is visible in the reposit
 equality lookups go through. **Never query an encrypted column** - it differs on every
 write.
 
+A copy of the database is unreadable under another key. `openenu encrypted export` prints
+every encrypted value in the open (found from the data, by the shape `Encrypt` writes, so a
+new column is included) and `import` seals them with the local key and recomputes the
+sibling `*_hash`, in a local stack only. That is how `make copyproddata` moves production's
+data without moving its master key.
+
 The lookup hash is keyed: HMAC-SHA256 of the trimmed, lower-cased value under a sub-key
 HKDF derives from `APP_ENCRYPTION_KEY` (info `open-enu:lookup:v1`), so a copy of the database
 alone cannot be turned back into addresses by hashing a list of guesses. It replaced an

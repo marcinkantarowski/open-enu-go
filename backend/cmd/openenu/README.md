@@ -12,6 +12,7 @@ list; `version` prints the kernel version.
 | `modules` | print what module discovery resolved |
 | `health` | probe a running api (`-url`, default from `API_ADDR`) and exit 1 unless the body says ok - the container healthcheck, since the distroless image has no `curl` |
 | `user`, `tenant`, `apikey`, `manager`, `attachment` | the console: `user create`, `tenant purge-unverified`, `apikey create`, `manager create`, `attachment sweep-orphans` - each a verb plus flags, thin calls into the module's root package (`console.go`) |
+| `encrypted` | `export` prints every encrypted value in the open on stdout, `import` seals them from stdin with this stack's key (`APP_STAGE=local` only): how `make copyproddata` moves a database without moving its master key |
 | `inventory` | write `.ai/inventory.json` - what already exists (`-check` fails if stale; `make inventory`, `make arch`) |
 | `mcp` | serve the API to an MCP client over stdio as a client holding one scoped key (`-key`, `-url`, `-list`): tools from the fragments + `acl_gen.go`, served with the official Go SDK |
 | `route-coverage` | fail if an operation in the spec was never reached by a test - the spec minus the trace `make test` wrote (`-list` prints them all) |

@@ -10,3 +10,4 @@ What the platform is today is described in [`../ARCHITECTURE.md`](../ARCHITECTUR
 
 | Spec | Summary | Status |
 |---|---|---|
+| [Production's data on a development machine](2026-10-30-copy-prod-data.md) | `make copyproddata`: the database re-encrypted with the dev key, nothing copied reaches the outside | done |

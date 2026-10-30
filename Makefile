@@ -195,17 +195,33 @@ deploy-key: ## Give a stage access to the repo (production read-only, STAGE=stag
 buildstaging: ## Bare server → staging (the dev stack, for vibe coding): make buildstaging HOST=deploy@ip DOMAIN=stg.x.com REPO=org/x EMAIL=you@x.com [ALLOW=ip,cidr]
 	@$(REMOTE)/provision.sh "$(HOST)" "$(DOMAIN)" staging "$(REPO)" "$(or $(REF),main)"
 
+# Production's target: HOST= DOMAIN= REPO= on the command line, else PROD_* in
+# .env. Only the command line counts: an exported HOST must not pick a server.
+typed     = $(if $(filter command line,$(origin $(1))),$($(1)))
+P_HOST    = $(or $(call typed,HOST),$(PROD_HOST))
+P_DOMAIN  = $(or $(call typed,DOMAIN),$(PROD_DOMAIN))
+P_REPO    = $(or $(call typed,REPO),$(PROD_REPO))
+need-prod = test -n "$(P_HOST)" && test -n "$(P_DOMAIN)" \
+  || { echo "  no production target: set PROD_HOST and PROD_DOMAIN in .env, or pass HOST= DOMAIN="; exit 1; }
+
 .PHONY: buildprod
 buildprod: ## Bare server → production, one command; same server as staging or its own (refuses to finish without BACKUP_REMOTE)
-	@$(REMOTE)/provision.sh "$(HOST)" "$(DOMAIN)" production "$(REPO)" "$(or $(REF),main)"
+	@$(need-prod)
+	@$(REMOTE)/provision.sh "$(P_HOST)" "$(P_DOMAIN)" production "$(P_REPO)" "$(or $(REF),main)"
 
 .PHONY: deploystaging
 deploystaging: ## Pull a ref into staging - refuses to touch uncommitted work there: make deploystaging HOST=deploy@ip DOMAIN=stg.x.com [REF=main]
 	@$(REMOTE)/deploy.sh "$(HOST)" "$(DOMAIN)" staging "$(or $(REF),main)"
 
 .PHONY: deployprod
-deployprod: ## Ship a ref to production (runs `make ci` first; brief downtime). Usually: make promote
-	@$(REMOTE)/deploy.sh "$(HOST)" "$(DOMAIN)" production "$(or $(REF),main)"
+deployprod: ## Ship a ref to production (runs `make ci` first; brief downtime; target: PROD_HOST and PROD_DOMAIN in .env, or HOST= DOMAIN=). Usually: make promote
+	@$(need-prod)
+	@$(REMOTE)/deploy.sh "$(P_HOST)" "$(P_DOMAIN)" production "$(or $(REF),main)"
+
+.PHONY: copyproddata
+copyproddata: ## REPLACE the dev database with a copy of production's, real people included (target: PROD_HOST in .env, or HOST=)
+	@$(need-prod)
+	@$(REMOTE)/copyproddata.sh "$(P_HOST)"
 
 .PHONY: promote
 promote: ## Production runs exactly what staging runs: make promote (on staging) | make promote STAGING=deploy@ip [PROD=deploy@ip]
@@ -282,6 +298,10 @@ types: ## Regenerate ui-kit/types/api.d.ts from backend/openapi.json and stamp i
 .PHONY: typecheck
 typecheck: ## Type-check all three Nuxt apps against ui-kit/types/api.d.ts
 	@$(DEV)/typecheck.sh
+
+.PHONY: db-reset
+db-reset: ## Empty the dev database, migrate it and create the e2e accounts (the way back from copyproddata)
+	@$(DEV)/db-reset.sh
 
 .PHONY: e2e-fixtures
 e2e-fixtures: ## Create the accounts the browser tests log in as (idempotent; needs the stack up)

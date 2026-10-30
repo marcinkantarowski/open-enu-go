@@ -296,6 +296,15 @@ creates the application role `NOSUPERUSER NOBYPASSRLS`, proves it is **refused**
 restored table whether or not the grants came back, so a check made only as one cannot see
 the failure a restore actually has.
 
+**Production's data on a development machine.** `make copyproddata` replaces the dev
+database with a copy of production's - real people, so keep the disk encrypted. Production
+is only read (`scripts/remote/prod-data.sh`, stdout only). The copy is made safe before
+anything runs on it: the script refuses anything but `APP_STAGE=local` and a Mailpit
+`MAILER_DSN`, keeps the worker and the scheduler stopped while it empties the River queue
+and switches every webhook endpoint off, and re-encrypts the encrypted values with the dev
+key - the production master key never leaves the server. Uploaded files are not copied.
+Back to an empty database with the e2e accounts: `make db-reset`.
+
 **What `restore` does, in order:** a `pre-restore` backup of the current state; stop `api`,
 `worker` and `scheduler` (the only writers; postgres stays up); drop and create the
 database, `pg_restore --no-owner --no-privileges`; apply `grant-app.psql` again - the
