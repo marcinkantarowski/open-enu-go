@@ -14,6 +14,12 @@ export interface NavigationItem {
   permission?: string
   /** Hidden until the session has this many active workspaces: a view across them. */
   minWorkspaces?: number
+  /**
+   * Hidden until a module lists this name in the shared state
+   * `navigation.capabilities`: what this workspace has switched on. Not a
+   * guard - the server still decides what the page behind it may do.
+   */
+  capability?: string
   order?: number
   /**
    * Translation key of the heading this entry sits under. Headings follow the

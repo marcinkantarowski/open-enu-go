@@ -113,7 +113,7 @@ flag-guarded action are all shown working against the real API at once.
 | Uploading a file | `useUpload()` or `<UploadField :owner>` |
 | Telling the user something | `useToast()` - errors stay until dismissed |
 | A feature flag | `useFlags()` - advisory; the server still 404s a disabled route |
-| A menu entry (`group` for a heading, `topbar` for the gear), a settings tab, a widget | `defineNavigation`, `defineSettingsTab`, `defineInjection` + `<InjectionPoint>` |
+| A menu entry (`group` for a heading, `topbar` for the gear, `capability` for what only some workspaces have: a module fills the state `navigation.capabilities`), a settings tab, a widget | `defineNavigation`, `defineSettingsTab`, `defineInjection` + `<InjectionPoint>` |
 | Buttons, fields, tables, modals | the `Ui*` components in `ui-kit/app/components/ui/` |
 
 ## Permissions

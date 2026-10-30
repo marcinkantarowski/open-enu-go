@@ -26,6 +26,7 @@ export function useNavigation() {
   const auth = useAuthStore()
   const { t } = useI18n()
   const { public: cfg } = useRuntimeConfig()
+  const capabilities = useState<string[]>('navigation.capabilities', () => [])
 
   const translate = <T extends { label: string }>(item: T): T => ({ ...item, label: t(item.label) })
 
@@ -37,6 +38,7 @@ export function useNavigation() {
       .filter(item => !item.permission || auth.can(item.permission))
       .filter(item => !item.minWorkspaces
         || auth.memberships.filter(m => m.status === 'active').length >= item.minWorkspaces)
+      .filter(item => !item.capability || capabilities.value.includes(item.capability))
       // The reference module is the platform showing itself off. A product
       // keeps the module - tests stand on it - and stops advertising it.
       .filter(item => !item.demo || cfg.demoContent)
