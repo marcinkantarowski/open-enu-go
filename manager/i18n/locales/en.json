@@ -95,5 +95,6 @@
   "manager.memberLink": "Link to set a password",
   "manager.memberLinkHint": "Copy it now and pass it on: it is shown only once, works once and expires in 7 days.",
   "manager.memberLinkCopy": "Copy",
-  "manager.memberLinkCopied": "Copied."
+  "manager.memberLinkCopied": "Copied.",
+  "manager.sessionExpired": "Your session has ended. Sign in again."
 }

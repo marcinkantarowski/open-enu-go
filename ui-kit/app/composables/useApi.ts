@@ -163,7 +163,9 @@ export function useApi() {
     if (response.status === 401 && !options.skipAuthRetry) {
       // Exactly one retry. A second 401 means the session is genuinely gone, and
       // looping would turn an expired login into a request storm.
-      if (await refreshOnce()) {
+      // Not in the console: an operator has no refresh, and the cookie on this
+      // host is a person's from the tenant app, which must not take their place.
+      if (config.public.sessionRefresh !== false && await refreshOnce()) {
         response = await send()
       } else {
         auth.clear()

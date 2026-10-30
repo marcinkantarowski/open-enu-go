@@ -70,6 +70,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
+      // An operator's session is not refreshed (useOperator.ts).
+      sessionRefresh: false,
       appName: process.env.NUXT_PUBLIC_APP_NAME || 'manager',
       domain: process.env.NUXT_PUBLIC_DOMAIN || 'open-enu-go.local',
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '',

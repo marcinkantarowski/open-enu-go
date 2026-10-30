@@ -27,9 +27,9 @@ const links = computed(() => [
     .map(item => ({ to: item.to, label: t(item.label), order: item.order ?? 100 })),
 ].sort((a, b) => a.order - b.order))
 
-function signOut() {
+async function signOut() {
+  await navigateTo('/login')
   logout()
-  return navigateTo('/login')
 }
 </script>
 
@@ -59,6 +59,7 @@ function signOut() {
         <button
           type="button"
           class="rounded-lg px-2.5 py-1 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          data-testid="sign-out"
           @click="signOut"
         >
           {{ t('auth.signOut') }}

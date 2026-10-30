@@ -5,6 +5,7 @@ definePageMeta({ layout: 'auth', public: true })
 
 const { login } = useOperator()
 const { t } = useI18n()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
@@ -37,6 +38,10 @@ async function submit() {
     <AuthHeading :title="t('manager.loginTitle')" :subtitle="t('manager.loginSubtitle')" />
 
     <form class="flex flex-col gap-5" data-testid="login-form" @submit.prevent="submit">
+      <UiAlert v-if="route.query.expired" tone="warning" data-testid="login-expired">
+        {{ t('manager.sessionExpired') }}
+      </UiAlert>
+
       <UiField v-slot="field" :label="t('auth.email')">
         <UiInput
           :id="field.id"

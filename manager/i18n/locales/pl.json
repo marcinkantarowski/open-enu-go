@@ -95,5 +95,6 @@
   "manager.memberLink": "Link do ustawienia hasła",
   "manager.memberLinkHint": "Skopiuj i przekaż teraz: pokazujemy go tylko raz, działa raz i wygasa po 7 dniach.",
   "manager.memberLinkCopy": "Kopiuj",
-  "manager.memberLinkCopied": "Skopiowano."
+  "manager.memberLinkCopied": "Skopiowano.",
+  "manager.sessionExpired": "Sesja wygasła. Zaloguj się ponownie."
 }

@@ -18,6 +18,9 @@ export interface OperatorSession {
   manager: { id: string, email: string, displayName: string | null, status: string }
 }
 
+/** Ends the session when its token does, so nobody looks at a console that can no longer read. */
+let expiry: ReturnType<typeof setTimeout> | undefined
+
 export function useOperator() {
   const api = useApi()
   const auth = useAuthStore()
@@ -41,11 +44,15 @@ export function useOperator() {
       permissions: [],
     } satisfies Session)
 
+    clearTimeout(expiry)
+    expiry = setTimeout(() => auth.clear(), session.expiresIn * 1000)
+
     return session
   }
 
   function logout() {
     // Nothing server-side to end: there is no refresh token to revoke.
+    clearTimeout(expiry)
     auth.clear()
   }
 
