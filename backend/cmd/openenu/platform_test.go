@@ -25,6 +25,7 @@ func TestServicesFromEnvAgainstPostgres(t *testing.T) {
 	t.Setenv("DATABASE_URL", db.AppDSN)
 	t.Setenv("APP_ENCRYPTION_KEY", platform.TestKey)
 	t.Setenv("APP_SECRET", platform.TestKey)
+	t.Setenv("HEALTH_TOKEN", "")
 	t.Setenv("STORAGE_ROOT", t.TempDir())
 	t.Setenv("REDIS_ADDR", "")
 	log := slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil))
@@ -41,8 +42,11 @@ func TestServicesFromEnvAgainstPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// From loopback with no HEALTH_TOKEN: the container's own probe.
+	req := httptest.NewRequest("GET", "/health/deep", nil)
+	req.RemoteAddr = "127.0.0.1:4000"
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/health/deep", nil))
+	h.ServeHTTP(rec, req)
 	var body struct {
 		Status string `json:"status"`
 		Checks map[string]struct {
@@ -51,6 +55,14 @@ func TestServicesFromEnvAgainstPostgres(t *testing.T) {
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || rec.Code != 200 || body.Status != "ok" || !body.Checks["postgres"].OK {
 		t.Fatalf("/health/deep = %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The owner's DSN where the application role's belongs: refused at
+	// start, with the variable named, before a request could read across
+	// tenants.
+	t.Setenv("DATABASE_URL", db.AdminDSN)
+	if _, err := newServices(ctx, log, reg); err == nil || !strings.Contains(err.Error(), "bypasses row-level security") || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("a superuser DSN must be refused: %v", err)
 	}
 
 	t.Setenv("DATABASE_URL", "")

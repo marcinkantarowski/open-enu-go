@@ -56,7 +56,8 @@ entryPoints:
 
 providers:
   docker:
-    endpoint: "unix:///var/run/docker.sock"
+    # The socket proxy, never the socket itself (docker/edge/compose.yml).
+    endpoint: "tcp://socket-proxy:2375"
     exposedByDefault: false
   file:
     directory: /etc/traefik/dynamic

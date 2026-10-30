@@ -1,3 +1,4 @@
 {
-  "manager.error.invalid_credentials": "Te dane logowania są nieprawidłowe."
+  "manager.error.invalid_credentials": "Te dane logowania są nieprawidłowe.",
+  "manager.error.super_required": "Tylko superoperator może oglądać przestrzeń roboczą jako jeden z jej członków."
 }

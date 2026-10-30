@@ -82,7 +82,7 @@ open-enu-go/
 │   │   ├── module/  command/  audit/  scope/  outbox/  event/  job/  realtime/
 │   │   ├── cache/  storage/  crypto/  search/  flags/  progress/  gdpr/  setup/
 │   │   ├── notification/  mail/  auth/  i18n/  httpx/  logctx/  migrate/  spec/
-│   │   ├── inventory/  mcp/  platform/  testdb/
+│   │   ├── inventory/  mcp/  platform/  testdb/  heartbeat/
 │   │   └── analysis/            # the guardrail analyzers, one package per rule
 │   ├── internal/module/<name>/  # one package per feature - §4
 │   ├── internal/security/       # tenant and realm isolation, cross-module
@@ -140,7 +140,7 @@ Rules that fall out of the shape:
   reason, in a `repository.go` (ADR-0009).
 
 `Example` carries exactly one of every platform concern and is the thing to copy; it is
-capped at 1150 lines including tests (`make agents-budget`). Adding a demonstration means
+capped at 1200 lines including tests (`make agents-budget`). Adding a demonstration means
 removing one.
 
 ## 5. Platform contracts

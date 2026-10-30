@@ -96,6 +96,15 @@ and checks that the update arrives in the project's spelling, leaves the kernel'
 alone, keeps the project's own change, commits nothing, reports a conflict, refuses a dirty
 tree, and falls back to the target's `init` for a base whose own cannot run.
 
+It holds in a project as well as in the platform. Run from a project (`"initialized":
+true`), the throwaway "platform" would be a second project - its `init` a no-op, its
+`platform_ref` a commit that exists nowhere in the temporary directory - so the copy is
+first renamed back with its own `init` (to `open-enu-go`, `open-enu-go.local`,
+`github.com/open-enu/app`) and its `.project.json` reset to the platform's: not initialised,
+no `platform_ref` or `platform_source`. The run says so in one line, and asserts that the
+copy really is a platform before using it. Every assertion then runs, the same count as on
+the platform.
+
 ## Changing the platform from inside a project
 
 Do not. A fix to the platform is made in the platform's repository - following its rules,

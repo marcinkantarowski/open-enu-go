@@ -36,5 +36,12 @@
   "app.nav.main": "Main menu",
   "app.dashboard.workspace": "Workspace:",
   "app.dashboard.empty": "Nothing here yet",
-  "app.dashboard.emptyHint": "Modules put their cards on this page. None has yet."
+  "app.dashboard.emptyHint": "Modules put their cards on this page. None has yet.",
+  "app.error.forbidden.title": "No permission",
+  "app.error.forbidden.description": "Your role in this workspace does not allow this page. Ask its administrator if you need it.",
+  "app.error.notFound.title": "Page not found",
+  "app.error.notFound.description": "This address does not lead anywhere in the application.",
+  "app.error.failed.title": "Something went wrong",
+  "app.error.failed.description": "The page could not be shown. Try again in a moment; if it keeps happening, quote the reference below.",
+  "app.error.home": "Back to the start"
 }

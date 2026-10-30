@@ -13,9 +13,11 @@ e2e/             Playwright, against the running stack. `make e2e`, in `make ci`
 ## The rules that are not negotiable
 
 **Nothing calls `$fetch` or `fetch` directly.** Every request goes through `useApi()`,
-because four behaviours have to be identical everywhere: the in-memory access token, one
-shared silent refresh on 401, `credentials: 'include'` so the refresh cookie travels, and
-409 → a typed `ConflictError`. A component that fetches on its own gets none of them, and
+because five behaviours have to be identical everywhere: the in-memory access token, one
+shared silent refresh on 401, `credentials: 'include'` so the refresh cookie travels,
+409 → a typed `ConflictError`, and 413 → a typed `PayloadTooLargeError` whose `message` is
+already the translated sentence with the limit (`error.payloadTooLarge`, from
+`details.maxBytes`), so `toast.error(e.message)` reads right. A component that fetches on its own gets none of them, and
 the failure is invisible until a token expires. No linter catches it; review does.
 
 **No user-facing string in a component.** Every one is a translation key with an entry in
@@ -81,8 +83,8 @@ someone without the permission to see it. An `<InjectionPoint>` with a `context`
 to every widget as props.
 
 `Example` is the platform's reference module and is not a product screen. Its menu entry is
-marked `demo: true` and is offered only while `DEMO_CONTENT` is on (`.env`; on by default, a
-product switches it off). The module, its routes and `/example` stay either way, because the
+marked `demo: true` and is offered only while `DEMO_CONTENT` is on (`.env`; off by default,
+and always off in production). The module, its routes and `/example` stay either way, because the
 platform's browser and security tests stand on them - never delete it to tidy a menu.
 
 ### Screens for an operator
@@ -102,7 +104,7 @@ flag-guarded action are all shown working against the real API at once.
 
 | Need | Reach for |
 |---|---|
-| Any HTTP call | `useApi()` - `get/post/put/patch/del`, `ifMatch`, typed `ApiError` / `ConflictError` |
+| Any HTTP call | `useApi()` - `get/post/put/patch/del`, `ifMatch`, typed `ApiError` / `ConflictError` / `PayloadTooLargeError` |
 | Login, logout, restore, switch tenant | `useAuth()` (`useOperator()` in `manager/`) |
 | Who is signed in, what they may do | `useAuthStore()` - `can()`, `role`, `tenantName`, `setSession()` |
 | A 409 | `useConflict()` + `<ConflictBar>` - reload / overwrite / dismiss |

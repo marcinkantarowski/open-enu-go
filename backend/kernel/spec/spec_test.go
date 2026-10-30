@@ -11,7 +11,7 @@ const fragment = `{"paths": {
     "get": {"operationId": "get_thing_show"},
     "delete": {"operationId": "delete_thing", "x-no-test-required": "destroys the fixture database"}
   },
-  "/api/things": {"post": {"operationId": "post_thing_create"}}
+  "/api/things": {"post": {"operationId": "post_thing_create", "x-mcp": false}}
 }}`
 
 func TestOperationsAreSortedAndCarryTheExemption(t *testing.T) {
@@ -29,6 +29,9 @@ func TestOperationsAreSortedAndCarryTheExemption(t *testing.T) {
 	}
 	if ops[1].NoTestReason != "destroys the fixture database" || ops[2].NoTestReason != "" {
 		t.Fatalf("exemption not read: %+v", ops)
+	}
+	if !ops[0].NoMCP || ops[1].NoMCP || ops[2].NoMCP {
+		t.Fatalf("x-mcp not read: %+v", ops)
 	}
 	if p := PathParams("/api/t/{tenantId}/u/{userId}/x"); !reflect.DeepEqual(p, []string{"tenantId", "userId"}) {
 		t.Fatalf("params %v", p)

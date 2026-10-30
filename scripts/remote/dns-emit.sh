@@ -45,6 +45,17 @@ mkdir -p "$OUT"
   # Encrypt the zone needs this line, and adding it unconditionally on import is
   # harmless - CAA records are additive.
   printf '%-10s %-4s IN  CAA 0 issue "letsencrypt.org"\n' "@" "$TTL"
+
+  # Mail: commented out, because the right values depend on the relay that
+  # sends for this domain (MAILER_DSN), which this script cannot know. Without
+  # SPF and DMARC, verification and reset mail lands in spam or nowhere.
+  # DKIM is not here at all: the relay generates the key and tells you the
+  # record (usually a CNAME or TXT under <selector>._domainkey).
+  printf ';\n; Mail - uncomment once the relay is chosen; replace RELAY-INCLUDE with what\n'
+  printf ';   your provider documents (e.g. include:spf.example-relay.com).\n'
+  printf '; DKIM comes from the relay: add the record its dashboard gives you.\n'
+  printf ';%-10s %-4s IN  TXT "v=spf1 RELAY-INCLUDE -all"\n' "@" "$TTL"
+  printf ';%-10s %-4s IN  TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@%s"\n' "_dmarc" "$TTL" "$DOMAIN"
 } > "$OUT/zone.txt"
 
 # ── 2. records.json - provider-neutral ──────────────────────────────────────

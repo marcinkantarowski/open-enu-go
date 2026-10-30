@@ -45,16 +45,16 @@ Standard Webhooks and retried; notifications are a feed and mail that store keys
 sentences.
 
 **`Example` is the module to read and to copy** - one entity, `Project`, with exactly one of
-every platform concern. It is capped at 1150 lines including tests (`make agents-budget`)
-and sits just under it: a new demonstration there means removing one.
+every platform concern. It is capped at 1200 lines including tests (`make agents-budget`)
+and sits near it: a new demonstration there means removing one.
 
-**The guardrails are proved to fail.** Eight `go/analysis` analyzers plus shell checks for
+**The guardrails are proved to fail.** Nine `go/analysis` analyzers plus shell checks for
 docs, translations, typography, versions, budgets, the production stack and dead code;
 `make selftest` breaks a throwaway copy to watch each one fail. `make test-security` proves
-tenant and realm isolation from several directions (27 tests).
+tenant and realm isolation from several directions (31 tests).
 
 **The three apps run against the real stack.** `make builddev` brings everything up under
-trusted HTTPS and `make smoke` checks 15 URLs for content; `make e2e` drives 17 browser
+trusted HTTPS and `make smoke` checks 16 URLs for content; `make e2e` drives 17 browser
 tests in seven specs - login, session restore, tenant switch, impersonation, realtime,
 uploads, the 409 conflict bar, a feature flag switched by an operator and the default language.
 
@@ -132,7 +132,7 @@ A capability that does not exist is not to be improvised. Say so instead.
 - Never read across tenants outside `scope.Unscoped(ctx, "reason", fn)` with a literal
   reason, in a `repository.go`.
 - Never query, index or search-index an encrypted column. Add a sibling `*_hash` written
-  with `crypto.HashForLookup` and query that.
+  with `svc.Crypto.HashForLookup` and query that.
 - Never call `pgx` `Exec`/`Query` outside `repository.go`; never hold a `*scope.Tx` outside
   `handler.go`, `repository.go` or `job.go`; never open `scope.Pool` outside `repository.go`.
   Enforced by `rawsql` and `writeboundary`.

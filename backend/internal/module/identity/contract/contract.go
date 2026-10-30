@@ -5,6 +5,9 @@
 package contract
 
 import (
+	"context"
+
+	"github.com/open-enu/kernel/command"
 	"github.com/open-enu/kernel/platform"
 
 	"github.com/open-enu/app/internal/module/identity/internal"
@@ -47,3 +50,18 @@ func NewDirectory(svc *platform.Services) Directory { return internal.NewDirecto
 
 // NewMinter mints with the platform's signer, under Identity's role rules.
 func NewMinter(svc *platform.Services) Minter { return internal.NewMinter(svc) }
+
+// EndTenantSessions is the command that revokes every refresh token whose
+// current workspace is TenantID: a suspended workspace's members cannot
+// renew into it. `identity.sessions.ended` on the trail.
+type EndTenantSessions = internal.EndTenantSessions
+
+// Sessions is the session commands as methods.
+type Sessions struct{ Bus *command.Bus }
+
+// EndTenant dispatches EndTenantSessions - inside the caller's transaction
+// when the caller is itself a handler.
+func (s Sessions) EndTenant(ctx context.Context, tenantID string) error {
+	_, err := s.Bus.Dispatch(ctx, EndTenantSessions{TenantID: tenantID})
+	return err
+}

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/open-enu/kernel/command"
+	"github.com/open-enu/kernel/i18n"
 	"github.com/open-enu/kernel/migrate"
 	"github.com/open-enu/kernel/notification"
 	"github.com/open-enu/kernel/outbox"
@@ -94,7 +96,13 @@ type rig struct {
 	notified *notification.Recorder
 }
 
-func newRig(t *testing.T, client *http.Client) *rig {
+// policy is the deliverer's real client, allowed onto the loopback where
+// the test receiver listens and trusting its certificate.
+func (r *receiver) policy() outbound {
+	return outbound{allowPrivate: true, tls: r.srv.Client().Transport.(*http.Transport).TLSClientConfig}
+}
+
+func newRig(t *testing.T, o outbound) *rig {
 	t.Helper()
 	db := testdb.Postgres(t)
 	ctx := context.Background()
@@ -105,8 +113,8 @@ func newRig(t *testing.T, client *http.Client) *rig {
 	if err := platform.WithDatabase(svc, &scope.Pool{Pool: db.App}, outbox.Options{MaxWorkers: 2, PollInterval: 100 * time.Millisecond}, false); err != nil {
 		t.Fatal(err)
 	}
-	mount(http.NewServeMux(), svc, client)
-	return &rig{t: t, ctx: ctx, svc: svc, repo: newRepository(svc), deliver: newDeliverer(svc, client), notified: svc.Notifier.(*notification.Recorder)}
+	mount(http.NewServeMux(), svc, o)
+	return &rig{t: t, ctx: ctx, svc: svc, repo: newRepository(svc), deliver: newDeliverer(svc, o), notified: svc.Notifier.(*notification.Recorder)}
 }
 
 // endpoint registers one through the bus, in the tenant's scope.
@@ -171,7 +179,7 @@ func (r *rig) deliveries(tenant string) []delivery {
 
 func TestASubscribedEventArrivesSignedAndTheReceiverCanVerifyIt(t *testing.T) {
 	rec := newReceiver(t)
-	r := newRig(t, rec.srv.Client())
+	r := newRig(t, rec.policy())
 	ep := r.endpoint(tenantA, rec.srv.URL+"/hook", "demo.thing.created")
 	r.endpoint(tenantA, rec.srv.URL+"/other", "demo.thing.deleted") // subscribed to something else
 	r.endpoint(tenantB, rec.srv.URL+"/b", "demo.thing.created")     // another tenant
@@ -220,7 +228,7 @@ func TestASubscribedEventArrivesSignedAndTheReceiverCanVerifyIt(t *testing.T) {
 func TestTheFifthFailureClosesTheRowAndTellsTheTenant(t *testing.T) {
 	rec := newReceiver(t)
 	rec.fail()
-	r := newRig(t, rec.srv.Client())
+	r := newRig(t, rec.policy())
 	ep := r.endpoint(tenantA, rec.srv.URL+"/hook", "demo.thing.created")
 	r.record(tenantA, ep.endpoint.ID)
 	ds := r.deliveries(tenantA)
@@ -257,7 +265,7 @@ func TestTheFifthFailureClosesTheRowAndTellsTheTenant(t *testing.T) {
 
 func TestADeactivatedEndpointAndAGoneDeliveryAreNoOps(t *testing.T) {
 	rec := newReceiver(t)
-	r := newRig(t, rec.srv.Client())
+	r := newRig(t, rec.policy())
 	ep := r.endpoint(tenantA, rec.srv.URL+"/hook", "demo.thing.created")
 	id := r.record(tenantA, ep.endpoint.ID)
 	ctx := scope.WithTenant(r.ctx, tenantA)
@@ -286,7 +294,7 @@ func TestADeactivatedEndpointAndAGoneDeliveryAreNoOps(t *testing.T) {
 func TestRedeliverResetsTheSameRowAndQueuesItAgain(t *testing.T) {
 	rec := newReceiver(t)
 	rec.fail()
-	r := newRig(t, rec.srv.Client())
+	r := newRig(t, rec.policy())
 	ep := r.endpoint(tenantA, rec.srv.URL+"/hook", "demo.thing.created")
 	id := r.record(tenantA, ep.endpoint.ID)
 	ctx := scope.WithTenant(r.ctx, tenantA)
@@ -304,5 +312,94 @@ func TestRedeliverResetsTheSameRowAndQueuesItAgain(t *testing.T) {
 	ds := r.deliveries(tenantA)
 	if len(ds) != 1 || ds[0].ID != id || ds[0].Status != statusDelivered || ds[0].Attempts != 2 || rec.count() != 3 {
 		t.Fatalf("after redeliver: %+v, %d requests", ds, rec.count())
+	}
+}
+
+func TestAHostnameResolvingToAPrivateAddressIsNeverDialled(t *testing.T) {
+	rec := newReceiver(t)
+	_, port, _ := strings.Cut(strings.TrimPrefix(rec.srv.URL, "https://"), ":")
+	// The receiver is on the loopback; the name says nothing about that,
+	// the resolver does. Production policy: no private addresses.
+	var answer []netip.Addr
+	o := rec.policy()
+	o.allowPrivate = false
+	o.resolve = func(context.Context, string) ([]netip.Addr, error) { return answer, nil }
+	r := newRig(t, o)
+	ep := r.endpoint(tenantA, "https://hooks.example.test:"+port+"/hook", "demo.thing.created")
+	for _, answer = range [][]netip.Addr{
+		{netip.MustParseAddr("127.0.0.1")},
+		{netip.MustParseAddr("10.1.2.3")},
+		{netip.MustParseAddr("169.254.169.254")},
+		{netip.MustParseAddr("93.184.216.34"), netip.MustParseAddr("127.0.0.1")}, // one public answer is not enough
+		{netip.MustParseAddr("::ffff:127.0.0.1")},
+	} {
+		id := r.record(tenantA, ep.endpoint.ID)
+		if err := r.deliver.run(scope.WithTenant(r.ctx, tenantA), deliverJob{DeliveryID: id}); err == nil {
+			t.Fatalf("%v: delivered", answer)
+		}
+		d, err := r.repo.findDelivery(scope.WithTenant(r.ctx, tenantA), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rec.count() != 0 || d.ResponseCode != nil || d.ResponseBody == nil || *d.ResponseBody != errAddressRefused.Error() {
+			t.Fatalf("%v: %d requests reached the receiver, log %+v", answer, rec.count(), d)
+		}
+	}
+}
+
+func TestARedirectIsNotFollowedAndItsBodyIsNotKept(t *testing.T) {
+	target := newReceiver(t) // where the redirect points: must never be reached
+	redirector := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Location", target.srv.URL+"/latest/meta-data/")
+		w.WriteHeader(http.StatusFound)
+		_, _ = io.WriteString(w, "secret-looking redirect body")
+	}))
+	t.Cleanup(redirector.Close)
+	o := target.policy()
+	o.tls = redirector.Client().Transport.(*http.Transport).TLSClientConfig
+	r := newRig(t, o)
+	ep := r.endpoint(tenantA, redirector.URL+"/hook", "demo.thing.created")
+	id := r.record(tenantA, ep.endpoint.ID)
+	if err := r.deliver.run(scope.WithTenant(r.ctx, tenantA), deliverJob{DeliveryID: id}); err == nil {
+		t.Fatal("a redirect counted as a delivery")
+	}
+	d := r.deliveries(tenantA)[0]
+	if target.count() != 0 || d.Status != statusPending || d.Attempts != 1 || d.ResponseBody == nil || *d.ResponseBody != errRedirectRefused.Error() {
+		t.Fatalf("redirect: target reached %d times, log %+v", target.count(), d)
+	}
+}
+
+func TestTheURLRuleRefusesInternalAddressesUnlessPrivateIsAllowed(t *testing.T) {
+	strict, dev := outbound{}, outbound{allowPrivate: true}
+	for raw, want := range map[string]i18n.Key{
+		"https://hooks.example.test/x":      "",
+		"https://hooks.example.test:8443/x": "",
+		"https://93.184.216.34/x":           "",
+		"http://hooks.example.test/x":       keyHTTPSRequired,
+		"https:///x":                        keyHTTPSRequired,
+		"https://localhost/x":               keyAddressRefused,
+		"https://api.localhost./x":          keyAddressRefused,
+		"https://127.0.0.1/x":               keyAddressRefused,
+		"https://10.0.0.5/x":                keyAddressRefused,
+		"https://172.16.0.1/x":              keyAddressRefused,
+		"https://192.168.1.1/x":             keyAddressRefused,
+		"https://169.254.169.254/latest/":   keyAddressRefused,
+		"https://100.64.0.1/x":              keyAddressRefused,
+		"https://[::1]/x":                   keyAddressRefused,
+		"https://[fd00::1]/x":               keyAddressRefused,
+		"https://[fe80::1]/x":               keyAddressRefused,
+		"https://[::ffff:10.0.0.1]/x":       keyAddressRefused,
+		"https://0.0.0.0/x":                 keyAddressRefused,
+		"https://224.0.0.1/x":               keyAddressRefused,
+		"https://hooks.example.test:5432/x": keyAddressRefused,
+		"https://hooks.example.test:6379/x": keyAddressRefused,
+	} {
+		if got := strict.checkURL(raw); got != want {
+			t.Errorf("%s: %q, want %q", raw, got, want)
+		}
+	}
+	// The dev stack's switch lifts the address rules, never https or ports.
+	if dev.checkURL("https://10.0.0.5/x") != "" || dev.checkURL("http://10.0.0.5/x") != keyHTTPSRequired || dev.checkURL("https://10.0.0.5:5432/x") != keyAddressRefused {
+		t.Fatal("allowPrivate lifted the wrong rules")
 	}
 }

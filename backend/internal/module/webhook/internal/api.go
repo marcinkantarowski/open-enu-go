@@ -101,6 +101,10 @@ func (a api) PostWebhookRedeliver(ctx context.Context, req PostWebhookRedeliverR
 	if _, err := auth.Require(ctx, "webhook.manage"); err != nil {
 		return nil, err
 	}
+	// Re-sending is an act on the tenant's behalf: support may look, not act (ADR-0020).
+	if err := a.guard.DenyImpersonated(ctx, "webhook.delivery.redelivered"); err != nil {
+		return nil, err
+	}
 	// 202: queued, not sent. The log is where the outcome appears.
 	d, err := command.Dispatch[delivery](ctx, a.bus, redeliver{DeliveryID: req.Id})
 	if err != nil {

@@ -13,14 +13,19 @@ the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
 
 - API (`openapi.json`): `POST /api/auth/register` (202),
   `/verify`, `/login`, `/refresh`, `/switch-tenant`, `/logout`, `/forgot-password`,
-  `/reset-password`; `GET|PATCH /api/profile`. `/api/auth/*` is rate limited per client.
+  `/reset-password`; `GET|PATCH /api/profile` (the PATCH refused under impersonation).
+  Limits: every `/api/auth/*` 60/min burst 30 per client; `register` and `forgot-password`
+  also five, then one a minute, per client; `login` and `forgot-password` also ten per 15
+  minutes per **address**, from anywhere (`internal/limiter.go`) - the same 429 whether the
+  address has an account or not.
 - Cookie: `open_enu_refresh` - HttpOnly, Secure (when `API_URL` is https), SameSite=Strict,
   `Path=/api/auth`, 30 days, rotated on every use; a replayed token revokes its family.
 - Permissions: `identity.member.view`, `identity.member.invite`, `identity.member.manage`,
   `identity.profile.manage`
 - Roles: owner → every declared permission; admin → all but `tenant.delete` and
   `api_key.manage`; member → `*.view` and `*.use`. An undeclared permission is nobody's.
-- Events: none published; subscribes to `tenant.deleted` (drops memberships)
+- Events: none published; subscribes to `tenant.deleted` (drops memberships and revokes
+  the refresh tokens into that workspace)
 - Mail: `identity.email.*` keys, links under `APP_URL`
 - Tables: `identity_user`, `identity_membership`, `identity_refresh_token`,
   `identity_security_token` (no RLS)
@@ -48,6 +53,11 @@ person another module vouches for:
   workspace they cannot enter, is the login's 401. The caller rate-limits its endpoint and
   answers every failure alike; its page goes in `<InjectionPoint name="auth.login.methods">`
   on `login.vue`, and keeps the answer with `useAuthStore().setSession()`.
+
+`contract.EndTenantSessions` (the command, `identity.sessions.ended`) and `contract.Sessions`
+(`EndTenant(ctx, tenantID)`) revoke every refresh token whose current workspace is that one;
+Manager dispatches it when it suspends a workspace, inside its own transaction. Access tokens
+already issued run out within fifteen minutes.
 
 The types alias internal's, so the session shape has one definition. The root package also exports
 `RefreshCookie`, `CreateUserInput`, `CreateUserResult` and `CreateUser` for the console.

@@ -45,6 +45,15 @@ events; this module decides nothing about them.
 - The worker's writes (`succeeded`, `failed`) are infrastructure, outside the bus: the
   outcome of an HTTP call is not a domain change. The error it returns is what makes River
   retry, so the queue and the log count the same five attempts.
+- **An endpoint is never inside our own network** (`internal/outbound.go`): at
+  registration and before every attempt the URL must be `https`, not `localhost`, not an IP
+  literal outside the public internet, not the port of an internal service
+  (`webhook.error.address_refused`); the dial resolves the name once, refuses it unless
+  EVERY address is public, and connects to the address it checked (no rebinding); no
+  redirect is followed and no proxy is used. A refused attempt is logged with a fixed
+  sentence, never the address or a body. `WEBHOOK_ALLOW_PRIVATE=true` lifts the address
+  rules (not `https`, ports or redirects) for the dev stack's echo receiver; it defaults to
+  false and production must never set it.
 - `https` only, and the secret is generated server-side (`whsec_` + 32 random bytes): a
   secret the caller chose is one they may have reused.
 - `internal/delivery_test.go` sits in `internal` because the deliverer's client must trust

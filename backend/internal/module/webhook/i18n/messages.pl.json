@@ -2,6 +2,7 @@
   "webhook.title": "Webhooki",
   "webhook.secret.warning": "Zapisz to teraz - nie da się pokazać ponownie.",
   "webhook.error.https_required": "Endpoint webhooka musi być adresem https://.",
+  "webhook.error.address_refused": "Endpoint webhooka musi być adresem publicznym - nie localhost, sieć prywatna lub link-local ani port usługi wewnętrznej.",
   "webhook.error.events_required": "Zasubskrybuj co najmniej jedno zdarzenie - endpoint bez żadnego nic nie otrzyma.",
   "webhook.error.no_tenant": "Endpoint należy do przestrzeni roboczej; żadna nie jest w zakresie.",
   "notification.webhook.delivery_failed.title": "Endpoint webhooka przestał odpowiadać",

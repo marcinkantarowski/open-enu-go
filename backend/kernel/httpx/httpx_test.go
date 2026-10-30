@@ -165,50 +165,6 @@ func TestAccessLogHasTheGreppableFields(t *testing.T) {
 	}
 }
 
-func TestHealthShallowAndDeep(t *testing.T) {
-	h := &Health{Stage: "dev", Kernel: "0.0.0", Checks: map[string]Check{
-		"postgres": func(context.Context) error { return nil },
-		"redis":    func(context.Context) error { return errors.New("dial tcp: refused") },
-	}}
-	mux := http.NewServeMux()
-	h.Mount(mux)
-
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/health", nil))
-	if rec.Code != 200 || decode(t, rec.Body.Bytes())["status"] != "ok" {
-		t.Errorf("shallow: %d %s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/health/deep", nil))
-	body := decode(t, rec.Body.Bytes())
-	if rec.Code != 503 || body["status"] != "degraded" {
-		t.Fatalf("deep: %d %s", rec.Code, rec.Body.String())
-	}
-	if failed := body["failed"].([]any); len(failed) != 1 || failed[0] != "redis" {
-		t.Errorf("failed = %v", failed)
-	}
-	redis := body["checks"].(map[string]any)["redis"].(map[string]any)
-	// The driver's message stays in the log: the endpoint is public, and
-	// that text names hosts and ports.
-	if redis["ok"] != false || redis["error"] != "unavailable" || strings.Contains(rec.Body.String(), "refused") {
-		t.Errorf("redis check = %v", redis)
-	}
-}
-
-func TestHealthDeepTimesOutASlowCheck(t *testing.T) {
-	h := &Health{Timeout: 20 * time.Millisecond, Checks: map[string]Check{
-		"slow": func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() },
-	}}
-	mux := http.NewServeMux()
-	h.Mount(mux)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/health/deep", nil))
-	if rec.Code != 503 {
-		t.Errorf("a check that never answers must count as failed: %d", rec.Code)
-	}
-}
-
 func TestNotFoundHandlerUsesTheEnvelope(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.Handle("/", NotFoundHandler())

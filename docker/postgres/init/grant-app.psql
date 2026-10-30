@@ -1,0 +1,28 @@
+-- =============================================================================
+--  What the application role may do in THIS database. Run by 01-init.sh on an
+--  empty volume, and again by scripts/remote/restore.sh after a pg_restore.
+-- =============================================================================
+--  pg_restore --no-owner --no-privileges recreates every table owned by the
+--  schema owner and nothing else: the GRANTs and the default privileges below
+--  are per database and die with `DROP DATABASE`. Without this file a restored
+--  production answers "permission denied for table" to every query the API
+--  runs - and nothing in the restore would have said so. backup-verify.sh
+--  proves both halves on every run: refused before this file, readable after.
+--
+--  Not `.sql` on purpose: the Postgres entrypoint runs every *.sql in this
+--  directory on its own, without the variable, and would fail the init. It
+--  prints "ignoring" for this extension and moves on. Takes one psql variable:
+--
+--    psql -v app_role=<role> -f grant-app.psql     (run as the schema owner,
+--                                                   connected to the database)
+--
+--  The role itself (LOGIN, NOSUPERUSER, NOBYPASSRLS) is created once by
+--  01-init.sh with the password from DB_APP_PASSWORD; a restore keeps it, since
+--  roles are cluster-wide and only the database is dropped.
+-- =============================================================================
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app_role')\gexec
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'app_role')\gexec
+SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'app_role')\gexec
+SELECT format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', :'app_role')\gexec
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'app_role')\gexec
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO %I', :'app_role')\gexec

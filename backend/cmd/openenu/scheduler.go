@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/open-enu/kernel/heartbeat"
 	"github.com/open-enu/kernel/module"
 	"github.com/open-enu/kernel/platform"
 )
@@ -29,6 +30,9 @@ func init() {
 // dev stack sets an hour, so they can be watched in a working session). Tasks
 // run one after another, so a slow tick delays the next rather than
 // overlapping it.
+//
+// The loop touches HEARTBEAT_FILE (/tmp/openenu-heartbeat) every 30 s and
+// after every run, for `openenu health -heartbeat`.
 func runScheduler(args []string) int {
 	fs := flag.NewFlagSet("scheduler", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
@@ -68,7 +72,20 @@ func runScheduler(args []string) int {
 	log.Info("scheduler started", "minute_tasks", len(minute), "daily_tasks", len(daily),
 		"tick_seconds", int(tick.Seconds()), "interval_seconds", int(interval.Seconds()))
 
+	// The heartbeat is beaten by this loop itself, between tasks: a task that
+	// hangs stops it, and the container's healthcheck sees the scheduler is
+	// no longer turning (kernel/heartbeat).
+	beatPath := heartbeat.Path()
+	beat := func() {
+		if err := heartbeat.Touch(beatPath); err != nil {
+			log.Error("heartbeat not written", "error", err.Error())
+		}
+	}
+	beat()
 	runTasks(ctx, svc, daily, log)
+	beat()
+	beats := time.NewTicker(heartbeat.Interval)
+	defer beats.Stop()
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 	housekeeping := time.NewTicker(interval)
@@ -78,10 +95,14 @@ func runScheduler(args []string) int {
 		case <-ctx.Done():
 			log.Info("scheduler stopped")
 			return 0
+		case <-beats.C:
+			beat()
 		case <-ticker.C:
 			runTasks(ctx, svc, minute, log)
+			beat()
 		case <-housekeeping.C:
 			runTasks(ctx, svc, daily, log)
+			beat()
 		}
 	}
 }

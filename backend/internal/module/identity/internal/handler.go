@@ -35,7 +35,7 @@ type handlers struct {
 // password is hashed either way, so the two also take the same time.
 func (h handlers) register(ctx context.Context, tx *scope.Tx, c registerUser) (registered, error) {
 	email := normalizeEmail(c.Email)
-	if existing, err := h.repo.userByEmailHashTx(ctx, tx, emailHash(email)); err == nil {
+	if existing, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(email)); err == nil {
 		h.hasher.Spend(c.Password)
 		return registered{}, h.registeredAgain(ctx, tx, existing)
 	} else if !errors.Is(err, errNotFound) {
@@ -148,7 +148,7 @@ func (h handlers) verify(ctx context.Context, tx *scope.Tx, c verifyEmail) (user
 }
 
 func (h handlers) requestReset(ctx context.Context, tx *scope.Tx, c requestPasswordReset) (string, error) {
-	u, err := h.repo.userByEmailHashTx(ctx, tx, emailHash(c.Email))
+	u, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(c.Email))
 	if errors.Is(err, errNotFound) {
 		return "", nil // the same answer leaves the controller either way
 	}
@@ -212,7 +212,19 @@ func (h handlers) updateProfile(ctx context.Context, tx *scope.Tx, c updateProfi
 
 func (h handlers) removeTenantMemberships(ctx context.Context, tx *scope.Tx, c removeTenantMemberships) (int, error) {
 	n, err := h.repo.deleteTenantMemberships(ctx, tx, c.TenantID)
-	tx.Snapshot(nil, map[string]any{"tenantId": c.TenantID, "removed": n})
+	if err != nil {
+		return 0, err
+	}
+	// Without this, a refresh in the deleted workspace would quietly land
+	// the person in another one (open's fallback) rather than end.
+	ended, err := h.repo.revokeTenantRefresh(ctx, tx, c.TenantID)
+	tx.Snapshot(nil, map[string]any{"tenantId": c.TenantID, "removed": n, "sessionsEnded": ended})
+	return n, err
+}
+
+func (h handlers) endTenantSessions(ctx context.Context, tx *scope.Tx, c EndTenantSessions) (int, error) {
+	n, err := h.repo.revokeTenantRefresh(ctx, tx, c.TenantID)
+	tx.Snapshot(nil, map[string]any{"tenantId": c.TenantID, "sessionsEnded": n})
 	return n, err
 }
 
@@ -223,7 +235,7 @@ func (h handlers) createUser(ctx context.Context, tx *scope.Tx, c createUser) (u
 		return user{}, httpx.BadRequest(keyRoleInvalid)
 	}
 	email := normalizeEmail(c.Email)
-	u, err := h.repo.userByEmailHashTx(ctx, tx, emailHash(email))
+	u, err := h.repo.userByEmailHashTx(ctx, tx, h.repo.emailHash(email))
 	switch {
 	case errors.Is(err, errNotFound):
 		verifier, err := h.hasher.Hash(c.Password)

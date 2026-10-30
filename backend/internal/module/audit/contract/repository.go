@@ -33,7 +33,7 @@ func (r reader) Recent(ctx context.Context, tenantID *string, limit int) ([]Entr
 }
 
 func (r reader) query(ctx context.Context, limit int) (out []Entry, err error) {
-	err = r.db.Run(ctx, func(ctx context.Context, tx *scope.Tx) error {
+	err = r.db.Read(ctx, func(ctx context.Context, tx *scope.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT `+columns+` FROM audit_entry ORDER BY recorded_at DESC, id DESC LIMIT $1`, limit)
 		if err != nil {
 			return err

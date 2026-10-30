@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/open-enu/kernel/heartbeat"
 	"github.com/open-enu/kernel/platform"
 )
 
@@ -74,7 +76,17 @@ func runWorker(args []string) int {
 	if !startOutbox(ctx, svc, log) {
 		return 1
 	}
-	log.Info("worker started")
+	log.Info("worker started", "heartbeat", heartbeat.Path())
+	// Alive is: River still running and the database answering. Either
+	// failing stops the beat and the container's healthcheck sees it.
+	go heartbeat.Run(ctx, heartbeat.Path(), heartbeat.Interval, func(ctx context.Context) error {
+		select {
+		case <-svc.Outbox.Stopped():
+			return errors.New("the outbox has stopped")
+		default:
+		}
+		return svc.DB.Ping(ctx)
+	}, log)
 	<-ctx.Done()
 	shutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

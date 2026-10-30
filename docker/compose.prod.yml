@@ -43,6 +43,9 @@ x-backend-env: &backend_env
   APP_STAGE: ${APP_STAGE:-production}
   APP_SECRET: ${APP_SECRET}
   APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+  # /health/deep answers only a request carrying X-Health-Token with this value
+  # (empty: only loopback and private addresses). /health stays public.
+  HEALTH_TOKEN: ${HEALTH_TOKEN:-}
   APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
   PROJECT_SLUG: ${PROJECT_SLUG}
   DATABASE_URL: postgres://${DB_USER}_app:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
@@ -50,7 +53,12 @@ x-backend-env: &backend_env
   REDIS_ADDR: redis:6379
   REDIS_PASSWORD: ${REDIS_PASSWORD}
   MERCURE_URL: http://mercure/.well-known/mercure
-  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+  # Two keys, not one: the subscriber key signs the cookie every browser holds,
+  # and a leaked subscriber key must not also let its holder PUBLISH.
+  MERCURE_JWT_SECRET: ${MERCURE_SUBSCRIBER_JWT_SECRET}
+  MERCURE_PUBLISHER_JWT_SECRET: ${MERCURE_PUBLISHER_JWT_SECRET}
+  # Touched by the worker and the scheduler, read by their healthcheck below.
+  HEARTBEAT_FILE: /tmp/openenu-heartbeat
   API_URL: https://api.${DOMAIN}
   APP_URL: https://app.${DOMAIN}
   MANAGER_URL: https://manager.${DOMAIN}
@@ -68,6 +76,8 @@ x-backend: &backend
     context: .
     dockerfile: docker/api/Dockerfile
     target: prod
+  # RELEASE is exported by scripts/remote/release.sh (the commit being
+  # deployed); `latest` is only what a hand-run `docker compose` falls back to.
   image: ${STACK:-open-enu-go-prod}-api:${RELEASE:-latest}
   <<: [*restart, *logging]
   environment: *backend_env
@@ -102,6 +112,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    # Docker's 64m default /dev/shm is less than one parallel query's shared
+    # memory, and Postgres fails it with "could not resize shared memory".
+    shm_size: 256m
     deploy:
       resources:
         limits: { memory: 1g }
@@ -123,6 +136,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        # maxmemory 256mb is the data; the rest is the process, the AOF
+        # rewrite's fork and client buffers.
+        limits: { memory: 384m }
 
   mercure:
     image: dunglas/mercure:v1.1
@@ -130,8 +148,8 @@ services:
     <<: [*restart, *logging]
     environment:
       SERVER_NAME: ":80"
-      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
-      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_PUBLISHER_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_SUBSCRIBER_JWT_SECRET}
       # The issuer and the pinned audience of the API's tokens - see
       # compose.dev.yml for why the audience cannot be derived per request.
       MERCURE_TRUSTED_ISSUERS: https://api.${DOMAIN}
@@ -143,6 +161,17 @@ services:
         resource_identifier https://api.${DOMAIN}/.well-known/mercure
         cors_origins https://app.${DOMAIN} https://manager.${DOMAIN}
     networks: [net]
+    healthcheck:
+      # The hub has no /healthz in 1.x; its own welcome page at / is served by
+      # the same Caddy, and the body is checked, not only the status.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ | grep -q 'Welcome to Mercure' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 128m }
     labels:
       - traefik.enable=true
       - traefik.docker.network=${STACK:-open-enu-go-prod}-net
@@ -189,6 +218,17 @@ services:
     # Let an in-flight job finish on restart. At the 10s default, a deploy
     # SIGKILLs a handler mid-write.
     stop_grace_period: 120s
+    healthcheck: &heartbeat
+      # A worker serves no port to probe. It touches HEARTBEAT_FILE every 30s
+      # from its main loop, and `openenu health -heartbeat` fails once the file
+      # is older than two minutes - a process that is alive but stuck reads as
+      # unhealthy. /tmp is the image's own (distroless keeps one, writable by
+      # nonroot); the rootfs is not read-only.
+      test: ["CMD", "/openenu", "health", "-heartbeat", "/tmp/openenu-heartbeat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits: { memory: 384m }
@@ -197,6 +237,7 @@ services:
     <<: *backend
     container_name: ${STACK:-open-enu-go-prod}-scheduler
     command: ["scheduler"]
+    healthcheck: *heartbeat
     deploy:
       resources:
         limits: { memory: 256m }
@@ -212,6 +253,14 @@ services:
     <<: [*restart, *logging]
     env_file: [./frontend/.env]
     networks: [net]
+    healthcheck: &nuxt_health
+      # 127.0.0.1, not localhost: in the container localhost is ::1 first and
+      # the server binds IPv4 (compose.dev.yml). busybox wget is in the image.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     labels:
       - traefik.enable=true
       - traefik.docker.network=${STACK:-open-enu-go-prod}-net
@@ -234,6 +283,7 @@ services:
     <<: [*restart, *logging]
     env_file: [./manager/.env]
     networks: [net]
+    healthcheck: *nuxt_health
     labels:
       - traefik.enable=true
       - traefik.docker.network=${STACK:-open-enu-go-prod}-net
@@ -256,6 +306,7 @@ services:
     <<: [*restart, *logging]
     env_file: [./landing/.env]
     networks: [net]
+    healthcheck: *nuxt_health
     labels:
       - traefik.enable=true
       - traefik.docker.network=${STACK:-open-enu-go-prod}-net

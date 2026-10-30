@@ -34,6 +34,12 @@ command.Register(svc.Bus, h.rename)
 p, err := command.Dispatch[project](ctx, a.bus, renameProject{ID: req.Id, Name: name, IfMatch: v, Locked: ok})
 ```
 
+`httpx.IfMatch` reads only the strong ETag `httpx.ETag` writes (`"3"`); absent and `*` are
+"no lock". A present If-Match of any other shape - `W/"3"`, a bare `3`, a list - never reaches
+the handler: `httpx.ValidIfMatch`, in the pipeline, answers it with a 400 whose
+`details.violations` names `If-Match`, so a client bug cannot silently turn its writes into
+last-write-wins.
+
 The real thing is `backend/internal/module/example/internal/`: the rename handler carries
 the voter and the explicit 409 path itself, so a write that reaches the bus is checked
 where the transaction is.

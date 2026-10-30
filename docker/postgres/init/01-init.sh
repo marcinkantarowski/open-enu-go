@@ -9,11 +9,13 @@
 #  connects exactly as production will, or the policies are untested where
 #  they matter. The kernel's test harness (kernel/testdb) does the same.
 #
-#  Default privileges, so a table a later migration creates is readable by the
-#  application role without the migration having to remember a GRANT.
+#  The role is created here. What it may do in the database is grant-app.psql,
+#  next to this file, because a restore has to apply the same grants again:
+#  they are per database and `DROP DATABASE` takes them with it.
 # =============================================================================
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_ROLE="${POSTGRES_USER}_app"
 : "${DB_APP_PASSWORD:?DB_APP_PASSWORD is not set - run: make env}"
 
@@ -25,12 +27,10 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE', :'app_role', :'app_password')
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'app_role')\gexec
-
-SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app_role')\gexec
-SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'app_role')\gexec
-SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'app_role')\gexec
-SELECT format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', :'app_role')\gexec
-SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'app_role')\gexec
-SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO %I', :'app_role')\gexec
 SQL
+
+# Default privileges, so a table a later migration creates is readable by the
+# application role without the migration having to remember a GRANT.
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+     -v app_role="$APP_ROLE" -f "$HERE/grant-app.psql"
 echo "[init] application role $APP_ROLE ready (NOSUPERUSER NOBYPASSRLS)"

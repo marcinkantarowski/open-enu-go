@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -24,6 +25,7 @@ import (
 	"github.com/open-enu/kernel/testdb"
 
 	"github.com/open-enu/app/internal/module/attachment"
+	attachmentc "github.com/open-enu/app/internal/module/attachment/contract"
 )
 
 const (
@@ -58,7 +60,7 @@ func newStack(t *testing.T) *stack {
 	// signer the storage signs with.
 	storage.Download{Storage: svc.Storage, Signer: svc.Storage.(*storage.Memory).Signer}.Mount(mux)
 	keys := auth.MemoryKeys{}
-	return &stack{t: t, ctx: ctx, db: db, svc: svc, keys: keys, h: httpx.Chain(mux, httpx.RequestID, httpx.Recover, auth.Middleware(svc.Signer, keys))}
+	return &stack{t: t, ctx: ctx, db: db, svc: svc, keys: keys, h: httpx.Chain(mux, httpx.RequestID, httpx.Recover, httpx.MaxBody(httpx.DefaultMaxBody), auth.Middleware(svc.Signer, keys))}
 }
 
 func (s *stack) token(tenant string, perms ...string) string {
@@ -147,6 +149,33 @@ func TestAnUploadIsStoredUnderTheTenantTypedByItsBytesAndServedBySignedURL(t *te
 	}
 }
 
+func TestTheContractFindsAFileOnlyInItsOwnTenant(t *testing.T) {
+	s := newStack(t)
+	r := s.upload(s.token(tenantA, "attachment.manage"), map[string]string{"ownerType": "invoice", "ownerId": "inv-1"}, "a.txt", []byte("hello\n"))
+	if r.code != 201 {
+		t.Fatalf("upload: %d %s", r.code, r.raw)
+	}
+	files := attachmentc.NewFiles(s.svc)
+	f, found, err := files.Find(scope.WithTenant(s.ctx, tenantA), r.str("id"))
+	if err != nil || !found || f.ID != r.str("id") || f.Filename != "a.txt" || f.Size != 6 || f.OwnerType != "invoice" || f.OwnerID != "inv-1" || !strings.HasPrefix(f.ContentType, "text/plain") {
+		t.Fatalf("own tenant: %+v %v %v", f, found, err)
+	}
+	for name, c := range map[string]struct{ tenant, id string }{
+		"another tenant": {tenantB, r.str("id")},
+		"no tenant":      {"", r.str("id")},
+		"an unknown id":  {tenantA, "33333333-3333-3333-3333-333333333333"},
+		"a malformed id": {tenantA, "not-a-uuid"},
+	} {
+		ctx := s.ctx
+		if c.tenant != "" {
+			ctx = scope.WithTenant(ctx, c.tenant)
+		}
+		if f, found, err := files.Find(ctx, c.id); err != nil || found || f.ID != "" {
+			t.Fatalf("%s: %+v %v %v", name, f, found, err)
+		}
+	}
+}
+
 func TestRefusedUploads(t *testing.T) {
 	s := newStack(t)
 	owner := s.token(tenantA, "attachment.manage")
@@ -163,6 +192,17 @@ func TestRefusedUploads(t *testing.T) {
 	}
 	if r := s.upload(s.token(tenantA, "attachment.view"), nil, "x.txt", []byte("x")); r.code != 403 {
 		t.Fatalf("without manage: %d", r.code)
+	}
+}
+
+// The pipeline caps bodies at httpx.DefaultMaxBody (1 MiB); the upload
+// route raises its own to MaxBytes, so a 2 MiB file goes through whole.
+func TestAnUploadLargerThanTheDefaultBodyLimitIsAccepted(t *testing.T) {
+	s := newStack(t)
+	content := bytes.Repeat([]byte{7}, 2<<20)
+	r := s.upload(s.token(tenantA, "attachment.manage"), nil, "big.bin", content)
+	if r.code != 201 || r.body["size"] != float64(len(content)) {
+		t.Fatalf("2 MiB upload: %d %s", r.code, r.raw)
 	}
 }
 
@@ -197,6 +237,51 @@ func TestTheSweepRemovesUnclaimedFilesBlobFirst(t *testing.T) {
 	}
 	if e := entries(s, "attachment.deleted"); len(e) != 1 || e[0].TenantID != tenantA || e[0].SubjectID != loose.str("id") {
 		t.Fatalf("audit: %+v", e)
+	}
+}
+
+func TestAClaimedUploadOutlivesTheSweepAndIsNeverMoved(t *testing.T) {
+	s := newStack(t)
+	manage := s.token(tenantA, "attachment.view", "attachment.manage")
+	sheet := s.upload(manage, nil, "arkusz.txt", []byte("sheet")).str("id")
+	other := s.upload(s.token(tenantB, "attachment.manage"), nil, "b.txt", []byte("b")).str("id")
+	claimer := attachmentc.Claimer{Bus: s.svc.Bus}
+	ctx := scope.WithTenant(s.ctx, tenantA)
+	if err := claimer.Claim(ctx, sheet, "risk.analysis", "an-1"); err != nil {
+		t.Fatal(err)
+	}
+	// Again for the same owner: nothing changes, nothing is refused.
+	if err := claimer.Claim(ctx, sheet, "risk.analysis", "an-1"); err != nil {
+		t.Fatalf("the same claim again: %v", err)
+	}
+	for name, c := range map[string]struct {
+		id, ownerID string
+		want        error
+	}{
+		"another owner":         {sheet, "an-2", attachmentc.ErrClaimed},
+		"another tenant's file": {other, "an-1", attachmentc.ErrUnknown},
+		"no file at all":        {"33333333-3333-3333-3333-333333333333", "an-1", attachmentc.ErrUnknown},
+	} {
+		if err := claimer.Claim(ctx, c.id, "risk.analysis", c.ownerID); !errors.Is(err, c.want) {
+			t.Fatalf("%s: %v, want %v", name, err, c.want)
+		}
+	}
+	if f, _, _ := attachmentc.NewFiles(s.svc).Find(ctx, sheet); f.OwnerType != "risk.analysis" || f.OwnerID != "an-1" {
+		t.Fatalf("owner after the refusals: %+v", f)
+	}
+	if e := entries(s, "attachment.claimed"); len(e) < 1 || e[0].SubjectID != "an-1" || e[0].Before["ownerId"] != (*string)(nil) || *(e[0].After["ownerId"].(*string)) != "an-1" {
+		t.Fatalf("audit: %+v", e)
+	}
+	// Two days later the sweep takes only what nobody claimed.
+	if _, err := s.db.Admin.Exec(s.ctx, `UPDATE attachment SET created_at = now() - interval '2 days'`); err != nil {
+		t.Fatal(err)
+	}
+	gone, err := attachment.SweepOrphans(s.ctx, s.svc, 24, false)
+	if err != nil || len(gone) != 1 || gone[0] != other {
+		t.Fatalf("sweep: %v %v", gone, err)
+	}
+	if g := s.get("/api/attachments/"+sheet, manage); g.code != 200 {
+		t.Fatalf("the claimed sheet was swept: %d", g.code)
 	}
 }
 

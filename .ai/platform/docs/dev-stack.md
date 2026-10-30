@@ -32,7 +32,11 @@ urls          the table
 
 No Traefik in the file: routing and TLS belong to the shared edge (`docker/edge/`,
 `scripts/dev/edge.sh`) - one container for every project on the Docker host. Each router is
-named `${STACK}-<service>` and names the network the edge reaches it on.
+named `${STACK}-<service>` and names the network the edge reaches it on. The edge is two
+containers: `enu-edge` (Traefik) and `enu-edge-socket-proxy`, the only one that mounts the
+Docker socket, which answers Traefik's read-only container listing and refuses the rest of
+the API. `make edge` recreates an edge whose definition changed (compose's config hash),
+so a host with an edge from before the proxy gets one on its next `make up`.
 
 ## Where the environment comes from
 
@@ -51,13 +55,21 @@ keeps: [`env-vars.md`](env-vars.md).
 | `REDIS_ADDR`, `REDIS_PASSWORD` | compose, `.env` | `cache.NewRedis` |
 | `APP_SECRET` | `.env` | `auth.Signer`, storage URLs; refused under 32 characters |
 | `APP_ENCRYPTION_KEY` | `.env` | `crypto.NewDerivedKeys` |
-| `MERCURE_URL`, `MERCURE_JWT_SECRET` | compose, `.env` | `realtime.Hub` (publishing), `realtime.Tokens` (the subscriber cookie) |
+| `MERCURE_URL`, `MERCURE_PUBLISHER_JWT_SECRET` | compose, `.env` | `realtime.Hub` (publishing); the hub's `MERCURE_PUBLISHER_JWT_KEY` |
+| `MERCURE_JWT_SECRET` | `MERCURE_SUBSCRIBER_JWT_SECRET` in `.env` | `realtime.Tokens` (the subscriber cookie); the hub's `MERCURE_SUBSCRIBER_JWT_KEY`. A separate key, so the one every browser's cookie is signed with cannot publish |
+| `WEBHOOK_ALLOW_PRIVATE` | `"true"` in `compose.dev.yml` only | the Webhook module: lets a delivery reach a private address, which is where `webhook-echo` lives. Never in production - `make prod-check` refuses it |
+| `HEARTBEAT_FILE` | `/tmp/openenu-heartbeat` in `compose.prod.yml` | `openenu worker/scheduler` touch it; their healthcheck is `openenu health -heartbeat` |
 | `API_URL`, `APP_URL`, `MANAGER_URL`, `SITE_URL` | `https://…${DOMAIN}` | signed URLs; the CORS allowlist (exact origins) |
 | `STORAGE_ROOT` | the `storage` volume | `storage.Local` |
 | `STORAGE_MAX_UPLOAD_MB` | `.env`, default 25 | `platform.Services.MaxUploadBytes`, the Attachment upload limit |
 | `SSL_CERT_FILE` | `docker/certs/rootCA.pem` | Go's TLS roots, so the backend can call `https://*.${DOMAIN}` |
 | `API_ADDR` | `:8080` | the listen address |
 | `SCHEDULER_TICK_SECONDS`, `SCHEDULER_INTERVAL_SECONDS` | defaults 60 / 86400 | `openenu scheduler` |
+
+Two values the Nuxt apps get are decided by the stage, not only by `.env`:
+`NUXT_PUBLIC_INDEXABLE` is `true` on production alone, and `NUXT_PUBLIC_DEMO_CONTENT` (the
+`Example` entry in the tenant app's menu) is `DEMO_CONTENT` from `.env` - `false` unless set -
+and is written `false` on production whatever `.env` says (`scripts/lib/envgen.sh`).
 
 ## Hot reload
 
@@ -108,7 +120,7 @@ idempotently. The specs are in `e2e/tests/`; `make e2e` is part of `make ci`
 - `make status`, then `make logs-api` - air's build errors are there, not in the browser.
 - `make smoke` says which host fails and what the body lacked.
 - The edge answers `404 page not found` for a host: `make up` re-attaches it; a Docker Desktop
-  restart replaces the socket the edge mounted, and `make edge` notices and restarts it.
+  restart replaces the socket the proxy mounted, and `make edge` notices and restarts both.
 - A port is taken: `make ports` names the holder and the `.env` variable to change.
 
 Specific failures, symptom first: [`troubleshooting.md`](troubleshooting.md).

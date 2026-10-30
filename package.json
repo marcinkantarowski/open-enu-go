@@ -28,5 +28,10 @@
   "allowScripts": {
     "better-sqlite3": true,
     "esbuild": true
+  },
+  "overrides": {
+    "@nuxt/content": {
+      "zod": "^4.6.7"
+    }
   }
 }

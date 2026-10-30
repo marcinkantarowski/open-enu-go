@@ -2,6 +2,7 @@ package internal
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/open-enu/kernel/auth"
 	"github.com/open-enu/kernel/command"
@@ -14,18 +15,21 @@ import (
 // event, the deliverer on the job, the controller on the mux. Both `openenu
 // api` and `openenu worker` call it; only the worker runs the jobs.
 func Mount(mux *http.ServeMux, svc *platform.Services) {
-	mount(mux, svc, &http.Client{Timeout: requestTimeout})
+	// WEBHOOK_ALLOW_PRIVATE lets an endpoint live on a private network: the
+	// dev stack's echo receiver does. Never in production (outbound.go).
+	mount(mux, svc, outbound{allowPrivate: os.Getenv("WEBHOOK_ALLOW_PRIVATE") == "true"})
 }
 
-// mount is Mount with the client the deliverer posts through: a test hands
-// it one that trusts its own receiver's certificate.
-func mount(mux *http.ServeMux, svc *platform.Services, client *http.Client) {
+// mount is Mount with the outbound policy the deliverer posts under: a test
+// hands it one that trusts its own receiver's certificate, or resolves a
+// name where the test says.
+func mount(mux *http.ServeMux, svc *platform.Services, o outbound) {
 	repo := newRepository(svc)
-	h := handlers{repo: repo, outbox: svc.Outbox}
+	h := handlers{repo: repo, outbox: svc.Outbox, policy: o}
 	command.Register(svc.Bus, h.create)
 	command.Register(svc.Bus, h.deactivate)
 	command.Register(svc.Bus, h.redeliver)
-	d := newDeliverer(svc, client)
+	d := newDeliverer(svc, o)
 	svc.Outbox.SubscribeAll(d.publish)
 	outbox.Handle(svc.Outbox, d.run)
 
@@ -37,6 +41,6 @@ func mount(mux *http.ServeMux, svc *platform.Services, client *http.Client) {
 	HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})
 }
 
-func newDeliverer(svc *platform.Services, client *http.Client) deliverer {
-	return deliverer{repo: newRepository(svc), http: client, notifier: svc.Notifier, log: svc.Log}
+func newDeliverer(svc *platform.Services, o outbound) deliverer {
+	return deliverer{repo: newRepository(svc), http: o.client(), policy: o, notifier: svc.Notifier, log: svc.Log}
 }

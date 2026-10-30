@@ -159,6 +159,13 @@ write_derived() {
   { printf '%s\n' "$banner"; project_variables; } > "$ROOT/docker/api/project.env"
 
   # ── the three Nuxt apps ───────────────────────────────────────────────────
+  # The reference module in the tenant app's menu: off unless .env asks, and
+  # never in production, whatever .env says - a product's customers do not get
+  # the platform's demonstration because a key was left at a clone's value.
+  local demo="${DEMO_CONTENT:-false}"
+  [ "$demo" = true ] || demo=false
+  [ "${APP_STAGE:-}" = production ] && demo=false
+
   cat > "$ROOT/frontend/.env" <<EOF
 $banner
 
@@ -168,7 +175,7 @@ NUXT_PUBLIC_APP_NAME=${PROJECT_NAME}
 NUXT_PUBLIC_DOMAIN=${DOMAIN}
 NUXT_PUBLIC_DEFAULT_LOCALE=${DEFAULT_LOCALE:-en}
 NUXT_PUBLIC_SITE_URL=${site_url}
-NUXT_PUBLIC_DEMO_CONTENT=${DEMO_CONTENT:-true}
+NUXT_PUBLIC_DEMO_CONTENT=${demo}
 EOF
 
   cat > "$ROOT/manager/.env" <<EOF

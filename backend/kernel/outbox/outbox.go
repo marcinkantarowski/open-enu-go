@@ -147,6 +147,10 @@ func (o *Outbox) Start(ctx context.Context) error { return o.client.Start(ctx) }
 // Stop waits for running jobs, then stops.
 func (o *Outbox) Stop(ctx context.Context) error { return o.client.Stop(ctx) }
 
+// Stopped is closed once a started outbox has stopped working - by Stop or
+// because River gave up. The worker's heartbeat stops beating when it is.
+func (o *Outbox) Stopped() <-chan struct{} { return o.client.Stopped() }
+
 // Completed returns a channel of finished jobs, for tests and for the
 // operator's queue view. Call the returned func to unsubscribe.
 func (o *Outbox) Completed() (<-chan *river.Event, func()) {

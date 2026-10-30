@@ -32,6 +32,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 . "$HERE/../lib/log.sh"; . "$HERE/../lib/os.sh"
 
 DOMAIN="$(sed -n 's/^DOMAIN=//p' "$ROOT/.env" | head -1)"
+HEALTH_TOKEN="$(sed -n 's/^HEALTH_TOKEN=//p' "$ROOT/.env" | head -1)"
 CA="$(mkcert -CAROOT 2>/dev/null)/rootCA.pem"
 [ -f "$CA" ] || die "mkcert CA not found" "run: make certs"
 
@@ -58,11 +59,15 @@ TARGETS=(
   "app.$DOMAIN|/|200|content=\"tenant\"|frontend"
   "manager.$DOMAIN|/|200|content=\"operator\"|manager"
   "api.$DOMAIN|/health|200|\"status\":\"ok\"|API health"
-  "api.$DOMAIN|/health/deep|200|\"status\":\"ok\"|API readiness"
+  "api.$DOMAIN|/health/deep|200|\"status\":\"ok\"|API readiness|X-Health-Token: $HEALTH_TOKEN"
   "api.$DOMAIN|/.well-known/mercure|400|missing \"match\"|Mercure hub (on the API host)"
   "traefik.$DOMAIN|/dashboard/|200|<!DOCTYPE html>|Traefik dashboard"
   "mail.$DOMAIN|/|200|Mailpit|Mailpit"
 )
+# With a token set, the readiness probe must also refuse a caller without it.
+# Without one it answers private addresses, and through the dev edge every
+# caller is one, so there is nothing to refuse.
+[ -z "$HEALTH_TOKEN" ] || TARGETS+=("api.$DOMAIN|/health/deep|404|\"not_found\"|API readiness refused without the token")
 # Two expectations that look wrong and are not:
 #   Mercure answers 400 to a subscribe with no matcher - that is the hub replying,
 #   which is the thing being tested. A 502 would mean it is not there at all.

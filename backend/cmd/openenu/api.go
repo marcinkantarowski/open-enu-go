@@ -65,7 +65,7 @@ func runAPI(args []string) int {
 // anything unmatched.
 func newHandler(reg *module.Registry, svc *platform.Services, log *slog.Logger) (http.Handler, error) {
 	mux := newMux()
-	health := &httpx.Health{Stage: envOr("APP_STAGE", "dev"), Kernel: kernel.Version, Checks: map[string]httpx.Check{}}
+	health := &httpx.Health{Stage: envOr("APP_STAGE", "dev"), Kernel: kernel.Version, Token: os.Getenv("HEALTH_TOKEN"), Checks: map[string]httpx.Check{}}
 	if svc.DB != nil {
 		health.Checks["postgres"] = func(ctx context.Context) error { return svc.DB.Ping(ctx) }
 	}
@@ -101,8 +101,14 @@ func newHandler(reg *module.Registry, svc *platform.Services, log *slog.Logger) 
 	// middleware's own 401 is translated, and again after it with the
 	// modules' preferences, which need the principal (a person's stored
 	// choice, a tenant's default) and override the header.
+	//
+	// Every body is capped at httpx.DefaultMaxBody (a 413 in the envelope
+	// beyond it); a module's upload route raises its own with
+	// httpx.AllowBody. A malformed If-Match is a 400 here, so no handler
+	// reads it as "no lock".
 	return httpx.Chain(mux, httpx.RequestID, cors, httpx.AccessLog(log), httpx.Recover,
-		httpx.Locale(svc.I18n), authn, httpx.Locale(svc.I18n, reg.LocalePreferences(svc)...)), nil
+		httpx.Locale(svc.I18n), httpx.MaxBody(httpx.DefaultMaxBody), httpx.ValidIfMatch,
+		authn, httpx.Locale(svc.I18n, reg.LocalePreferences(svc)...)), nil
 }
 
 func newMux() *http.ServeMux { return http.NewServeMux() }

@@ -59,4 +59,4 @@ cannot see the row, it must not guess.
 - Any signed or encrypted artefact whose key varies: storage URLs, export bundles, webhook
   signatures. Ask what the key is derived from, and whether that thing travels with the data.
 - A lookup on an encrypted value goes through its sibling `*_hash` column
-  (`crypto.HashForLookup`), never the ciphertext, which differs on every write.
+  (`svc.Crypto.HashForLookup`, keyed), never the ciphertext, which differs on every write.

@@ -258,10 +258,11 @@ func (s *stack) member(email, slug, role string) reply {
 }
 
 // operator creates the operator account once and logs it in: the manager
-// realm's token, with no cookie.
+// realm's token, with no cookie. A super operator, the one kind that may
+// impersonate.
 func (s *stack) operator() reply {
 	s.t.Helper()
-	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: opEmail, Password: opPassword, DisplayName: "Support"}); err != nil {
+	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: opEmail, Password: opPassword, DisplayName: "Support", Super: true}); err != nil {
 		s.t.Fatal(err)
 	}
 	r := s.do("POST", "/api/manager/login", "", map[string]any{"email": opEmail, "password": opPassword})

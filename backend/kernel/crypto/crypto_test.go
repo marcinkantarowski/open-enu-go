@@ -78,13 +78,48 @@ func TestRoundTripAndFailures(t *testing.T) {
 	}
 }
 
+// The lookup hash is HMAC-SHA256 under HKDF(master, info
+// "open-enu:lookup:v1"), both computed independently of this package: a
+// change here orphans every *_hash column, deliberately or not at all.
 func TestHashForLookupMatchesVector(t *testing.T) {
-	const want = "ff8d9819fc0e12bf0d24892e45987e249a28dce836a85cad60e28eaaa8c6d976"
-	if got := HashForLookup("  Alice@Example.COM "); got != want {
+	const wantKey = "fb0c37997846daf4a1e5007dae5a12d2b1f90007690b519e27942996388f32f3"
+	const want = "c3bedb083d55bdc7fd2a4ce522a0d56dee0fe0802ffb678eb81bf4831f8cda07"
+	keys, _ := NewDerivedKeys(master)
+	if k, _ := keys.LookupKey(); hexOf(k) != wantKey {
+		t.Fatalf("lookup key differs from the vector: %s", hexOf(k))
+	}
+	e := enc(t)
+	if got := e.HashForLookup("  Alice@Example.COM \n"); got != want {
 		t.Fatalf("got %s want %s", got, want)
 	}
-	if HashForLookup("a") == HashForLookup("b") {
+	if e.HashForLookup("a") == e.HashForLookup("b") {
 		t.Fatal("distinct values must hash differently")
+	}
+	other, _ := NewDerivedKeys("another-master-key-another-master-key")
+	if NewEncryptor(other).HashForLookup("alice@example.com") == want {
+		t.Fatal("the hash must depend on the master key, or a dump is reversible by dictionary")
+	}
+}
+
+// A provider without its own lookup key still gets a keyed hash.
+func TestHashForLookupUnderAPlainKeyProvider(t *testing.T) {
+	e := NewEncryptor(fixedKey{})
+	if e.HashForLookup("x") == "" || e.HashForLookup("x") != e.HashForLookup(" X ") {
+		t.Fatal("normalised and keyed")
+	}
+}
+
+type fixedKey struct{}
+
+func (fixedKey) KeyFor(string) ([]byte, error) { return make([]byte, keyBytes), nil }
+
+func TestDeriveKeyMatchesVectorAndSeparatesPurposes(t *testing.T) {
+	const want = "c87f781130f8785a833db13fc7980d04ddcce2292890847424dbb7b250bfaccf"
+	if got := hexOf(DeriveKey([]byte(master), "open-enu:secret:jwt:v1")); got != want {
+		t.Fatalf("got %s want %s", got, want)
+	}
+	if hexOf(DeriveKey([]byte(master), "a")) == hexOf(DeriveKey([]byte(master), "b")) {
+		t.Fatal("two purposes must get two keys")
 	}
 }
 

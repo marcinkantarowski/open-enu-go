@@ -15,6 +15,9 @@ type startImpersonation struct {
 	TenantID   string
 	UserID     string
 	OperatorID string
+	// Super is whether the operator holds roleSuper, read from their row
+	// (not their token) by the service. Only a super operator may cross.
+	Super bool
 }
 
 func (startImpersonation) AuditAction() string      { return "manager.impersonation.started" }

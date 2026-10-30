@@ -12,6 +12,7 @@ import (
 	"golang.org/x/tools/go/analysis/multichecker"
 
 	"github.com/open-enu/kernel/analysis/flagdeclared"
+	"github.com/open-enu/kernel/analysis/impersonationguard"
 	"github.com/open-enu/kernel/analysis/platformservice"
 	"github.com/open-enu/kernel/analysis/rawsql"
 	"github.com/open-enu/kernel/analysis/rawstring"
@@ -31,5 +32,6 @@ func main() {
 		writeboundary.Analyzer,
 		textlen.Analyzer,
 		tableowner.Analyzer,
+		impersonationguard.Analyzer,
 	)
 }

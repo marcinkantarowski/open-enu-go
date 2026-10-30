@@ -45,7 +45,7 @@ type sessions struct {
 // in the same time: the password is checked before whether the account is
 // active, and an address nobody has spends a verification too.
 func (s sessions) login(ctx context.Context, email, password string, tenantID *string) (Session, *http.Cookie, error) {
-	u, err := s.repo.userByEmailHash(ctx, emailHash(email))
+	u, err := s.repo.userByEmailHash(ctx, s.repo.emailHash(email))
 	if err != nil {
 		s.hasher.Spend(password)
 		return Session{}, nil, httpx.Unauthenticated(keyInvalidCredentials)

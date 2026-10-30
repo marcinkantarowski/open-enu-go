@@ -14,7 +14,7 @@ written anywhere reads live values with no call site changing.
   `overridden`), `PUT /api/settings/{identifier}` (only `tenantEditable` ones; 400 otherwise),
   `GET /api/manager/settings`, `PUT /api/manager/tenants/{tenantId}/settings/{identifier}`
   (operators override anything - the kill switch)
-- Permissions: `settings.view`, `settings.manage`
+- Permissions: `settings.view`, `settings.manage`; the tenant PUT is refused under impersonation (ADR-0020)
 - Commands: `settings.flag.set` (before: the previous value; after: the new row)
 - Tables: `setting_override` (RLS; `value` boxed as `{"value": ...}`)
 - Kernel hook: `Module.FlagStore` - the resolver the process builds reads this table

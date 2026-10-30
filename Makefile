@@ -311,7 +311,7 @@ test-security: ## The suite that proves isolation and credential handling (needs
 arch: vet analyzers gen-check inventory-check docs-check i18n-check typography-check versions-check agents-budget shell-check prod-check dead-code ## Every architectural guardrail
 
 .PHONY: analyzers
-analyzers: ## The go/analysis guardrails (writeboundary, thincontroller, rawsql, platformservice, flagdeclared, rawstring, textlen, tableowner) over both modules
+analyzers: ## The go/analysis guardrails (writeboundary, thincontroller, rawsql, platformservice, flagdeclared, rawstring, textlen, tableowner, impersonationguard) over both modules
 	@cd $(ROOT)/backend && $(GO) run github.com/open-enu/kernel/analysis/cmd/arch ./...
 	@cd $(ROOT)/backend/kernel && $(GO) run ./analysis/cmd/arch ./...
 

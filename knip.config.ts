@@ -75,7 +75,12 @@ const config: KnipConfig = {
       ignoreDependencies: ['vue-tsc', 'esbuild'],
     },
     'ui-kit': {
-      entry: ['nuxt.config.ts', ...nuxtConventions('app'), ...i18nWrappers, 'types/**/*.d.ts'],
+      entry: [
+        'nuxt.config.ts', ...nuxtConventions('app'), ...i18nWrappers, 'types/**/*.d.ts',
+        // Nitro middleware the layer merges into all three apps' servers
+        // (the Content-Security-Policy). Nitro finds it by path; nothing imports it.
+        'server/**/*.ts',
+      ],
       project: ['**/*.{ts,vue}'],
       // Registered in `modules:` / `vite:` inside nuxt.config.ts, or auto-imported.
       ignoreDependencies: ['vue', 'vue-router', 'nuxt', '@nuxtjs/i18n', '@pinia/nuxt', 'tailwindcss', '@vueuse/core'],

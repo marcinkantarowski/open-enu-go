@@ -11,16 +11,22 @@ claim is never stored. A file nobody claims within a day is swept, blob first.
 
 - API (`openapi.json`): `POST /api/attachments` (multipart `file`, optional `ownerType`,
   `ownerId`; 201 with `url`), `GET /api/attachments/{id}` (a fresh `url`)
-- Permissions: `attachment.view`, `attachment.manage`
-- Commands: `attachment.uploaded` (subject = the owner), `attachment.deleted` (the sweep)
+- Permissions: `attachment.view`, `attachment.manage`; the upload is refused under impersonation (ADR-0020)
+- Commands: `attachment.uploaded` (subject = the owner), `attachment.claimed` (an unclaimed
+  upload gets its owner; subject = the owner), `attachment.deleted` (the sweep)
 - Tasks: `attachment.sweep_orphans` (daily)
 - Tables: `attachment` (RLS)
 - Console: `openenu attachment sweep-orphans [--hours 24 --dry-run]`
 
 ## Public contract
 
-Nothing under `contract/`. The root package exports `SweepOrphans` (console and task) and
-`SetMaxBytes` (tests).
+`contract.Files` (`Find`) built by `contract.NewFiles`: whether an id is an upload the
+scope's tenant can see, and the `contract.File` it is - name, type, size and owner, never the
+storage key. A module storing an attachment's id checks it there first. `contract.Claim`
+(dispatched by `contract.Claimer`) gives an upload made without an owner one, in the
+claiming command's transaction, so the sweep leaves it; `contract.ErrUnknown` and
+`contract.ErrClaimed` are its refusals, which the caller maps onto its own field. The root package
+exports `SweepOrphans` (console and task) and `SetMaxBytes` (tests).
 
 ## Notes for agents
 

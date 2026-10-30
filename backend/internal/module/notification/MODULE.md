@@ -16,7 +16,8 @@ reader's property ([ADR-0008](../../../../.ai/platform/adr/0008-i18n-from-the-st
   `POST /api/notifications/{id}/read` (somebody else's is **404**, not 403),
   `POST /api/notifications/read-all`
 - Permissions: `notification.view` - the only one; a feed is personal, so "whose" is never
-  a parameter
+  a parameter. Marking read (one or all) is refused under impersonation (ADR-0020): support
+  reading the feed must not make the person miss what is in it
 - Commands: none. The notifier's writes are a side effect of an already-audited change;
   read state is a repository write (auditing a glance would bury the trail)
 - Tables: `notification` (RLS; `type varchar(120)`, `context jsonb`, `read_at`)

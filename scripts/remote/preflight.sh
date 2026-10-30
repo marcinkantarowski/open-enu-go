@@ -77,7 +77,8 @@ log_step "SSH"
 if ! REMOTE true 2>/dev/null; then
   die "cannot ssh to $HOST" \
     "check: the key is loaded (ssh-add -l), the user exists, the host is reachable" \
-    "on a brand-new box the first login is usually root@ - provisioning creates the deploy user"
+    "on a brand-new box only root@ exists: bash scripts/remote/deploy-user.sh $HOST creates the user" \
+    "(make buildprod / buildstaging do that themselves before running this)"
 fi
 log_ok "$HOST reachable, key accepted"
 

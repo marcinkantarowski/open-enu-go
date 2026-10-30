@@ -14,7 +14,7 @@ change; `NeedsRehash` replaces a verifier written at another cost on the next lo
 
 | On the wire | Verified by | Becomes |
 |---|---|---|
-| `Authorization: Bearer <jwt>` | `auth.Signer` - HS256 under `APP_SECRET`; claims `sub`, `tid`, `aud`, `perms`, `iat`, `exp`, and `imp` + `act` for an impersonation | `Principal{Subject, TenantID, Realm, Permissions, Impersonator}` |
+| `Authorization: Bearer <jwt>` | `auth.Signer` - HS256 under a sub-key of `APP_SECRET` (`crypto.DeriveKey`, info `open-enu:secret:jwt:v1`); claims `sub`, `tid`, `aud`, `perms`, `iat`, `exp`, and `imp` + `act` for an impersonation | `Principal{Subject, TenantID, Realm, Permissions, Impersonator}` |
 | `Authorization: Bearer sk_...` | `auth.KeyResolver` by the key's SHA-256 - the ApiKey module's table; `MemoryKeys` in tests | the same, with `APIKey: true` and the key's scopes as permissions |
 
 An API key is an opaque `sk_...` string, never a JWT: the server stores only its hash and
@@ -41,9 +41,13 @@ if err := a.guard.DenyImpersonated(ctx, "example.project.renamed"); err != nil {
 permission says what this *role* may do; whether *this row* may be touched is the voter's,
 in the handler (`commands-and-audit.md`).
 
-`Guard.DenyImpersonated` refuses an impersonated session on a destructive action
-([ADR-0020](../adr/0020-impersonation.md)): support may look, support may not act in
-someone else's name. It records the refusal in the trail with **both** identities - the
+`Guard.DenyImpersonated` refuses an impersonated session on every write a person makes in
+their own name ([ADR-0020](../adr/0020-impersonation.md)): support may look, support may not
+act in someone else's name. Call it in every controller that dispatches a command or writes -
+the profile, an upload, a setting and marking the feed read included; a route that leaves it
+out is one an impersonated session is meant to use, and says why in a `//impersonation:allowed <reason>`
+comment on the method - the `impersonationguard` analyzer refuses a controller that dispatches a
+command with neither the guard before the dispatch nor that comment ([`guardrails.md`](guardrails.md)). It records the refusal in the trail with **both** identities - the
 subject as actor, the operator as on-behalf-of - because "what did the operator try while
 viewing as this user" is the question an incident asks.
 
@@ -64,7 +68,10 @@ principal whose realm is not `tenant` with the same 401 as no token, and
 roles in `perms` for display, but authority is the realm. Logging in there is limited to five
 attempts, then one a minute, and issues no refresh cookie.
 
-An impersonation token (`POST /api/manager/tenants/{t}/users/{u}/impersonate`) is a genuine
+Only a super operator (`ROLE_PLATFORM_SUPER`, `openenu manager create --super`) may
+impersonate; a plain one gets a 403 `manager.error.super_required`, on the trail as a failed
+attempt. The role is read from the operator's row, not the token, so taking it away is
+immediate. An impersonation token (`POST /api/manager/tenants/{t}/users/{u}/impersonate`) is a genuine
 `aud: tenant` token with `imp: true` and `act: {sub: operator, realm: manager}`, minted by
 Identity's `contract.Minter` after Manager has audited the attempt - so a refused attempt is
 on record too. It passes the realm check honestly, has no cookie and so cannot renew, and

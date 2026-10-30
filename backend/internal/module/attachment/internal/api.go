@@ -25,14 +25,20 @@ const (
 // request's shape is known - and the file reaches the handler as bytes with
 // a content type sniffed from them, never the client's claim.
 type api struct {
-	bus  *command.Bus
-	repo repository
+	bus   *command.Bus
+	repo  repository
+	guard auth.Guard
 }
 
 var _ StrictServerInterface = api{}
 
 func (a api) PostAttachmentUpload(ctx context.Context, req PostAttachmentUploadRequestObject) (PostAttachmentUploadResponseObject, error) {
 	if _, err := auth.Require(ctx, "attachment.manage"); err != nil {
+		return nil, err
+	}
+	// A file in the tenant's storage under the person's name is the
+	// person's act, not support's (ADR-0020).
+	if err := a.guard.DenyImpersonated(ctx, "attachment.uploaded"); err != nil {
 		return nil, err
 	}
 	cmd, err := readUpload(req.Body)

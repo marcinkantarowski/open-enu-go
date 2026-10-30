@@ -90,6 +90,12 @@ resolves to is in the `tenant` realm
 only produce an agent that spends its turns discovering which of its tools are permanently
 401.
 
+One exception the rule cannot see: an operation that carries a permission and still refuses
+every key, whatever its permissions - Identity's `patch_profile_update` answers a key 403
+`identity.error.not_a_person`, because a key has no profile. Such an operation says so on
+itself in the module's `openapi.json` with `"x-mcp": false` (read by `kernel/spec`), and
+the catalogue skips it. Mark an operation the moment its controller refuses `p.APIKey`.
+
 The server calls the API over HTTP rather than dispatching in-process. That is the whole
 point: the agent is a *client*, and goes through the same middleware, tenant scope and
 permission checks as any other machine caller. An in-process version would hand an agent

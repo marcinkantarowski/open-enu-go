@@ -36,6 +36,7 @@ const requestTimeout = 10 * time.Second
 type deliverer struct {
 	repo     repository
 	http     *http.Client
+	policy   outbound
 	notifier notification.Notifier
 	log      *slog.Logger
 }
@@ -84,6 +85,12 @@ func (d deliverer) run(ctx context.Context, j deliverJob) error {
 		}
 		return nil
 	}
+	// Again before every attempt: an endpoint stored before a rule existed
+	// is held to it all the same.
+	if key := d.policy.checkURL(e.URL); key != "" {
+		d.log.WarnContext(ctx, "webhook.address_refused", "delivery", del.ID, "endpoint", e.ID, "rule", string(key))
+		return d.fail(ctx, del, e, nil, errAddressRefused.Error())
+	}
 	body, err := json.Marshal(del.Payload)
 	if err != nil {
 		return err
@@ -98,6 +105,15 @@ func (d deliverer) run(ctx context.Context, j deliverJob) error {
 	}
 	resp, err := d.http.Do(req)
 	if err != nil {
+		// A refused address or redirect is recorded in a fixed sentence: what
+		// a name resolved to inside our network, or where a redirect pointed,
+		// is ours to log and not the tenant's to read.
+		for _, refused := range []error{errAddressRefused, errRedirectRefused} {
+			if errors.Is(err, refused) {
+				d.log.WarnContext(ctx, "webhook.delivery_refused", "delivery", del.ID, "endpoint", e.ID, "error", err.Error())
+				return d.fail(ctx, del, e, nil, refused.Error())
+			}
+		}
 		return d.fail(ctx, del, e, nil, err.Error())
 	}
 	defer resp.Body.Close()

@@ -24,6 +24,8 @@
   "error.network": "Nie udało się połączyć z serwerem.",
   "error.forbidden": "Nie masz uprawnień do tej operacji.",
   "error.notFound": "To już nie istnieje.",
+  "error.payloadTooLarge": "Dane są zbyt duże (limit {limit} MB).",
+  "error.payloadTooLargeNoLimit": "Dane są zbyt duże.",
 
   "auth.email": "Adres e-mail",
   "auth.password": "Hasło",

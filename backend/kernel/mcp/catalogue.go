@@ -38,7 +38,9 @@ type Tool struct {
 // credential: it cannot sign in, cannot refresh a browser session, and is
 // refused by the operator realm on its `aud` claim (ADR-0019).
 // Offering those would only produce an agent that spends its turns
-// discovering which of its tools are permanently 401.
+// discovering which of its tools are permanently 401. An operation that
+// does carry a permission but refuses every key anyway - the person's own
+// profile - says so in its fragment with `"x-mcp": false`, and is skipped.
 type Catalogue struct {
 	Fragments   [][]byte
 	Permissions map[string]string
@@ -60,7 +62,7 @@ func (c Catalogue) Tools() ([]Tool, error) {
 		}
 		for _, op := range ops {
 			perm := c.Permissions[op.ID]
-			if perm == "" || c.Declared == nil || !c.Declared(perm) {
+			if op.NoMCP || perm == "" || c.Declared == nil || !c.Declared(perm) {
 				continue
 			}
 			out = append(out, Tool{

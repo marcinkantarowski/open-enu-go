@@ -21,7 +21,13 @@
 #                ships
 #
 #  Optional environment: EMAIL (LETSENCRYPT_EMAIL), ALLOW (STAGING_ALLOW_FROM;
-#  defaults to the address you are connecting from).
+#  defaults to the address you are connecting from), SSH_ALLOW_FROM (who may
+#  reach port 22; empty = anywhere, with a warning - kept in the stage's .env).
+#
+#  HOST names the deploy user: deploy@203.0.113.42. On a bare box it is created
+#  first, from root@, with passwordless sudo and the docker group, and a second
+#  login as it is proved before anything else happens (deploy-user.sh).
+#  Production refuses to run as root@ - the units would run as root too.
 # =============================================================================
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,6 +49,23 @@ REMOTE() { ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" "$@"; }
 DEPLOY_USER="${HOST%@*}"
 [ "$DEPLOY_USER" = "$HOST" ] && DEPLOY_USER=root
 SERVER="${HOST#*@}"
+
+if [ "$DEPLOY_USER" = root ]; then
+  if [ "$STAGE" = production ]; then
+    die "production does not run as root - HOST is $HOST" \
+      "name a deploy user and this creates it from root@: make buildprod HOST=deploy@$SERVER DOMAIN=$DOMAIN REPO=…" \
+      "the stack, the backups and every unit run as that user; sshd is hardened only once a login as it is proved"
+  fi
+  log_warn "provisioning $STAGE as root: no deploy user, sshd is not hardened, the units run as root"
+fi
+
+# ── 0a. the deploy user, before anything that logs in as it ─────────────────
+# Preflight, the deploy key and every step below log in as HOST; on a bare box
+# that user does not exist yet. Creating it is the one change made before the
+# read-only preflight, and it touches nothing but the user: no sshd, no ports.
+if [ "$DEPLOY_USER" != root ]; then
+  "$HERE/deploy-user.sh" "$HOST" || die "the deploy user is not ready - nothing else was touched"
+fi
 
 # ── 0. preflight ────────────────────────────────────────────────────────────
 if [ "${SKIP_PREFLIGHT:-0}" = "1" ]; then
@@ -97,23 +120,18 @@ else
   log_ok "age and rclone installed"
 fi
 
-# ── 2. the deploy user, created in lockout-safe order ───────────────────────
-# The order is the whole point. Create the user, install the key, PROVE a second
-# login works - and only then touch sshd_config. Hardening first and verifying
-# afterwards is how a box becomes unreachable with no way back in.
-if [ "$DEPLOY_USER" != "root" ] && REMOTE "id $DEPLOY_USER >/dev/null 2>&1"; then
-  log_skip "user $DEPLOY_USER exists"
-elif [ "$DEPLOY_USER" != "root" ]; then
-  log_step "Creating $DEPLOY_USER"
-  ssh -o BatchMode=yes "root@$SERVER" "set -e
-    adduser --disabled-password --gecos '' $DEPLOY_USER
-    usermod -aG docker $DEPLOY_USER
-    mkdir -p /home/$DEPLOY_USER/.ssh && chmod 700 /home/$DEPLOY_USER/.ssh
-    cp /root/.ssh/authorized_keys /home/$DEPLOY_USER/.ssh/authorized_keys
-    chown -R $DEPLOY_USER:$DEPLOY_USER /home/$DEPLOY_USER/.ssh
-    chmod 600 /home/$DEPLOY_USER/.ssh/authorized_keys
-  " || die "could not create $DEPLOY_USER - is root@ reachable?"
-  log_ok "$DEPLOY_USER created and added to the docker group"
+# ── 2. the deploy user is in the docker group ───────────────────────────────
+# deploy-user.sh (step 0a) added it; on a box where Docker came later, or a
+# user made by hand, this is where it is made true. Root-equivalent, and said
+# so in deployment.md: every stack command runs as this user.
+if [ "$DEPLOY_USER" != root ]; then
+  if REMOTE "id -nG | tr ' ' '\\n' | grep -qx docker"; then
+    log_skip "$DEPLOY_USER is in the docker group"
+  elif REMOTE "sudo -n usermod -aG docker $DEPLOY_USER"; then
+    log_ok "$DEPLOY_USER added to the docker group (takes effect on the next login)"
+  else
+    die "could not add $DEPLOY_USER to the docker group" "by hand: sudo usermod -aG docker $DEPLOY_USER"
+  fi
 fi
 
 # ── 3. hardening, gated on a PROVEN second login ────────────────────────────
@@ -124,9 +142,15 @@ if [ "$DEPLOY_USER" != "root" ]; then
       "sshd_config was NOT modified - the box is exactly as you found it" \
       "fix the key for $DEPLOY_USER and re-run"
   fi
-  log_ok "second login as $DEPLOY_USER works"
+  REMOTE "sudo -n true" 2>/dev/null || die "$DEPLOY_USER logs in but has no passwordless sudo" \
+    "sshd_config was NOT modified" "re-run: bash scripts/remote/deploy-user.sh $HOST"
+  log_ok "second login as $DEPLOY_USER works, with sudo"
 
-  if REMOTE "sudo -n grep -q '^PasswordAuthentication no' /etc/ssh/sshd_config 2>/dev/null"; then
+  # The EFFECTIVE configuration (sshd -T), not a grep of one file: Ubuntu's
+  # cloud images ship sshd_config.d/50-cloud-init.conf with password auth ON,
+  # and the first value sshd reads wins - so the setting goes in a drop-in
+  # named to be read first, and is then checked the way sshd sees it.
+  if REMOTE "sudo -n sshd -T 2>/dev/null | grep -qx 'passwordauthentication no'"; then
     log_skip "sshd already hardened"
   else
     log_step "Disabling password auth and root login"
@@ -134,38 +158,149 @@ if [ "$DEPLOY_USER" != "root" ]; then
       sudo -n cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.\$(date +%s)
       sudo -n sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
       sudo -n sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+      if [ -d /etc/ssh/sshd_config.d ]; then
+        printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' \
+          | sudo -n tee /etc/ssh/sshd_config.d/00-enu-hardening.conf >/dev/null
+      fi
       sudo -n sshd -t
       sudo -n systemctl reload ssh 2>/dev/null || sudo -n systemctl reload sshd
+      sudo -n sshd -T | grep -qx 'passwordauthentication no'
     " && log_ok "password auth off, root login key-only (backup kept)" \
       || log_warn "could not harden sshd - the stack still works; do it by hand"
+    # And the door is still open: a NEW login after the reload.
+    REMOTE true 2>/dev/null || die "a new login as $HOST fails after the sshd change" \
+      "an existing session is not affected - restore from /etc/ssh/sshd_config.bak.* via the provider's console"
   fi
 fi
 
-# ── 4. firewall, log rotation, swap ─────────────────────────────────────────
+# ── 4. host configuration, step by step ─────────────────────────────────────
+# Each step reports for itself. "firewall, log rotation, swap ✓" printed after
+# a block that may have failed half-way is how a box runs for a year without
+# the firewall anybody thinks it has.
 log_step "Host configuration"
-REMOTE "set -e
-  SUDO=\$([ \$(id -u) -eq 0 ] && echo '' || echo 'sudo -n')
-  \$SUDO ufw allow 22/tcp  >/dev/null 2>&1 || true
-  \$SUDO ufw allow 80/tcp  >/dev/null 2>&1 || true
-  \$SUDO ufw allow 443/tcp >/dev/null 2>&1 || true
-  \$SUDO ufw --force enable >/dev/null 2>&1 || true
-
-  # Docker's default is unbounded. One chatty container fills the disk the
-  # database is on, and Postgres stops before anything says why.
-  echo '{\"log-driver\":\"json-file\",\"log-opts\":{\"max-size\":\"10m\",\"max-file\":\"3\"}}' \
-    | \$SUDO tee /etc/docker/daemon.json >/dev/null
-  \$SUDO systemctl restart docker || true
-
-  # Under 2GB, a Nuxt build is the thing that gets OOM-killed. The Go build
-  # is light; the three Nuxt images are not.
-  if [ \"\$(free -m | awk '/^Mem:/{print \$2}')\" -lt 1900 ] && [ ! -f /swapfile ]; then
-    \$SUDO fallocate -l 2G /swapfile && \$SUDO chmod 600 /swapfile && \$SUDO mkswap /swapfile >/dev/null
-    \$SUDO swapon /swapfile
-    grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | \$SUDO tee -a /etc/fstab >/dev/null
-    echo 'added 2G swap'
+HOST_FAILED=()
+# host_step <label> <script> [args...] - the script runs under bash on the
+# server with SUDO set; its stdout is shown indented, its exit decides.
+host_step() {
+  local label="$1" script="$2" out; shift 2
+  # Arguments quoted for the remote shell: ssh joins them into one string, and
+  # an empty one would vanish and shift the rest.
+  if out="$(REMOTE bash -s -- "$(printf '%q ' "$@")" <<<"set -e; SUDO=\$([ \$(id -u) -eq 0 ] && echo '' || echo 'sudo -n'); export DEBIAN_FRONTEND=noninteractive; $script" 2>&1)"; then
+    log_ok "$label"
+    [ -z "$out" ] || sed 's/^/      /' <<<"$out"
+  else
+    log_warn "$label - did not apply"
+    [ -z "$out" ] || tail -5 <<<"$out" | sed 's/^/      /' >&2
+    HOST_FAILED+=("$label")
   fi
-" || log_warn "some host configuration steps did not apply - check ufw and /etc/docker/daemon.json"
-log_ok "firewall, log rotation, swap"
+}
+
+# Who may reach port 22. From the environment, else what this stage's .env
+# kept from the last run, else anywhere.
+CLIENT_IP="$(REMOTE 'echo ${SSH_CLIENT%% *}' 2>/dev/null || true)"
+SSH_ALLOW="${SSH_ALLOW_FROM:-$(REMOTE "sed -n 's/^SSH_ALLOW_FROM=//p' $APP_DIR/.env 2>/dev/null | head -1" 2>/dev/null || true)}"
+SSH_ALLOW="${SSH_ALLOW// /}"
+if [ -n "$SSH_ALLOW" ]; then
+  # Never close the door you are standing in: the address this run comes from
+  # must be inside the list, or the list is not applied.
+  if [ -z "$CLIENT_IP" ] || ! python3 -c 'import ipaddress,sys; ip=ipaddress.ip_address(sys.argv[1]); sys.exit(0 if any(ip in ipaddress.ip_network(n, strict=False) for n in sys.argv[2].split(",") if n) else 1)' "$CLIENT_IP" "$SSH_ALLOW" 2>/dev/null; then
+    die "SSH_ALLOW_FROM ($SSH_ALLOW) does not include the address this run comes from (${CLIENT_IP:-unknown})" \
+      "applying it would lock this machine out of the server - nothing was changed" \
+      "add ${CLIENT_IP:-your address} to SSH_ALLOW_FROM, or leave it empty"
+  fi
+fi
+
+host_step "packages: ufw, fail2ban, unattended-upgrades" '
+  if ! dpkg -s ufw fail2ban unattended-upgrades >/dev/null 2>&1; then
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y -qq ufw fail2ban unattended-upgrades >/dev/null
+  fi'
+
+host_step "firewall: 22 from ${SSH_ALLOW:-anywhere}, 80, 443" '
+  SRC="$1"
+  if [ -z "$SRC" ]; then
+    $SUDO ufw allow 22/tcp >/dev/null
+    stale="$($SUDO ufw status numbered | sed -n "s/^\[ *\([0-9]*\)\].*# enu-ssh\$/\1/p" | sort -rn)"
+  else
+    for s in ${SRC//,/ }; do $SUDO ufw allow from "$s" to any port 22 proto tcp comment enu-ssh >/dev/null; done
+    # Rules for sources no longer on the list, newest number first so the
+    # numbering of the rest does not move under the loop.
+    stale="$($SUDO ufw status numbered | sed -n "s/^\[ *\([0-9]*\)\][^A]*ALLOW IN *\([^ ]*\).*# enu-ssh\$/\1 \2/p" \
+             | while read -r n from; do case ",$SRC," in *",$from,"*) ;; *) echo "$n" ;; esac; done | sort -rn)"
+  fi
+  for n in $stale; do $SUDO ufw --force delete "$n" >/dev/null; done
+  $SUDO ufw allow 80/tcp  >/dev/null
+  $SUDO ufw allow 443/tcp >/dev/null
+  [ -z "$SRC" ] || $SUDO ufw delete allow 22/tcp >/dev/null 2>&1 || true
+  $SUDO ufw --force enable >/dev/null
+  $SUDO ufw status | grep -q "Status: active"' "$SSH_ALLOW"
+if [ -z "$SSH_ALLOW" ]; then
+  log_warn "port 22 is open to anywhere - SSH_ALLOW_FROM=<your ip or cidr> narrows it (fail2ban guards it meanwhile)"
+elif ! REMOTE true 2>/dev/null; then
+  die "the firewall change locked out a new login from here" \
+    "from the provider's console: sudo ufw allow 22/tcp" \
+    "then fix SSH_ALLOW_FROM and re-run"
+else
+  log_ok "a new login still works through the allowlist"
+fi
+
+host_step "fail2ban: sshd jail (5 tries in 10 minutes, banned for an hour)" '
+  IGNORE="127.0.0.1/8 ::1 ${1//,/ } $2"
+  printf "[sshd]\nenabled = true\nbackend = systemd\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\nignoreip = %s\n" "$IGNORE" \
+    | $SUDO tee /etc/fail2ban/jail.d/sshd.local >/dev/null
+  $SUDO systemctl enable fail2ban >/dev/null 2>&1
+  $SUDO systemctl restart fail2ban
+  for _ in 1 2 3 4 5 6 7 8 9 10; do $SUDO fail2ban-client ping >/dev/null 2>&1 && break; sleep 1; done
+  $SUDO fail2ban-client status sshd >/dev/null' "$SSH_ALLOW" "$CLIENT_IP"
+
+# Security updates only, applied daily, never a reboot: a point release or
+# Docker's own packages moving under a running stack is a deploy nobody chose.
+host_step "unattended-upgrades: security only" '
+  printf "APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"1\";\n" \
+    | $SUDO tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null
+  printf "%s\n" "#clear Unattended-Upgrade::Origins-Pattern;" \
+    "Unattended-Upgrade::Origins-Pattern {" \
+    "  \"origin=Debian,codename=\${distro_codename}-security,label=Debian-Security\";" \
+    "  \"origin=Ubuntu,archive=\${distro_codename}-security\";" \
+    "};" \
+    "Unattended-Upgrade::Automatic-Reboot \"false\";" \
+    | $SUDO tee /etc/apt/apt.conf.d/52enu-security-only >/dev/null
+  apt-config dump | grep -q "Origins-Pattern:: \"origin=.*security"
+  $SUDO systemctl enable --now unattended-upgrades >/dev/null 2>&1'
+
+# TLS, tokens and the backup timer all read the clock. Checked, and asked to
+# sync when it is not; a clock that is not synchronised YET is a warning.
+host_step "time: NTP synchronised" '
+  [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && exit 0
+  $SUDO timedatectl set-ntp true 2>/dev/null || true
+  echo "not synchronised yet - NTP switched on; check: timedatectl status"
+  exit 1'
+
+# Docker's default is unbounded. One chatty container fills the disk the
+# database is on, and Postgres stops before anything says why. Restarted only
+# when the file changed: a restart of Docker restarts every running container.
+host_step "docker: log rotation (10m x 3)" '
+  want="{\"log-driver\":\"json-file\",\"log-opts\":{\"max-size\":\"10m\",\"max-file\":\"3\"}}"
+  if [ "$(cat /etc/docker/daemon.json 2>/dev/null)" != "$want" ]; then
+    echo "$want" | $SUDO tee /etc/docker/daemon.json >/dev/null
+    $SUDO systemctl restart docker
+    echo "daemon.json written, docker restarted"
+  fi'
+
+# Under 2GB, a Nuxt build is the thing that gets OOM-killed. The Go build
+# is light; the three Nuxt images are not.
+host_step "swap: 2G under 2GB of RAM" '
+  if [ "$(free -m | awk "/^Mem:/{print \$2}")" -lt 1900 ] && [ ! -f /swapfile ]; then
+    $SUDO fallocate -l 2G /swapfile && $SUDO chmod 600 /swapfile && $SUDO mkswap /swapfile >/dev/null
+    $SUDO swapon /swapfile
+    grep -q "^/swapfile" /etc/fstab || echo "/swapfile none swap sw 0 0" | $SUDO tee -a /etc/fstab >/dev/null
+    echo "added 2G swap"
+  fi'
+
+if [ ${#HOST_FAILED[@]} -gt 0 ]; then
+  log_warn "host configuration incomplete: ${HOST_FAILED[*]}"
+  log_info "the stack can still come up; fix these by hand or re-run - each step is idempotent"
+fi
 
 # ── 5. the code ─────────────────────────────────────────────────────────────
 log_step "Syncing code to $APP_DIR"
@@ -230,8 +365,6 @@ fi
 # server. Regenerating APP_SECRET invalidates every session; regenerating
 # APP_ENCRYPTION_KEY makes every encrypted column unreadable, permanently.
 log_step "Environment"
-# The address this machine reaches the server from, as the server sees it.
-CLIENT_IP="$(REMOTE 'echo ${SSH_CLIENT%% *}' 2>/dev/null || true)"
 
 REMOTE "set -e
   cd $APP_DIR
@@ -245,6 +378,7 @@ REMOTE "set -e
   set_env HOST_UID     \$(id -u)
   set_env HOST_GID     \$(id -g)
   [ -z '${EMAIL:-}' ] || set_env LETSENCRYPT_EMAIL '${EMAIL:-}'
+  [ -z '$SSH_ALLOW' ] || set_env SSH_ALLOW_FROM '$SSH_ALLOW'
   if [ '$STAGE' = staging ]; then
     if [ -n '${ALLOW:-}' ]; then set_env STAGING_ALLOW_FROM '${ALLOW:-}'
     elif [ -z \"\$(sed -n 's/^STAGING_ALLOW_FROM=//p' .env)\" ] && [ -n '$CLIENT_IP' ]; then set_env STAGING_ALLOW_FROM '$CLIENT_IP'
@@ -281,9 +415,11 @@ REMOTE "cd $APP_DIR && bash scripts/remote/release.sh" \
 
 # ── 8. from the outside: DNS, certificate and routing, end to end ───────────
 log_step "Waiting for https://api.$DOMAIN/health/deep from here"
+# From outside, /health/deep answers only the token the server's .env holds.
+HEALTH_TOKEN="$(REMOTE "sed -n 's/^HEALTH_TOKEN=//p' $APP_DIR/.env 2>/dev/null | head -1" 2>/dev/null || true)"
 healthy=0
 for _ in $(seq 1 40); do
-  if curl -fsS --max-time 5 "https://api.$DOMAIN/health/deep" 2>/dev/null | grep -q '"status":"ok"'; then
+  if curl -fsS --max-time 5 -H "X-Health-Token: $HEALTH_TOKEN" "https://api.$DOMAIN/health/deep" 2>/dev/null | grep -q '"status":"ok"'; then
     healthy=1; break
   fi
   sleep 5
@@ -297,7 +433,7 @@ fi
 log_ok "deep health check green from outside"
 
 # ── 9. survive a reboot, and back up nightly ────────────────────────────────
-"$HERE/install-units.sh" "$HOST" "$STACK" "$APP_DIR" "$STAGE" || log_warn "systemd units not installed - the stack will not return after a reboot"
+"$HERE/install-units.sh" "$HOST" "$STACK" "$APP_DIR" "$STAGE" "$DEPLOY_USER" || log_warn "systemd units not installed - the stack will not return after a reboot"
 
 # ── 10. the backup gate - production only ──────────────────────────────────
 BACKUP_REMOTE="$(REMOTE "grep '^BACKUP_REMOTE=' $APP_DIR/.env 2>/dev/null | cut -d= -f2-" || true)"

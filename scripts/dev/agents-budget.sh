@@ -39,10 +39,12 @@ done < <(find "$ROOT/backend/internal/module" -name MODULE.md 2>/dev/null | sort
 # the searchable declaration and a task on a clock included - measured and
 # rounded up to the next 50. Adding a demonstration means removing one, or
 # arguing that the specification grew and raising the cap in the same change.
+# 1150 -> 1200 (2026-10-30): impersonationguard made the guard on create part
+# of what the module must show.
 # (0 means "not set - report, do not fail".)
 MODULE_LOC=3000
 MODULE_FILES=40
-EXAMPLE_LOC=1150
+EXAMPLE_LOC=1200
 
 # Counted: every .go file including tests - tests are part of what a reader
 # holds. Excluded, deliberately: migrations (an append-only ledger nobody reads

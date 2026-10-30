@@ -18,9 +18,16 @@ import (
 // AuthRatePerMinute and AuthBurst bound every /api/auth/* call per client:
 // the limiter is what makes "one 401 for every failure" hold against a
 // client that can try a million times.
+//
+// CostlyRatePerMinute and CostlyBurst are a second, stricter bucket per
+// client on the two calls that cost us something whoever makes them:
+// register creates a workspace, forgot-password sends a mail. Five, then
+// one a minute, as the operator login.
 const (
-	AuthRatePerMinute = 60
-	AuthBurst         = 30
+	AuthRatePerMinute   = 60
+	AuthBurst           = 30
+	CostlyRatePerMinute = 1
+	CostlyBurst         = 5
 )
 
 // Mount wires the module. The auth routes sit behind the rate limiter; the
@@ -35,6 +42,7 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	command.Register(svc.Bus, h.reset)
 	command.Register(svc.Bus, h.updateProfile)
 	command.Register(svc.Bus, h.removeTenantMemberships)
+	command.Register(svc.Bus, h.endTenantSessions)
 	command.Register(svc.Bus, h.createUser)
 	command.Register(svc.Bus, h.erase)
 	// A deleted workspace takes its memberships with it.
@@ -44,7 +52,7 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 		return err
 	})
 
-	a := api{bus: svc.Bus, repo: repo, locales: svc.I18n.Enabled(), sessions: sessions{
+	a := api{bus: svc.Bus, repo: repo, locales: svc.I18n.Enabled(), guard: auth.Guard{Audit: svc.Audit}, sessions: sessions{
 		repo: repo, tenants: tenantc.NewReader(svc), signer: svc.Signer, hasher: svc.Passwords,
 		perms: newResolver(svc.Permissions), secure: svc.URLs.Secure(),
 	}}
@@ -54,7 +62,14 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	inner := http.NewServeMux()
 	strict := NewStrictHandlerWithOptions(a, nil, StrictHTTPServerOptions{RequestErrorHandlerFunc: badRequest, ResponseErrorHandlerFunc: httpx.WriteError})
 	HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: inner, ErrorHandlerFunc: badRequest})
-	mux.Handle("/api/auth/", httpx.RateLimit(AuthRatePerMinute, AuthBurst)(inner))
+	// One per-client bucket for every /api/auth/* route; the stricter
+	// buckets sit inside it, and the per-address one innermost (limiter.go).
+	perClient := httpx.RateLimit(AuthRatePerMinute, AuthBurst)
+	perAddress := newAccountLimiter(AccountAttempts, AccountWindow)
+	mux.Handle("/api/auth/", perClient(inner))
+	mux.Handle("/api/auth/login", perClient(perAddress.perLogin(inner)))
+	mux.Handle("/api/auth/forgot-password", perClient(httpx.RateLimit(CostlyRatePerMinute, CostlyBurst)(perAddress.perAccount(inner))))
+	mux.Handle("/api/auth/register", perClient(httpx.RateLimit(CostlyRatePerMinute, CostlyBurst)(inner)))
 	mux.Handle("/api/profile", inner)
 }
 

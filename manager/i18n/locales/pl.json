@@ -54,5 +54,12 @@
   "manager.outcomeOk": "OK",
   "manager.outcomeFailed": "Niepowodzenie",
   "manager.loginTitle": "Konsola operatora",
-  "manager.loginSubtitle": "Zaloguj się kontem operatora platformy."
+  "manager.loginSubtitle": "Zaloguj się kontem operatora platformy.",
+  "manager.error.forbidden.title": "Brak uprawnień",
+  "manager.error.forbidden.description": "Ta część konsoli jest zastrzeżona dla superoperatora.",
+  "manager.error.notFound.title": "Nie znaleziono strony",
+  "manager.error.notFound.description": "Ten adres nie prowadzi do żadnej strony konsoli.",
+  "manager.error.failed.title": "Coś poszło nie tak",
+  "manager.error.failed.description": "Nie udało się wyświetlić strony. Spróbuj ponownie za chwilę; jeśli to się powtarza, podaj poniższy numer.",
+  "manager.error.home": "Wróć na stronę główną"
 }

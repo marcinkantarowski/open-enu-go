@@ -26,6 +26,7 @@ fails. `kernel/analysis/cmd/arch` runs them all over `./...` of both modules.
 | `platformservice` | `os.WriteFile/Create/OpenFile/Mkdir*/Remove*/Rename` and a raw Redis client import outside `kernel/` | files and cache go through the kernel's contracts, which scope them to the tenant and include them in erasure and backup |
 | `rawstring` | a string constant used as an `i18n.Key` that is not dotted lowercase - in a call, a conversion or a declaration | every user-facing string is a catalogue key; the type stops variables, this stops `NotFound("Project not found.")` |
 | `flagdeclared` | a flag key read through `flags.Flags` that is not a string literal, or has no `flags.Definition` literal in the same package | an undeclared flag resolves to the call's default forever - invisible to an operator, impossible to switch off during an incident |
+| `impersonationguard` | in a module's `api.go`, a method of `StrictServerInterface` that calls `command.Dispatch` or `bus.Dispatch` with no `auth.Guard.DenyImpersonated` before it, unless the method carries `//impersonation:allowed <reason>`; that comment with no reason | support may look, support may not act in someone else's name ([ADR-0020](../adr/0020-impersonation.md)): the guard is the default, and a route without it - a public `/api/auth/*` route has no principal to impersonate - says why where the next reader will see it |
 | `textlen` | in a module's `api.go` or `handler.go`, `len()` of a string compared with a non-zero constant | `len` counts bytes; the spec's `maxLength` and `VARCHAR(n)` count characters, so a byte count refuses a Polish name both of them accept. `utf8.RuneCountInString`, or `len([]byte(s))` for a limit that really is in octets |
 | `tableowner` | in a module, a SQL string literal naming a table another module's migrations create; a migration `REFERENCES` one | a module's tables are its own: others reach the data through its `contract/`, so the owner can change its schema and erasure stays where it put it. All SQL is raw, so this is what holds the line |
 | `writeboundary` | in a module, a value of type `*scope.Tx` in any file but `handler.go`, `repository.go`, `job.go`; a `scope.Pool` in any file but `repository.go` | only the bus opens a write transaction and only a handler receives it - that is what makes audit coverage structural |
@@ -33,7 +34,7 @@ fails. `kernel/analysis/cmd/arch` runs them all over `./...` of both modules.
 **Not enforced:** a `WHERE` on an encrypted column. A SQL string does not say which column
 holds ciphertext, so no analyzer here can see it; the rule is held by review
 ([`review-change`](../skills/review-change.md)) and by the `*_hash` sibling column that
-`crypto.HashForLookup` fills for equality lookups.
+`svc.Crypto.HashForLookup` fills for equality lookups.
 
 ## Enforced by Postgres
 

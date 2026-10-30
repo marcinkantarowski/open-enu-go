@@ -84,9 +84,9 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '',
       mercureUrl: process.env.NUXT_PUBLIC_MERCURE_URL || '',
       // The platform's own demonstration content - the reference module's menu
-      // entry. On unless switched off: a fresh clone should show what it can
-      // do, and a product built from it switches this off in `.env`.
-      demoContent: process.env.NUXT_PUBLIC_DEMO_CONTENT !== 'false',
+      // entry. Off unless the variable says exactly `true`: a missing or
+      // mistyped value must not put the reference module in a customer's menu.
+      demoContent: process.env.NUXT_PUBLIC_DEMO_CONTENT === 'true',
     },
   },
 })

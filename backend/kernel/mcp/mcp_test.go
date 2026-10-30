@@ -56,6 +56,26 @@ func TestOnlyDeclaredPermissionGuardedOperationsBecomeTools(t *testing.T) {
 	}
 }
 
+func TestAnOperationMarkedNotForMCPIsNotOffered(t *testing.T) {
+	// A declared permission and still never callable by a key: the person's
+	// own profile answers every key 403, so it is marked out of the catalogue.
+	c := Catalogue{
+		Fragments: [][]byte{[]byte(`{"paths": {
+  "/api/profile": {"patch": {"operationId": "patch_profile_update", "x-mcp": false}},
+  "/api/projects": {"get": {"operationId": "get_project_index", "x-mcp": true}}
+}}`)},
+		Permissions: map[string]string{"patch_profile_update": "example.profile", "get_project_index": "example.view"},
+		Declared:    func(p string) bool { return strings.HasPrefix(p, "example.") },
+	}
+	tools, err := c.Tools()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools) != 1 || tools[0].Name != "get_project_index" {
+		t.Fatalf("tools: %+v", tools)
+	}
+}
+
 func TestNoFragmentsIsAnErrorNotAnEmptyList(t *testing.T) {
 	if _, err := (Catalogue{}).Tools(); err == nil {
 		t.Fatal("an empty catalogue should refuse")

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -123,8 +124,8 @@ func (t *Tx) root() *Tx {
 }
 
 // Run executes fn in a scoped transaction and commits unless it returns an
-// error. For reads and for the bus; a handler never calls it, it is handed
-// the Tx.
+// error. For the bus and for reads (Read, for a read that may join
+// Consistent); a handler never calls it, it is handed the Tx.
 func (p *Pool) Run(ctx context.Context, fn func(ctx context.Context, tx *Tx) error) error {
 	tx, err := p.Begin(ctx)
 	if err != nil {
@@ -141,6 +142,71 @@ func (p *Pool) Run(ctx context.Context, fn func(ctx context.Context, tx *Tx) err
 		return err
 	}
 	return tx.RunAfterCommit(ctx)
+}
+
+// shared is the read-only transaction Consistent puts in the context. The
+// lock keeps two goroutines off its one connection; a Read that cannot take
+// it - a second goroutine, or a Read nested in another - gets its own
+// transaction instead of waiting.
+type shared struct {
+	mu   sync.Mutex
+	pool *Pool
+	tx   *Tx
+}
+
+type sharedKey struct{}
+
+// Consistent runs fn with one REPEATABLE READ, READ ONLY transaction in its
+// context, so that every Read inside it - from any module, through any
+// contract - sees the same snapshot. For a reader that assembles several
+// modules' records into one answer: read one by one, each in its own
+// transaction, they can straddle another request's commit and describe a
+// state that never existed. Run and the bus never join it; a write inside fn
+// gets its own transaction, as it would without Consistent. Nested, the
+// outer one stays.
+func (p *Pool) Consistent(ctx context.Context, fn func(ctx context.Context) error) error {
+	if s, ok := ctx.Value(sharedKey{}).(*shared); ok && s.pool == p {
+		return fn(ctx)
+	}
+	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return fmt.Errorf("scope: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := setScope(ctx, tx); err != nil {
+		return err
+	}
+	tenant, bypass := scopeOf(ctx)
+	s := &shared{pool: p, tx: &Tx{Tx: tx, tenant: tenant, bypass: bypass}}
+	if err := fn(context.WithValue(ctx, sharedKey{}, s)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// Read is Run for a reader. Inside Consistent, under the scope Consistent
+// was opened with, it runs fn in a savepoint of the shared transaction, so
+// a failed statement costs only fn's own work; anywhere else it is Run. fn
+// must not write: inside Consistent the transaction is read only and the
+// write fails.
+func (p *Pool) Read(ctx context.Context, fn func(ctx context.Context, tx *Tx) error) error {
+	s, ok := ctx.Value(sharedKey{}).(*shared)
+	if !ok || s.pool != p {
+		return p.Run(ctx, fn)
+	}
+	if tenant, bypass := scopeOf(ctx); tenant != s.tx.tenant || bypass != s.tx.bypass || !s.mu.TryLock() {
+		return p.Run(ctx, fn)
+	}
+	defer s.mu.Unlock()
+	sp, err := s.tx.Savepoint(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = sp.Rollback(ctx) }()
+	if err := fn(ctx, sp); err != nil {
+		return err
+	}
+	return sp.Commit(ctx)
 }
 
 // scopeOf is what setScope would apply for ctx: bypass wins over a tenant.

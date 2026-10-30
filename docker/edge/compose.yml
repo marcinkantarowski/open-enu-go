@@ -23,18 +23,52 @@
 #
 #  Everything is mounted from EDGE_HOME rather than from a checkout, so the
 #  edge survives the checkout that first started it being moved or deleted.
+#
+#  Traefik never holds the Docker socket. The socket is root on the host, even
+#  mounted `:ro` - that stops unlinking the file, not the API behind it, which
+#  starts privileged containers. Traefik faces the internet, so a bug in it
+#  would be a bug with root. It asks socket-proxy instead, which answers the
+#  read-only calls the docker provider makes (containers, events, version,
+#  ping) and refuses everything else with 403, on a network only the two of
+#  them are on.
 # =============================================================================
 
 name: enu-edge
 
 services:
+  socket-proxy:
+    # Pinned to a release; Dependabot's docker-compose entry reads this file.
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: enu-edge-socket-proxy
+    restart: unless-stopped
+    environment:
+      # Only the section the docker provider lists. EVENTS, PING and VERSION
+      # are the image's defaults; every other section is off by default, and
+      # POST=0 (also the default, stated so nobody has to look it up) makes
+      # all of it read-only.
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Internal: no route out and no published port.
+    networks: [socket]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2375/_ping | grep -q OK || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   traefik:
     image: traefik:v3.7.16
     container_name: enu-edge
     restart: unless-stopped
     ports: ["80:80", "443:443"]
+    depends_on:
+      socket-proxy: { condition: service_healthy }
+    networks: [default, socket]
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # No docker.sock: the provider's endpoint is tcp://socket-proxy:2375
+      # (traefik.yml, traefik.server.yml). `make prod-check` refuses a mount.
       - ${EDGE_HOME:?EDGE_HOME is set by scripts/dev/edge.sh}/traefik.yml:/etc/traefik/traefik.yml:ro
       - ${EDGE_HOME}/dynamic:/etc/traefik/dynamic:ro
       - ${EDGE_HOME}/certs:/certs:ro
@@ -45,3 +79,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+networks:
+  default:
+  socket:
+    internal: true

@@ -36,5 +36,12 @@
   "app.nav.main": "Menu główne",
   "app.dashboard.workspace": "Obszar roboczy:",
   "app.dashboard.empty": "Jeszcze nic tu nie ma",
-  "app.dashboard.emptyHint": "Na tej stronie moduły umieszczają swoje kafelki. Żaden jeszcze tego nie zrobił."
+  "app.dashboard.emptyHint": "Na tej stronie moduły umieszczają swoje kafelki. Żaden jeszcze tego nie zrobił.",
+  "app.error.forbidden.title": "Brak uprawnień",
+  "app.error.forbidden.description": "Twoja rola w tym obszarze roboczym nie obejmuje tej strony. Jeśli jej potrzebujesz, zwróć się do administratora.",
+  "app.error.notFound.title": "Nie znaleziono strony",
+  "app.error.notFound.description": "Ten adres nie prowadzi do żadnej strony aplikacji.",
+  "app.error.failed.title": "Coś poszło nie tak",
+  "app.error.failed.description": "Nie udało się wyświetlić strony. Spróbuj ponownie za chwilę; jeśli to się powtarza, podaj poniższy numer.",
+  "app.error.home": "Wróć na stronę główną"
 }

@@ -1,6 +1,8 @@
 package security_test
 
 import (
+	"bytes"
+	"mime/multipart"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +10,7 @@ import (
 	"github.com/open-enu/kernel/auth"
 
 	auditc "github.com/open-enu/app/internal/module/audit/contract"
+	"github.com/open-enu/app/internal/module/manager"
 )
 
 // Two realms verify against one key, so isolation rests on the `aud` claim
@@ -168,5 +171,94 @@ func TestAFlagFlippedForOneTenantDoesNotAffectAnother(t *testing.T) {
 	s.do("PUT", "/api/manager/tenants/"+a+"/settings/example.archive", op, map[string]any{"value": false})
 	if r := s.do("POST", "/api/projects/archive", ownerA, nil); r.code != 404 {
 		t.Fatalf("A after switching off: %d", r.code)
+	}
+}
+
+func TestUnderImpersonationTheProfileUploadsSettingsAndFeedStayThePersons(t *testing.T) {
+	s := newStack(t)
+	a := s.register(ownerEmail, "Acme")
+	sess := s.login(ownerEmail)
+	op := s.operator().str("token")
+	if err := s.svc.Notifier.ToTenant(s.ctx, a, "webhook.delivery_failed", map[string]any{"event": "e", "url": "https://hooks.example.test", "attempts": 5}); err != nil {
+		t.Fatal(err)
+	}
+	imp := s.do("POST", "/api/manager/tenants/"+a+"/users/"+sess.str("user", "id")+"/impersonate", op, nil)
+	if imp.code != 200 {
+		t.Fatalf("impersonate: %d %s", imp.code, imp.raw)
+	}
+	token := imp.str("token")
+	// Looking is allowed: the profile, the settings, the feed.
+	feed := s.do("GET", "/api/notifications", token, nil)
+	items, _ := feed.body["items"].([]any)
+	if feed.code != 200 || len(items) != 1 || s.do("GET", "/api/profile", token, nil).code != 200 || s.do("GET", "/api/settings", token, nil).code != 200 {
+		t.Fatalf("impersonated reads: feed %d %s", feed.code, feed.raw)
+	}
+	id, _ := items[0].(map[string]any)["id"].(string)
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, _ := w.CreateFormFile("file", "planted.txt")
+	part.Write([]byte("not the person's"))
+	w.Close()
+	for name, r := range map[string]reply{
+		"profile":  s.do("PATCH", "/api/profile", token, map[string]any{"displayName": "Support was here"}),
+		"upload":   s.send(request{method: "POST", path: "/api/attachments", authz: token, rawBody: &buf, contentType: w.FormDataContentType()}),
+		"setting":  s.do("PUT", "/api/settings/example.archive", token, map[string]any{"value": true}),
+		"read":     s.do("POST", "/api/notifications/"+id+"/read", token, nil),
+		"read-all": s.do("POST", "/api/notifications/read-all", token, nil),
+	} {
+		if r.code != 403 || !strings.Contains(r.str("error", "message"), "viewing as another user") {
+			t.Fatalf("%s under impersonation: %d %s", name, r.code, r.raw)
+		}
+	}
+	// Nothing changed: the name, the stored files, the flag, the unread count.
+	if p := s.do("GET", "/api/profile", sess.str("token"), nil); strings.Contains(string(p.raw), "Support was here") {
+		t.Fatalf("profile changed: %s", p.raw)
+	}
+	var files int
+	if err := s.db.Admin.QueryRow(s.ctx, `SELECT count(*) FROM attachment`).Scan(&files); err != nil || files != 0 {
+		t.Fatalf("an upload was stored: %d %v", files, err)
+	}
+	if f := s.do("GET", "/api/notifications", sess.str("token"), nil); !strings.Contains(string(f.raw), `"unread":1`) {
+		t.Fatalf("the feed was read for the person: %s", f.raw)
+	}
+	// The person may do all of it.
+	if r := s.do("PATCH", "/api/profile", sess.str("token"), map[string]any{"displayName": "Owner"}); r.code != 200 || r.str("displayName") != "Owner" {
+		t.Fatalf("the person's own change: %d %s", r.code, r.raw)
+	}
+	// And each refusal is on the trail with both identities.
+	entries, err := auditc.NewReader(s.svc).Recent(s.ctx, nil, 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused := map[string]bool{}
+	for _, e := range entries {
+		if !e.Succeeded && e.OnBehalfOfID != nil && e.ActorID != nil && *e.ActorID == sess.str("user", "id") {
+			refused[e.Action] = true
+		}
+	}
+	for _, action := range []string{"identity.profile.updated", "attachment.uploaded", "settings.flag.set", "notification.read", "notification.read_all"} {
+		if !refused[action] {
+			t.Fatalf("no refusal of %s on the trail: %v", action, refused)
+		}
+	}
+}
+
+func TestAPlainOperatorCannotImpersonateAndASuspensionEndsTheWorkspacesSessions(t *testing.T) {
+	s := newStack(t)
+	a := s.register(ownerEmail, "Acme")
+	sess := s.login(ownerEmail)
+	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: "plain@example.test", Password: opPassword}); err != nil {
+		t.Fatal(err)
+	}
+	plain := s.do("POST", "/api/manager/login", "", map[string]any{"email": "plain@example.test", "password": opPassword}).str("token")
+	if r := s.do("POST", "/api/manager/tenants/"+a+"/users/"+sess.str("user", "id")+"/impersonate", plain, nil); r.code != 403 || r.str("token") != "" || !strings.Contains(r.str("error", "message"), "super operator") {
+		t.Fatalf("a plain operator impersonated: %d %s", r.code, r.raw)
+	}
+	// Suspended: the member's refresh token into it is dead at once.
+	if r := s.do("POST", "/api/manager/tenants/"+a+"/suspend", s.operator().str("token"), nil); r.code != 200 {
+		t.Fatalf("suspend: %d %s", r.code, r.raw)
+	}
+	if r := s.send(request{method: "POST", path: "/api/auth/refresh", cookie: sess.refresh()}); r.code != 401 || r.str("token") != "" {
+		t.Fatalf("refresh into a suspended workspace: %d %s", r.code, r.raw)
 	}
 }

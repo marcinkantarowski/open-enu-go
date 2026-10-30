@@ -1,3 +1,4 @@
 {
-  "manager.error.invalid_credentials": "Those credentials are not valid."
+  "manager.error.invalid_credentials": "Those credentials are not valid.",
+  "manager.error.super_required": "Only a super operator may view a workspace as one of its members."
 }

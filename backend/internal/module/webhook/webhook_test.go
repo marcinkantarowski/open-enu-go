@@ -105,6 +105,12 @@ func (r reply) items() []any { v, _ := r.body["items"].([]any); return v }
 
 func (s *stack) do(method, path, authz string, payload any) reply {
 	s.t.Helper()
+	return s.doIn("", method, path, authz, payload)
+}
+
+// doIn is do with an Accept-Language.
+func (s *stack) doIn(locale, method, path, authz string, payload any) reply {
+	s.t.Helper()
 	var body io.Reader
 	if payload != nil {
 		b, _ := json.Marshal(payload)
@@ -113,6 +119,9 @@ func (s *stack) do(method, path, authz string, payload any) reply {
 	req := httptest.NewRequest(method, path, body)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+authz)
+	if locale != "" {
+		req.Header.Set("Accept-Language", locale)
+	}
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, req)
 	r := reply{code: rec.Code, raw: rec.Body.String()}
@@ -240,5 +249,21 @@ func TestTheDeliveryLogIsReadableAndRedeliverNeedsARow(t *testing.T) {
 	}
 	if r := s.do("POST", "/api/webhooks/deliveries/0192f000-0000-7000-8000-0000000000ff/redeliver", s.viewer(), nil); r.code != 403 {
 		t.Fatalf("viewer redelivered: %d", r.code)
+	}
+}
+
+func TestAnEndpointInsideOurOwnNetworkIsRefusedInEitherLanguage(t *testing.T) {
+	s := newStack(t)
+	want := map[string]string{"en": "must be a public address", "pl": "musi być adresem publicznym"}
+	for _, url := range []string{"https://127.0.0.1/hook", "https://10.0.0.8/hook", "https://169.254.169.254/latest/meta-data/", "https://[::1]/hook", "https://localhost/hook", "https://hooks.example.test:5432/"} {
+		for locale, text := range want {
+			r := s.doIn(locale, "POST", "/api/webhooks", s.manager(), map[string]any{"url": url, "events": []string{"example.project.created"}})
+			if r.code != 400 || !strings.Contains(r.str("error", "message"), text) {
+				t.Fatalf("%s (%s): %d %s", url, locale, r.code, r.raw)
+			}
+		}
+	}
+	if l := s.do("GET", "/api/webhooks", s.viewer(), nil); len(l.items()) != 0 {
+		t.Fatalf("a refused endpoint was stored: %s", l.raw)
 	}
 }

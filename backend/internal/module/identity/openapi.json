@@ -322,6 +322,7 @@
       "patch": {
         "operationId": "patch_profile_update",
         "summary": "Change display name or locale. Requires `identity.profile.manage`.",
+        "x-mcp": false,
         "tags": [
           "identity"
         ],

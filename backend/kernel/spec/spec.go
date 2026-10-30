@@ -20,6 +20,11 @@ type Operation struct {
 	// NoTestReason is the `x-no-test-required` extension: the written reason
 	// an operation is exempt from route coverage. Empty for almost all.
 	NoTestReason string
+	// NoMCP is the `x-mcp: false` extension: an operation no API key can
+	// ever call (it answers a key 403 whatever the key's permissions), so
+	// the MCP catalogue does not offer it. Absent or true, it is offered
+	// by the usual rule.
+	NoMCP bool
 }
 
 // Pattern is the operation as net/http's ServeMux reports it in
@@ -46,11 +51,12 @@ func Operations(fragment []byte) ([]Operation, error) {
 			var op struct {
 				ID       string `json:"operationId"`
 				NoTestRQ string `json:"x-no-test-required"`
+				MCP      *bool  `json:"x-mcp"`
 			}
 			if err := json.Unmarshal(raw, &op); err != nil {
 				return nil, fmt.Errorf("spec: %s %s: %w", method, path, err)
 			}
-			out = append(out, Operation{Method: strings.ToUpper(method), Path: path, ID: op.ID, NoTestReason: op.NoTestRQ})
+			out = append(out, Operation{Method: strings.ToUpper(method), Path: path, ID: op.ID, NoTestReason: op.NoTestRQ, NoMCP: op.MCP != nil && !*op.MCP})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

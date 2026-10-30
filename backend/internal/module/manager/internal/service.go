@@ -2,7 +2,8 @@ package internal
 
 import (
 	"context"
-	"strings"
+	"errors"
+	"slices"
 	"time"
 
 	"github.com/open-enu/kernel/auth"
@@ -33,7 +34,7 @@ type service struct {
 // the attempt itself is in the access log. One answer for every failure
 // mode - unknown address, wrong password, deactivated account.
 func (s service) login(ctx context.Context, email, password string) (OperatorSession, error) {
-	o, err := s.repo.byEmailHash(ctx, crypto.HashForLookup(strings.ToLower(strings.TrimSpace(email))))
+	o, err := s.repo.byEmailHash(ctx, s.repo.crypto.HashForLookup(email))
 	if err != nil {
 		s.hasher.Spend(password) // the same time as a wrong password
 		return OperatorSession{}, httpx.Unauthenticated(keyInvalidCredentials)
@@ -121,13 +122,17 @@ func (s service) impersonate(ctx context.Context, operatorID, tenantID, userID s
 	if _, err := s.tenant(ctx, tenantID); err != nil {
 		return nil, err
 	}
-	if _, err := s.bus.Dispatch(ctx, startImpersonation{TenantID: tenantID, UserID: userID, OperatorID: operatorID}); err != nil {
+	// The row, not the token: a role taken away takes effect now, not when
+	// the operator's token runs out.
+	o, err := s.repo.byID(ctx, operatorID)
+	if err != nil && !errors.Is(err, errNotFound) {
 		return nil, err
 	}
-	name := ""
-	if o, err := s.repo.byID(ctx, operatorID); err == nil {
-		name = o.displayName()
+	super := err == nil && o.Active && slices.Contains(o.Roles, roleSuper)
+	if _, err := s.bus.Dispatch(ctx, startImpersonation{TenantID: tenantID, UserID: userID, OperatorID: operatorID, Super: super}); err != nil {
+		return nil, err
 	}
+	name := o.displayName()
 	return s.minter.Impersonate(ctx, userID, tenantID, identityc.Operator{ID: operatorID, DisplayName: name})
 }
 

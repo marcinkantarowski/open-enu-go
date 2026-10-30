@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/open-enu/kernel/auth"
-	"github.com/open-enu/kernel/crypto"
 )
 
 // Statuses, roles and token purposes as the tables store them, and the
@@ -70,15 +69,13 @@ func (u user) view() SessionUser {
 
 func newUser(email, verifier string, displayName, locale *string, status string) user {
 	return user{
-		ID: uuid.Must(uuid.NewV7()).String(), Email: email, EmailHash: emailHash(email), Password: verifier,
+		ID: uuid.Must(uuid.NewV7()).String(), Email: email, Password: verifier,
 		DisplayName: displayName, Status: status, Locale: locale, Version: 1, CreatedAt: time.Now().UTC().Truncate(time.Microsecond),
 	}
 }
 
 // normalizeEmail is the one spelling of an address: trimmed, lower-cased.
 func normalizeEmail(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
-
-func emailHash(email string) string { return crypto.HashForLookup(normalizeEmail(email)) }
 
 type membership struct {
 	ID        string

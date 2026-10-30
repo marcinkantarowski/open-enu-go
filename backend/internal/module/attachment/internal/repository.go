@@ -73,6 +73,31 @@ func (r repository) insert(ctx context.Context, tx *scope.Tx, a attachment) erro
 	return err
 }
 
+// lock is the row, held until the transaction ends: two claims of one file
+// do not both see it unclaimed.
+func (r repository) lock(ctx context.Context, tx *scope.Tx, id string) (attachment, error) {
+	if _, err := uuid.Parse(id); err != nil {
+		return attachment{}, errNotFound
+	}
+	rows, err := tx.Query(ctx, `SELECT `+columns+` FROM attachment WHERE id = $1 FOR UPDATE`, id)
+	if err != nil {
+		return attachment{}, err
+	}
+	items, err := scan(rows)
+	if err != nil {
+		return attachment{}, err
+	}
+	if len(items) == 0 {
+		return attachment{}, errNotFound
+	}
+	return items[0], nil
+}
+
+func (r repository) setOwner(ctx context.Context, tx *scope.Tx, a attachment) error {
+	_, err := tx.Exec(ctx, `UPDATE attachment SET owner_type = $2, owner_id = $3 WHERE id = $1`, a.ID, a.OwnerType, a.OwnerID)
+	return err
+}
+
 func (r repository) remove(ctx context.Context, tx *scope.Tx, id string) error {
 	_, err := tx.Exec(ctx, `DELETE FROM attachment WHERE id = $1`, id)
 	return err

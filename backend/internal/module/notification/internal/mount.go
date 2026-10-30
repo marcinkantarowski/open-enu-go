@@ -3,6 +3,7 @@ package internal
 import (
 	"net/http"
 
+	"github.com/open-enu/kernel/auth"
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/platform"
 )
@@ -14,7 +15,7 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	for _, d := range svc.NotificationDefinitions {
 		cat[d.Type] = keys{title: d.TitleKey, body: d.BodyKey}
 	}
-	a := api{repo: newRepository(svc), cat: cat}
+	a := api{repo: newRepository(svc), cat: cat, guard: auth.Guard{Audit: svc.Audit}}
 	badRequest := func(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteError(w, r, httpx.BadRequest(httpx.KeyBadRequest).WithCause(err))
 	}

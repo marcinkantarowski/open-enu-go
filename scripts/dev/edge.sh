@@ -38,6 +38,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 . "$HERE/../lib/log.sh"
 
 EDGE=enu-edge
+# The one container that holds the Docker socket; Traefik asks it over TCP.
+PROXY=enu-edge-socket-proxy
 
 [ -f "$ROOT/.env" ] || die ".env is missing" "run: make env"
 env_value() { sed -n "s/^$1=//p" "$ROOT/.env" | head -1; }
@@ -59,7 +61,9 @@ export EDGE_HOME="${EDGE_HOME:-$DEFAULT_HOME}"
 edge_lost_docker() {
   local since
   since="$(docker inspect -f '{{.State.StartedAt}}' "$EDGE" 2>/dev/null)" || return 1
-  docker logs --since "$since" --tail 20 "$EDGE" 2>&1 | grep -q 'Cannot connect to the Docker daemon'
+  # Through the proxy the same loss reads as the proxy failing upstream.
+  docker logs --since "$since" --tail 20 "$EDGE" 2>&1 \
+    | grep -qE 'Cannot connect to the Docker daemon|Error response from daemon: .*(502|503)|socket-proxy:2375: connect'
 }
 
 # Quiet when it works, and Docker's own words when it does not. Discarding the
@@ -73,6 +77,7 @@ edge_compose_up() {
   return 1
 }
 edge_state() { docker inspect -f '{{.State.Status}}' "$EDGE" 2>/dev/null; }
+proxy_state() { docker inspect -f '{{.State.Status}}' "$PROXY" 2>/dev/null; }
 edge_health() { docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$EDGE" 2>/dev/null; }
 on_network() { docker inspect -f '{{range $n, $_ := .NetworkSettings.Networks}}{{$n}} {{end}}' "$EDGE" 2>/dev/null | tr ' ' '\n' | grep -qxF "$NET"; }
 
@@ -170,18 +175,29 @@ cmd_up() {
     touch "$EDGE_HOME/acme/acme.json" && chmod 600 "$EDGE_HOME/acme/acme.json"
   fi
 
-  # The image the compose file pins, against the one the running edge was made
-  # from. A running edge is recreated when the two differ; leaving it alone
-  # means a Traefik bump in the repo never reaches a host that already has an
-  # edge - a server included, where a patch release is usually a security fix.
-  local want_image have_image
-  want_image="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --images 2>/dev/null | head -1)"
+  # The edge's definition in the repo against the one the running edge was
+  # made from - compose's own hash of the service, which it stamps on the
+  # container. A running edge is recreated when the two differ; leaving it
+  # alone means a Traefik bump never reaches a host that already has an edge (a
+  # server included, where a patch release is usually a security fix), and an
+  # edge from before the socket proxy would keep the raw Docker socket - or,
+  # merely restarted, come back on a network without the proxy and see nothing.
+  local want_image have_image want_hash have_hash
+  want_image="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --images traefik 2>/dev/null | head -1)"
   have_image="$(docker inspect -f '{{.Config.Image}}' "$EDGE" 2>/dev/null)"
+  want_hash="$(docker compose -f "$ROOT/docker/edge/compose.yml" config --hash traefik 2>/dev/null | awk '{print $2}')"
+  have_hash="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$EDGE" 2>/dev/null)"
 
   case "$(edge_state)" in
     running)
-      if [ -n "$want_image" ] && [ "$want_image" != "$have_image" ]; then
-        log_warn "the edge runs $have_image, the repo pins $want_image - recreating it (every stack on this host blinks)"
+      if { [ -n "$want_image" ] && [ "$want_image" != "$have_image" ]; } \
+         || { [ -n "$want_hash" ] && [ "$want_hash" != "$have_hash" ]; } \
+         || [ "$(proxy_state)" != running ]; then
+        if [ "$want_image" != "$have_image" ]; then
+          log_warn "the edge runs $have_image, the repo pins $want_image - recreating it (every stack on this host blinks)"
+        else
+          log_warn "the edge's definition changed (docker/edge/compose.yml) - recreating it (every stack on this host blinks)"
+        fi
         # A new container keeps none of the old one's network attachments, and
         # each stack attached itself with its own aliases (cmd_attach). Without
         # this, every stack on the host answers 000 until its next `make up`.
@@ -198,7 +214,7 @@ cmd_up() {
         # Traefik keeps its file routes, and every stack answers 404 because the
         # docker provider can no longer see a single container.
         log_warn "the edge lost its connection to Docker (the daemon was restarted) - restarting it"
-        docker restart "$EDGE" >/dev/null || die "could not restart $EDGE"
+        docker restart "$PROXY" "$EDGE" >/dev/null || die "could not restart $PROXY and $EDGE"
       else
         log_skip "$EDGE already running ($have_image)"
       fi

@@ -28,7 +28,8 @@ entryPoints:
 
 providers:
   docker:
-    endpoint: "unix:///var/run/docker.sock"
+    # The socket proxy, never the socket itself (docker/edge/compose.yml).
+    endpoint: "tcp://socket-proxy:2375"
     # Every project on the host is visible here. What keeps them apart is that
     # each prefixes its router and service names with its slug, and names the
     # network to reach it on (`traefik.docker.network`) - without that label,

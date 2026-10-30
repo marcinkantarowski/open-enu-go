@@ -96,9 +96,16 @@ decryption and the lookup hash, so the format cannot drift unnoticed
 ([ADR-0016](../adr/0016-light-encryption.md)). A module's repository calls `svc.Crypto.Encrypt`
 on write and `Decrypt` on read for a column declared encrypted in its `MODULE.md`; there
 is no column type that does it implicitly, so the pair is visible in the repository
-(`example/internal/repository.go`). What a module also calls is `crypto.HashForLookup(value)` to fill the sibling `*_hash` column that
+(`example/internal/repository.go`). What a module also calls is `svc.Crypto.HashForLookup(value)` to fill the sibling `*_hash` column that
 equality lookups go through. **Never query an encrypted column** - it differs on every
 write.
+
+The lookup hash is keyed: HMAC-SHA256 of the trimmed, lower-cased value under a sub-key
+HKDF derives from `APP_ENCRYPTION_KEY` (info `open-enu:lookup:v1`), so a copy of the database
+alone cannot be turned back into addresses by hashing a list of guesses. It replaced an
+unkeyed SHA-256: **a dev database seeded before that change must be re-seeded**
+(`make down`, then `make builddev`) - its `*_hash` columns no longer match, and nobody in
+it can log in. No production database existed at the time, so there is no backfill.
 
 ## Progress - `kernel/progress`
 

@@ -14,6 +14,7 @@ missing from its list is a rule that is not enforced.
 | `platformservice` | no raw Redis client and no `os.WriteFile`/`os.Create`/`O_WRONLY` outside the kernel - storage and cache go through the kernel's contracts |
 | `flagdeclared` | every flag key a package reads has a `flags.Definition` literal in the same package; the registry then checks the definition is listed in `Module.Flags` |
 | `rawstring` | every constant that ends up as an `i18n.Key` has the dotted-lowercase shape of a catalogue key, so a sentence cannot slip in as a key |
+| `impersonationguard` | in a module's `api.go`, a controller method that dispatches a command calls `auth.Guard.DenyImpersonated` first, or carries `//impersonation:allowed <reason>` (ADR-0020) |
 | `textlen` | in a module's `api.go` and `handler.go`, `len()` of a string is not compared with a non-zero constant - the spec's `maxLength` and `VARCHAR(n)` count characters (`utf8.RuneCountInString`); a limit that really is in bytes is written `len([]byte(s))` |
 | `tableowner` | a SQL string literal in a module names only its own tables (and the kernel's), and its migrations `REFERENCES` only its own - ownership read from every module's `migrations/*.sql` |
 | `modpath` | not a rule - the shared helper that answers "is this path the kernel?" and "which module is this in?" for the analyzers above |

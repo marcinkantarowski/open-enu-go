@@ -26,6 +26,30 @@ for a request's.
 (`GET /api/manager/workers`) shows what is waiting in River and what has failed. A failed
 event or job is retried five times, then kept in the `discarded` state with its errors.
 
+**Liveness of the worker and the scheduler.** Neither serves HTTP, so each touches a
+heartbeat file - `HEARTBEAT_FILE`, `/tmp/openenu-heartbeat` when unset - every 30 seconds
+while it is healthy (`kernel/heartbeat`). The worker beats while River is still running and
+the database answers a ping; the scheduler beats from its own loop, between tasks, so a task
+that hangs stops the beat too. `openenu health -heartbeat /tmp/openenu-heartbeat [-max-age 2m]`
+is the healthcheck: one line on stdout and exit 0 when the file is younger than `-max-age`
+(default 2m, four missed beats), one line on stderr and exit 1 when it is older or missing.
+The production image is distroless, so the binary is `/openenu` and the compose test is
+`["CMD", "/openenu", "health", "-heartbeat", "/tmp/openenu-heartbeat"]`. A daily task that
+runs longer than `-max-age` marks the scheduler unhealthy while it runs.
+
+**The API's two probes** (`kernel/httpx/health.go`). `GET /health` is liveness: public,
+touches nothing, answers `{"status":"ok","stage":...}` and no version - Traefik's load
+balancer check and the container's `openenu health` poll it. `GET /health/deep` is
+readiness: it runs every registered check (Postgres today) with a two-second timeout and
+answers 503 naming the one that failed, never the driver's message. Because each call
+pings the database it is not public: it answers a request whose `X-Health-Token` header
+equals `HEALTH_TOKEN` (compared in constant time), or - only when `HEALTH_TOKEN` is empty -
+one from a loopback or private address with no public hop in `X-Forwarded-For`. Anyone
+else gets the same 404 as a route that does not exist. `make env` generates the token;
+`make smoke` and `scripts/remote/release.sh` read it from `.env`, and an external uptime
+monitor sends it as a header:
+`curl -H "X-Health-Token: $HEALTH_TOKEN" https://api.$DOMAIN/health/deep`.
+
 **The scheduler's output** goes to stdout like every other container's, so `make logs` and
 `make logs-worker` are the whole story.
 

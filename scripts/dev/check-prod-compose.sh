@@ -130,6 +130,75 @@ grep -q 'dashboard: true' "$ROOT/docker/edge/traefik.server.yml" 2>/dev/null \
   && bad "the Traefik dashboard is enabled on the server edge" "it is an unauthenticated map of every route"
 [ "$fails" -eq 0 ] && log_ok "no development services"
 
+# ── the edge: Traefik faces the internet, so it holds no Docker socket ──────
+EDGE_CONFIG="$(EDGE_HOME=/nonexistent docker compose -f "$ROOT/docker/edge/compose.yml" config 2>/dev/null)" \
+  || { bad "docker/edge/compose.yml does not parse" "run: EDGE_HOME=/tmp docker compose -f docker/edge/compose.yml config"; EDGE_CONFIG=""; }
+edge_socket="$(python3 -c '
+import re, sys
+c = sys.stdin.read()
+block = re.search(r"^  traefik:\n(.*?)(?=^  \S|^\S|\Z)", c, re.S | re.M)
+print("missing" if not block else "socket" if "docker.sock" in block.group(1) else "clean")
+' <<<"$EDGE_CONFIG")"
+case "$edge_socket" in
+  clean)  log_ok "Traefik reaches Docker through the socket proxy, not the socket" ;;
+  socket) bad "the edge's Traefik mounts the Docker socket" \
+              "the socket is root on the host, read-only or not; mount it into socket-proxy only" ;;
+  *)      bad "no traefik service in docker/edge/compose.yml" "the edge changed shape" ;;
+esac
+grep -qE '^\s+minVersion: VersionTLS1[23]\s*$' "$ROOT/docker/edge/middlewares.yml" 2>/dev/null \
+  && log_ok "the server edge refuses TLS older than 1.2" \
+  || bad "the server edge does not state a TLS minimum" \
+         "tls.options.default.minVersion: VersionTLS12 in docker/edge/middlewares.yml"
+
+# ── 6. nothing in production loosens what dev loosens on purpose ───────────
+# The dev stack lets a webhook reach a private address, because its receiver
+# lives on the stack's own network. In production that is an SSRF into the
+# database, Redis and the cloud's metadata endpoint.
+if grep -qE '^\s+WEBHOOK_ALLOW_PRIVATE:' <<<"$CONFIG"; then
+  bad "WEBHOOK_ALLOW_PRIVATE is set in the production stack" \
+      "it lets any tenant's webhook reach the private network - Postgres, Redis, the metadata service" \
+      "it belongs to compose.dev.yml only"
+else
+  log_ok "webhooks may not reach a private address"
+fi
+
+# ── 7. Mercure's two keys are two keys ──────────────────────────────────────
+# Compared rendered, so two variables holding one value are caught too: the
+# subscriber key signs a cookie every browser holds, and must not publish.
+mercure_keys="$(python3 -c '
+import re, sys
+c = sys.stdin.read()
+pub = re.search(r"^\s+MERCURE_PUBLISHER_JWT_KEY:\s*(.*)$", c, re.M)
+sub = re.search(r"^\s+MERCURE_SUBSCRIBER_JWT_KEY:\s*(.*)$", c, re.M)
+print("missing" if not (pub and sub and pub.group(1).strip() and sub.group(1).strip())
+      else "same" if pub.group(1).strip() == sub.group(1).strip() else "distinct")
+' <<<"$CONFIG")"
+case "$mercure_keys" in
+  distinct) log_ok "Mercure publishes and subscribes with two different keys" ;;
+  same)     bad "Mercure's publisher and subscriber keys are the same secret" \
+                "the subscriber key signs every browser's cookie - with one key, that cookie's signer can publish" \
+                "MERCURE_PUBLISHER_JWT_SECRET and MERCURE_SUBSCRIBER_JWT_SECRET in .env" ;;
+  *)        bad "Mercure has no publisher or subscriber key in the production stack" "set both in .env: make env" ;;
+esac
+
+# ── 8. every service says whether it is well ────────────────────────────────
+# Without a healthcheck a process that is up and stuck - a worker whose loop
+# hangs - is "running" forever, and nothing restarts or reports it.
+mapfile -t unchecked < <(python3 -c '
+import re, sys
+c = sys.stdin.read()
+services = re.search(r"^services:\n(.*?)(?=^\S|\Z)", c, re.S | re.M)
+for m in re.finditer(r"^  (\S+):\n(.*?)(?=^  \S|\Z)", services.group(1) if services else "", re.S | re.M):
+    if not re.search(r"^    healthcheck:", m.group(2), re.M):
+        print(m.group(1))
+' <<<"$CONFIG")
+if [ "${#unchecked[@]}" -gt 0 ]; then
+  bad "a production service has no healthcheck: ${unchecked[*]}" \
+      "a stuck process then looks running forever; the worker and scheduler use openenu health -heartbeat"
+else
+  log_ok "every production service has a healthcheck"
+fi
+
 # ═══ staging: the dev stack, on a public server ═════════════════════════════
 log_step "Staging stack invariants"
 SFILE="$ROOT/docker/compose.staging.yml"
@@ -139,7 +208,7 @@ SCONFIG="$(STACK=check-staging docker compose --project-directory "$ROOT" --env-
             "${STAGING_FILES[@]}" --profile e2e config 2>/dev/null)" \
   || { log_fail "compose.dev.yml + compose.staging.yml do not parse" || true; exit 1; }
 
-# ── 6. no published port ────────────────────────────────────────────────────
+# ── 9. no published port ────────────────────────────────────────────────────
 published="$(grep -E '^\s+published: ' <<<"$SCONFIG" || true)"
 if [ -n "$published" ]; then
   bad "the staging stack publishes a port" \
@@ -149,7 +218,7 @@ else
   log_ok "staging publishes no port"
 fi
 
-# ── 7. every router behind the allowlist ────────────────────────────────────
+# ── 10. every router behind the allowlist ────────────────────────────────────
 mapfile -t srouters < <(grep -oE 'traefik\.http\.routers\.[A-Za-z0-9_-]+\.rule' <<<"$SCONFIG" \
                          | sed -E 's/^traefik\.http\.routers\.//; s/\.rule$//' | sort -u)
 unguarded=0
@@ -161,7 +230,7 @@ for router in "${srouters[@]}"; do
 done
 [ "$unguarded" -eq 0 ] && log_ok "every staging router is behind the allowlist (${#srouters[@]})"
 
-# ── 8. nothing drops the override ───────────────────────────────────────────
+# ── 11. nothing drops the override ───────────────────────────────────────────
 # Code only: a comment explaining the rule names the pattern too.
 hardcoded="$(grep -rnE -- "-f [\"']?[^ ]*compose\.[a-z]+\.yml" "$ROOT/scripts" "$ROOT/Makefile" 2>/dev/null \
              | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' | grep -vE '(check-prod-compose|selftest)\.sh:' | cut -d: -f1,2 || true)"

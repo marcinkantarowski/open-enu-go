@@ -15,8 +15,9 @@
 #  and then, section by section: the API types' freshness, one version per
 #  service, translation parity, the scaffold, the generated files, every
 #  analyzer's plant, locale parity at start-up, prod-check, the
-#  inventory, the ACL, route coverage, and `make platform-update` carrying a
-#  platform change into a renamed project. A new guardrail appends its own
+#  inventory, the ACL, route coverage, `make platform-update` carrying a
+#  platform change into a renamed project (from the platform or from a project
+#  made from it), and backup.sh's exit codes with docker, age and rclone stubbed. A new guardrail appends its own
 #  section here (backend/kernel/analysis/<name>/testdata holds the analyzer
 #  fixtures).
 # =============================================================================
@@ -209,6 +210,33 @@ func findAll() []string { return nil }
 printf '\nvar _ = findAll()\n' >> "$WORK/backend/internal/module/demo/internal/api.go"
 fails_when "thincontroller fires on api.go using handler.go" bash -c "$ARCH" _ "$WORK" "$GO"
 cp "$WORK/api.go.bak" "$WORK/backend/internal/module/demo/internal/api.go"; rm -f "$WORK/backend/internal/module/demo/internal/handler.go"
+# impersonationguard reads the controller methods in api.go: the scaffold's
+# one dispatches with no guard, then with an empty exemption, then with a
+# reason - two refusals and a pass.
+guarded_api() { # <comment line above the method>
+  printf '%s\n' 'package internal
+
+import (
+	"context"
+
+	"github.com/open-enu/kernel/command"
+)
+
+type api struct{ bus *command.Bus }
+
+var _ StrictServerInterface = api{}
+' "$1" 'func (a api) GetDemoIndex(ctx context.Context, _ GetDemoIndexRequestObject) (GetDemoIndexResponseObject, error) {
+	_, err := a.bus.Dispatch(ctx, nil)
+	return GetDemoIndex200JSONResponse{Module: "demo"}, err
+}' > "$WORK/backend/internal/module/demo/internal/api.go"
+}
+guarded_api '// no exemption'
+assert_contains "impersonationguard fires on a dispatch with no DenyImpersonated" "$(bash -c "$ARCH" _ "$WORK" "$GO" 2>&1)" "GetDemoIndex dispatches a command without refusing an impersonated session"
+guarded_api '//impersonation:allowed'
+assert_contains "impersonationguard fires on an exemption with no reason" "$(bash -c "$ARCH" _ "$WORK" "$GO" 2>&1)" "//impersonation:allowed needs a reason"
+guarded_api '//impersonation:allowed selftest: a reason is all it asks'
+assert_contains "impersonationguard accepts an exemption with a reason" "$(bash -c "$ARCH" _ "$WORK" "$GO" 2>&1 && echo clean)" "clean"
+cp "$WORK/api.go.bak" "$WORK/backend/internal/module/demo/internal/api.go"
 
 plant "platformservice fires on os.WriteFile in a module" zz_export.go 'package internal
 
@@ -306,6 +334,22 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     "awk '!d && /tls.certresolver=letsencrypt/ {d=1; next} {print}' '$WORK/docker/compose.prod.yml' > '$WORK/prod.tmp' && mv '$WORK/prod.tmp' '$WORK/docker/compose.prod.yml'"
   prodcase "prod-check catches a backend container built from the dev target" \
     "awk '!d && /target: prod/ {sub(/target: prod/, \"target: dev\"); d=1} {print}' '$WORK/docker/compose.prod.yml' > '$WORK/prod.tmp' && mv '$WORK/prod.tmp' '$WORK/docker/compose.prod.yml'"
+  prodcase "prod-check catches WEBHOOK_ALLOW_PRIVATE in production" \
+    "sed_inplace_copy 's|^  REDIS_ADDR: redis:6379|  REDIS_ADDR: redis:6379\n  WEBHOOK_ALLOW_PRIVATE: \"true\"|' '$WORK/docker/compose.prod.yml'"
+  prodcase "prod-check catches Mercure publishing and subscribing with one key" \
+    "sed_inplace_copy 's|MERCURE_SUBSCRIBER_JWT_KEY: \\\${MERCURE_SUBSCRIBER_JWT_SECRET}|MERCURE_SUBSCRIBER_JWT_KEY: \\\${MERCURE_PUBLISHER_JWT_SECRET}|' '$WORK/docker/compose.prod.yml'"
+  prodcase "prod-check catches a production service with no healthcheck" \
+    "sed_inplace_copy '/^    healthcheck: \\*heartbeat\$/d' '$WORK/docker/compose.prod.yml'"
+  edgecase() { # <label> <edit of the copy's edge files>
+    cp "$WORK/docker/edge/compose.yml" "$WORK/edge.bak"; cp "$WORK/docker/edge/middlewares.yml" "$WORK/mw.bak"
+    eval "$2"
+    fails_when "$1" bash "$PRODCHECK"
+    cp "$WORK/edge.bak" "$WORK/docker/edge/compose.yml"; cp "$WORK/mw.bak" "$WORK/docker/edge/middlewares.yml"; rm -f "$WORK/edge.bak" "$WORK/mw.bak"
+  }
+  edgecase "prod-check catches the edge's Traefik holding the Docker socket" \
+    "sed_inplace_copy 's|      - \\\${EDGE_HOME}/acme:/acme|      - \\\${EDGE_HOME}/acme:/acme\n      - /var/run/docker.sock:/var/run/docker.sock:ro|' '$WORK/docker/edge/compose.yml'"
+  edgecase "prod-check catches a server edge with no TLS minimum" \
+    "sed_inplace_copy '/minVersion:/d' '$WORK/docker/edge/middlewares.yml'"
   prodcase "prod-check catches a staging stack that publishes the database port" \
     "sed_inplace_copy '/ports: !reset \\[\\]/d' '$WORK/docker/compose.staging.yml'"
   prodcase "prod-check catches a staging router outside the allowlist" \
@@ -378,6 +422,36 @@ jget() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sy
 mkdir "$UPD/platform"
 tar --exclude=.git --exclude=node_modules --exclude=.nuxt --exclude=.output --exclude=.data --exclude=.env \
     --exclude=backend/bin --exclude=backend/var --exclude=docker/certs -C "$ROOT" -cf - . | tar -C "$UPD/platform" -xf -
+# The scenario needs a PLATFORM: a manifest that is not initialised, in the
+# platform's own spelling. Run from a project (initialised, renamed, recording
+# a platform commit that exists nowhere in this temporary directory), the copy
+# would be a second project - `make init` there is a no-op, and the update has
+# no base to start from. So the copy is renamed back first, with its own init
+# (to the platform's slug, domain and Go module path), and its manifest reset
+# to the platform's. On the platform itself both steps change nothing.
+PLATFORM_SLUG=open-enu-go PLATFORM_DOMAIN=open-enu-go.local PLATFORM_MODULE=github.com/open-enu/app
+if grep -q '"initialized"[[:space:]]*:[[:space:]]*true' "$UPD/platform/.project.json"; then
+  log_info "this checkout is an initialised project ($(jget "$UPD/platform/.project.json" slug)) - its throwaway platform is renamed back to $PLATFORM_SLUG"
+  NAME="$PLATFORM_SLUG" DOMAIN="$PLATFORM_DOMAIN" GO_MODULE="$PLATFORM_MODULE" \
+    bash "$UPD/platform/scripts/dev/init.sh" >"$UPD/unrename.log" 2>&1 \
+    || bad "an initialised project's copy is renamed back to the platform" "exit 0" "$(tail -5 "$UPD/unrename.log")"
+fi
+python3 -I - "$UPD/platform/.project.json" "$PLATFORM_SLUG" "$PLATFORM_DOMAIN" "$PLATFORM_MODULE" <<'RESET'
+import json, sys
+path, slug, domain, module = sys.argv[1:5]
+with open(path, encoding='utf-8') as fh:
+    data = json.load(fh)
+data.update({'initialized': False, 'slug': slug, 'name': ''.join(w.capitalize() for w in slug.split('-')),
+             'domain': domain, 'db': slug.replace('-', '_'), 'go_module': module})
+for key in ('platform_ref', 'platform_source'):
+    data.pop(key, None)
+with open(path, 'w', encoding='utf-8') as fh:
+    json.dump(data, fh, indent=2, ensure_ascii=False)
+    fh.write('\n')
+RESET
+assert_eq "the throwaway platform is the platform (not initialised, its own module path)" \
+  "False module $PLATFORM_MODULE" \
+  "$(jget "$UPD/platform/.project.json" initialized) $(grep '^module ' "$UPD/platform/backend/go.mod")"
 "${GT[@]}" -C "$UPD/platform" init -q
 "${GT[@]}" -C "$UPD/platform" add -A . >/dev/null
 "${GT[@]}" -C "$UPD/platform" commit -q -m "platform, as cloned"
@@ -458,6 +532,70 @@ else
   bad "a base whose own init cannot run is rendered with the target's" "exit 0" "$out"
 fi
 rm -rf "$UPD"
+
+# ── 12. the backup keeps its exit-code contract ─────────────────────────────
+# backup.sh is read by release.sh and the nightly unit through its exit code
+# (0 complete, 1 could not start, 2 no dump, 3 on this disk only, 4 no
+# storage archive), and each code is a decision someone acts on at 3am. Proved
+# in the copy with docker, age and rclone replaced on PATH by stubs, so no
+# container, key or bucket is involved. The .env is the copy's; the script
+# reads it with `set -a`, so a case's settings go into it, not the environment.
+log_step "backup.sh - each failure is its own exit code, and nothing leaks"
+BK="$(mktemp -d)"
+mkdir -p "$BK/bin"
+cat > "$BK/bin/docker" <<'STUB'
+#!/usr/bin/env bash
+case " $* " in
+  *" exec -T postgres pg_isready "*) [ -z "${STUB_PG_DOWN:-}" ] ;;
+  *" exec -T postgres pg_dump "*)    if [ -n "${STUB_DUMP_FAIL:-}" ]; then printf 'partial'; exit 1; fi; printf 'PGDMP-stub-dump' ;;
+  *" ps -q postgres "*)              echo stub-postgres-id ;;
+  " volume ls "*)                    echo stub_storage ;;
+  " inspect "*)                      echo pgvector/pgvector:pg18 ;;
+  " run "*)                          [ -z "${STUB_TAR_FAIL:-}" ] || exit 1
+                                     d="$(mktemp -d)"; echo upload > "$d/file.pdf"; tar -C "$d" -cf - .; rm -rf "$d" ;;
+  *)                                 exit 0 ;;
+esac
+STUB
+# age --encrypt -r KEY -o OUT IN: the stub copies, which is all the script can see.
+printf '#!/usr/bin/env bash\nwhile [ $# -gt 1 ]; do [ "$1" = -o ] && out="$2"; shift; done\ncp "$1" "$out"\n' > "$BK/bin/age"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$BK/bin/rclone"
+chmod +x "$BK/bin/"*
+[ -f "$WORK/.env" ] || "$WORK/scripts/lib/envgen.sh" generate >/dev/null
+cp "$WORK/.env" "$BK/env.held"
+backup_env() { # <BACKUP_REMOTE> <BACKUP_AGE_PUBKEY>
+  cp "$BK/env.held" "$WORK/.env"
+  sed_inplace_copy -e "s|^BACKUP_REMOTE=.*|BACKUP_REMOTE=$1|" -e "s|^BACKUP_AGE_PUBKEY=.*|BACKUP_AGE_PUBKEY=$2|" "$WORK/.env"
+  rm -rf "$WORK/backups"
+}
+# backup_exit <VAR=value>... - run the copy's backup.sh with the stubs, print its exit code.
+backup_exit() { env PATH="$BK/bin:$PATH" "$@" bash "$WORK/scripts/remote/backup.sh" >"$BK/out" 2>&1; echo $?; }
+in_backups() { find "$WORK/backups" -type f -name "$1" 2>/dev/null | wc -l | tr -d ' '; }
+
+backup_env "" ""
+assert_eq "postgres down: exit 2, nothing dumped" "2" "$(backup_exit STUB_PG_DOWN=1)"
+backup_env "" ""
+assert_eq "pg_dump failing: exit 2" "2" "$(backup_exit STUB_DUMP_FAIL=1)"
+assert_eq "pg_dump failing leaves no partial .dump behind" "0" "$(in_backups '*.dump*')"
+backup_env "" ""
+assert_eq "the storage volume cannot be archived: exit 4" "4" "$(backup_exit STUB_TAR_FAIL=1)"
+backup_env "s3:selftest-bucket" ""
+assert_eq "a remote with no age key: exit 3 (on this disk only)" "3" "$(backup_exit)"
+assert_eq "no age key: no secrets bundle is written, not even locally" "0" "$(in_backups '*-secrets.tar*')"
+backup_env "" ""
+assert_eq "a malformed BACKUP_STAMP: exit 1, before anything is written" "1" "$(backup_exit BACKUP_STAMP=bad)"
+backup_env "s3:selftest-bucket" "age1selftestpublickey"
+assert_eq "with an age key and a remote: exit 0" "0" "$(backup_exit)"
+assert_eq "everything that is kept is encrypted (dump, storage, secrets)" "3 0" \
+  "$(in_backups '*.age') $(find "$WORK/backups" -type f ! -name '*.age' 2>/dev/null | wc -l | tr -d ' ')"
+assert_eq "backups/ is 700 and every file in it 600" "700 600" \
+  "$(python3 -I -c 'import os, sys; d = sys.argv[1]
+print(oct(os.stat(d).st_mode & 0o777)[2:], " ".join(sorted({oct(os.stat(os.path.join(d, f)).st_mode & 0o777)[2:] for f in os.listdir(d)})))' "$WORK/backups")"
+cp "$BK/env.held" "$WORK/.env"; rm -rf "$WORK/backups" "$BK"
+
+# The application role's grants are one file, applied by the first boot and by
+# a restore alike - two copies would be two lists that drift.
+assert_eq "01-init.sh and restore.sh both apply grant-app.psql" "1 1" \
+  "$(grep -c 'grant-app.psql' "$WORK/docker/postgres/init/01-init.sh" | awk '{print ($1 > 0)}') $(grep -c 'docker/postgres/init/grant-app.psql' "$WORK/scripts/remote/restore.sh" | awk '{print ($1 > 0)}')"
 
 echo
 if [ "$FAIL" -eq 0 ]; then log_ok "selftest: $PASS passed"; exit 0; fi

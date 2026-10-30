@@ -18,6 +18,7 @@ type api struct {
 	write writer
 	defs  []flags.Definition // sorted by identifier
 	byID  map[string]flags.Definition
+	guard auth.Guard
 }
 
 var _ StrictServerInterface = api{}
@@ -47,6 +48,11 @@ func (a api) GetSettingsIndex(ctx context.Context, _ GetSettingsIndexRequestObje
 func (a api) PutSettingsSet(ctx context.Context, req PutSettingsSetRequestObject) (PutSettingsSetResponseObject, error) {
 	p, err := auth.Require(ctx, "settings.manage")
 	if err != nil {
+		return nil, err
+	}
+	// An operator who wants a flag changed has the operator route for it,
+	// audited as theirs; not this one, in the tenant's name (ADR-0020).
+	if err := a.guard.DenyImpersonated(ctx, "settings.flag.set"); err != nil {
 		return nil, err
 	}
 	d, ok := a.byID[req.Identifier]

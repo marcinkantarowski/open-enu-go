@@ -11,8 +11,9 @@ import (
 // ../openapi.json. A feed is personal, so "whose" is never a parameter: it
 // is the principal's, and the one permission says only that a feed exists.
 type api struct {
-	repo repository
-	cat  catalogue
+	repo  repository
+	cat   catalogue
+	guard auth.Guard
 }
 
 var _ StrictServerInterface = api{}
@@ -42,6 +43,10 @@ func (a api) PostNotificationRead(ctx context.Context, req PostNotificationReadR
 	if err != nil {
 		return nil, err
 	}
+	// Support reading the feed must not make the person miss what is in it.
+	if err := a.guard.DenyImpersonated(ctx, "notification.read"); err != nil {
+		return nil, err
+	}
 	found, err := a.repo.markRead(ctx, p.Subject, req.Id)
 	if err != nil {
 		return nil, err
@@ -57,6 +62,9 @@ func (a api) PostNotificationRead(ctx context.Context, req PostNotificationReadR
 func (a api) PostNotificationReadAll(ctx context.Context, _ PostNotificationReadAllRequestObject) (PostNotificationReadAllResponseObject, error) {
 	p, err := auth.Require(ctx, "notification.view")
 	if err != nil {
+		return nil, err
+	}
+	if err := a.guard.DenyImpersonated(ctx, "notification.read_all"); err != nil {
 		return nil, err
 	}
 	if err := a.repo.markAllRead(ctx, p.Subject); err != nil {

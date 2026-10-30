@@ -59,7 +59,7 @@ func (r reader) BySlug(ctx context.Context, slug string) (Info, bool, error) {
 }
 
 func (r reader) one(ctx context.Context, where string, arg any) (info Info, found bool, err error) {
-	err = r.db.Run(ctx, func(ctx context.Context, tx *scope.Tx) error {
+	err = r.db.Read(ctx, func(ctx context.Context, tx *scope.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT `+Columns+` FROM tenant `+where, arg)
 		if err != nil {
 			return err
@@ -76,7 +76,7 @@ func (r reader) one(ctx context.Context, where string, arg any) (info Info, foun
 }
 
 func (r reader) Page(ctx context.Context, offset, limit int) (items []Info, total int, err error) {
-	err = r.db.Run(ctx, func(ctx context.Context, tx *scope.Tx) error {
+	err = r.db.Read(ctx, func(ctx context.Context, tx *scope.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT `+Columns+` FROM tenant ORDER BY created_at DESC, id LIMIT $1 OFFSET $2`, limit, offset)
 		if err != nil {
 			return err

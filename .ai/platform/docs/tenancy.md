@@ -43,8 +43,11 @@ A superuser bypasses RLS no matter what the policy says. The api and the worker 
 a role created `NOSUPERUSER NOBYPASSRLS` (`testdb.AppRole` in tests, the stack's `DB_USER`
 in Docker); migrations run as the owner through `DATABASE_ADMIN_URL`. A deployment that
 hands the application the owner's DSN has no tenant isolation, and nothing in the code
-would tell you. The stack's role is created that way by `docker/postgres/init/01-init.sh`;
-nothing checks the attributes of a role configured by hand.
+would tell you. The stack's role is created that way by `docker/postgres/init/01-init.sh`,
+and every process checks it at start: `scope.VerifyApplicationRole` reads `rolsuper` and
+`rolbypassrls` for `current_user` on the pool `DATABASE_URL` opened, and the api, worker and
+scheduler refuse to start - naming the role - when either is true. `openenu migrate`
+connects as the owner on purpose and does not check.
 
 ## Reading across tenants
 
@@ -60,10 +63,23 @@ call lives in a `repository.go` - the `rawsql` analyzer refuses anything else - 
 ambient tenant is gone: a write must name its tenant explicitly, and the policy's `WITH
 CHECK` still applies to what it names.
 
+## One snapshot across modules
+
+A reader that assembles several modules' records into one answer - a document built from
+every register - would otherwise read each in its own transaction and could straddle
+another request's commit. `svc.DB.Consistent(ctx, fn)` opens one `REPEATABLE READ, READ
+ONLY` transaction under ctx's scope and puts it in fn's context; every `svc.DB.Read` inside
+fn, through any module's `contract/`, runs in a savepoint of it and sees the same snapshot.
+`Read` anywhere else is `Run`. A `Read` under another scope (`Unscoped` inside), from a
+second goroutine, or nested in another `Read` gets its own transaction; `Run` and the bus
+never join, so a write inside `fn` behaves as without it. A contract's read port uses
+`Read`, not `Run`, so that it can join. Proved by `TestReadsInsideConsistentShareOneSnapshot`.
+
 ## What a module does
 
 - Every table with a `tenant_id` ends its migration with `scope.Policy`.
-- Reads go through `svc.DB.Run` in `repository.go`; writes through a command the bus runs.
+- Reads go through `svc.DB.Run` in `repository.go` (`svc.DB.Read` in a `contract/` read
+  port); writes through a command the bus runs.
 - Nothing else. No `WHERE tenant_id = ?` by hand - it is harmless but it hides that the
   policy is what protects you, and the day it is missing the predicate will be too.
 

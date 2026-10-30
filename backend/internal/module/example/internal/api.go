@@ -53,6 +53,9 @@ func (a api) PostExampleProjectCreate(ctx context.Context, req PostExampleProjec
 	if !ok {
 		return nil, httpx.BadRequest(keyNameRequired)
 	}
+	if err := a.guard.DenyImpersonated(ctx, "example.project.created"); err != nil {
+		return nil, err
+	}
 	cmd := createProject{Name: name, Description: req.Body.Description, ClientReference: req.Body.ClientReference}
 	if req.Body.Attributes != nil {
 		cmd.Attributes = *req.Body.Attributes

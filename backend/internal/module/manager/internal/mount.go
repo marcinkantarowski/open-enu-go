@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/open-enu/kernel/command"
-	"github.com/open-enu/kernel/crypto"
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/platform"
 
@@ -27,7 +26,7 @@ const (
 // Mount wires the two handlers and seven routes.
 func Mount(mux *http.ServeMux, svc *platform.Services) {
 	repo := newRepository(svc)
-	h := handlers{tenants: tenantc.Provisioner{Bus: svc.Bus}, log: svc.Log}
+	h := handlers{tenants: tenantc.Provisioner{Bus: svc.Bus}, sessions: identityc.Sessions{Bus: svc.Bus}, log: svc.Log}
 	command.Register(svc.Bus, h.suspend)
 	command.Register(svc.Bus, h.startImpersonation)
 	a := api{svc: service{bus: svc.Bus, repo: repo, signer: svc.Signer, hasher: svc.Passwords, tenants: tenantc.NewReader(svc),
@@ -63,7 +62,7 @@ func CreateOperator(ctx context.Context, svc *platform.Services, in CreateOperat
 		return "", false, fmt.Errorf("manager: an operator password must be at least %d characters", MinPasswordLength)
 	}
 	repo := newRepository(svc)
-	hash := crypto.HashForLookup(email)
+	hash := repo.crypto.HashForLookup(email)
 	if existing, err := repo.byEmailHash(ctx, hash); err == nil {
 		return existing.ID, false, nil
 	} else if !errors.Is(err, errNotFound) {

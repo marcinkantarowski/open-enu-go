@@ -24,6 +24,8 @@
   "error.network": "The server could not be reached.",
   "error.forbidden": "You do not have permission to do that.",
   "error.notFound": "That no longer exists.",
+  "error.payloadTooLarge": "The data is too large (limit {limit} MB).",
+  "error.payloadTooLargeNoLimit": "The data is too large.",
 
   "auth.email": "Email address",
   "auth.password": "Password",

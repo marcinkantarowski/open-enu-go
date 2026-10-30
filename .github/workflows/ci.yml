@@ -1,5 +1,14 @@
 name: CI
 
+# NOT YET RUN ON GITHUB. Every step is the same `make` target a developer runs
+# locally, and those are proved; this file as a whole has never executed on a
+# runner. The first run is the test of it - read it, do not assume it.
+#
+# Every action is pinned to a full commit SHA, with the release in a trailing
+# comment: a tag can be moved to other code by whoever controls the action's
+# repository, a SHA cannot. Dependabot (github-actions) proposes new SHAs and
+# updates the comment with them.
+#
 # A clean clone, the whole gate, nothing skipped. `make ci` is the same command
 # a developer runs locally - if CI needed its own variant of it, the local one
 # would stop being the truth within a month.
@@ -35,23 +44,34 @@ jobs:
     timeout-minutes: 40
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Native Go, as on a developer's machine (.ai/platform/ARCHITECTURE.md §2):
       # the inner loop never waits for a container. scripts/lib/go.sh finds it
       # on PATH.
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: |
             backend/go.sum
             backend/kernel/go.sum
 
+      # The binary is checked against a pinned SHA-256 before it runs: it
+      # installs a root CA, and a download is only as trustworthy as the
+      # release asset nobody re-checks. The release publishes no checksum file
+      # (and GitHub records no digest for an asset that old); the value was
+      # computed on 2026-10-30 from this URL and, identically, from the
+      # author's own https://dl.filippo.io/mkcert/v1.4.4?for=linux/amd64. A new
+      # version is a new value, computed the same way.
       - name: Install mkcert
+        env:
+          MKCERT_VERSION: v1.4.4
+          MKCERT_SHA256: 6d31c65b03972c6dc4a14ab429f2928300518b26503f58723e532d1b0a3bbb52
         run: |
           set -euo pipefail
           curl -fsSL -o /tmp/mkcert \
-            https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+            "https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}/mkcert-${MKCERT_VERSION}-linux-amd64"
+          echo "${MKCERT_SHA256}  /tmp/mkcert" | sha256sum -c -
           sudo install -m 0755 /tmp/mkcert /usr/local/bin/mkcert
           sudo apt-get update -qq && sudo apt-get install -y -qq libnss3-tools dnsutils
           mkcert -install
@@ -74,9 +94,9 @@ jobs:
       # ACTIONS_CACHE_SERVICE_V2 is what makes buildx use the current cache API:
       # without it buildx falls back to ACTIONS_CACHE_URL, the retired v1
       # service, and every request comes back as a 400 HTML error page.
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Expose the Actions cache to buildx
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
@@ -113,7 +133,7 @@ jobs:
       # added to every merge.
       - name: Browser suite artefacts
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-report
           path: |
@@ -136,14 +156,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Derive every env file
         run: make env
       - name: Use the CI compose override
         run: sed -i 's|^COMPOSE_FILE=.*|COMPOSE_FILE=docker/compose.dev.yml:docker/compose.ci.yml|' .env
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Expose the Actions cache to buildx
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_SERVICE_V2']) {

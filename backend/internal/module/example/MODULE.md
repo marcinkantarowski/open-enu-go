@@ -4,9 +4,9 @@
 
 One entity, `Project`, which exists to demonstrate every platform concern exactly once and
 nothing else. It is not a feature anyone needs; delete it when the real modules outnumber
-it. Its cap is **1150 lines including tests** (`make agents-budget`, which counts every
+it. Its cap is **1200 lines including tests** (`make agents-budget`, which counts every
 non-generated `.go` file outside `migrations/`, blank and comment lines excluded), and it
-sits just under it. The number moves only when the list of what the module must SHOW grows;
+sits near it. The number moves only when the list of what the module must SHOW grows;
 adding a demonstration otherwise means removing one.
 
 > Budget: 8 KB. A module that needs more explaining than that is too big - split it.

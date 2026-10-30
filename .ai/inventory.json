@@ -38,6 +38,15 @@
         "deleteAttachment",
         "uploadAttachment"
       ],
+      "contract": [
+        "Claim",
+        "Claimer",
+        "ErrClaimed",
+        "ErrUnknown",
+        "File",
+        "Files",
+        "NewFiles()"
+      ],
       "tables": [
         "attachment"
       ],
@@ -127,6 +136,7 @@
         "user"
       ],
       "commands": [
+        "EndTenantSessions",
         "createUser",
         "eraseUser",
         "registerUser",
@@ -139,12 +149,15 @@
       ],
       "contract": [
         "Directory",
+        "EndTenantSessions",
         "Member",
         "Minter",
         "NewDirectory()",
         "NewMinter()",
         "Operator",
-        "Started"
+        "Sessions",
+        "Started",
+        "Workspace"
       ],
       "tables": [
         "identity_membership",

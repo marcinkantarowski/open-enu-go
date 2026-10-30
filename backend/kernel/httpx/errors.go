@@ -70,6 +70,7 @@ const (
 	CodeConflict           = "conflict"
 	CodeValidationFailed   = "validation_failed"
 	CodeRateLimited        = "rate_limited"
+	CodePayloadTooLarge    = "payload_too_large"
 	CodeServiceUnavailable = "service_unavailable"
 	CodeInternal           = "internal_error"
 )
@@ -83,6 +84,8 @@ const (
 	KeyConflict           i18n.Key = "kernel.error.conflict"
 	KeyValidationFailed   i18n.Key = "kernel.error.validation_failed"
 	KeyRateLimited        i18n.Key = "kernel.error.rate_limited"
+	KeyPayloadTooLarge    i18n.Key = "kernel.error.payload_too_large"
+	KeyIfMatchInvalid     i18n.Key = "kernel.error.if_match_invalid"
 	KeyServiceUnavailable i18n.Key = "kernel.error.service_unavailable"
 	KeyInternal           i18n.Key = "kernel.error.internal"
 )

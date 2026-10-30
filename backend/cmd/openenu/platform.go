@@ -33,7 +33,7 @@ import (
 // when set and the memory cache otherwise, local storage under STORAGE_ROOT
 // with signed download URLs, the audit trail in Postgres, progress persisted
 // in Postgres and pushed to the hub, mail from MAILER_DSN, and the hub
-// itself: Mercure when MERCURE_URL is set (MERCURE_JWT_SECRET required),
+// itself: Mercure when MERCURE_URL is set (MERCURE_PUBLISHER_JWT_SECRET required),
 // otherwise a publisher that logs each update. The second half comes from
 // the registry once the pool exists: the Notification module's notifier
 // (a logging one until then), every module's tenant setup steps, and the
@@ -42,6 +42,14 @@ import (
 //
 // Every secret is required. A default here would be a default in production.
 //
+// APP_SECRET is one value with two consumers, each signing with its own
+// HKDF sub-key: a download URL's signature is never a token's, and the other
+// way round. Changing an info string invalidates what that consumer signed.
+const (
+	secretInfoTokens  = "open-enu:secret:jwt:v1"
+	secretInfoStorage = "open-enu:secret:storage-url:v1"
+)
+
 // storageSigner is kept for the download route (api.go), which verifies
 // what the Storage's TemporaryURL signed.
 var storageSigner *storage.Signer
@@ -75,6 +83,12 @@ func newServices(ctx context.Context, log *slog.Logger, reg *module.Registry) (*
 	if err != nil {
 		return nil, err
 	}
+	// The policies hold only for a role Postgres holds to them; a superuser
+	// or BYPASSRLS DSN would serve every tenant every row, silently.
+	if err := scope.VerifyApplicationRole(ctx, pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
 	var backend cache.Cache = &cache.Memory{}
 	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
 		r, err := cache.NewRedis(addr, os.Getenv("REDIS_PASSWORD"), envOr("PROJECT_SLUG", "open-enu-go")+":")
@@ -83,16 +97,18 @@ func newServices(ctx context.Context, log *slog.Logger, reg *module.Registry) (*
 		}
 		backend = r
 	}
-	signer := &storage.Signer{Secret: []byte(secret), BaseURL: envOr("API_URL", "http://localhost:8080")}
+	signer := &storage.Signer{Secret: crypto.DeriveKey([]byte(secret), secretInfoStorage), BaseURL: envOr("API_URL", "http://localhost:8080")}
 	storageSigner = signer
 	// The hub: Mercure when the stack names one, otherwise a log line per
 	// update. An unsigned hub is refused here, at start, rather than
 	// discovered when the first update is accepted from anyone.
 	var hub event.Publisher = event.LogPublisher{Log: log}
 	if u := os.Getenv("MERCURE_URL"); u != "" {
-		mercureSecret := os.Getenv("MERCURE_JWT_SECRET")
+		// The publisher's key, not the subscriber's (MERCURE_JWT_SECRET, read
+		// by realtime.Tokens): a subscriber key that leaks must not publish.
+		mercureSecret := os.Getenv("MERCURE_PUBLISHER_JWT_SECRET")
 		if len(mercureSecret) < 32 {
-			return nil, fmt.Errorf("MERCURE_URL is set but MERCURE_JWT_SECRET is missing or shorter than 32 characters; `make env` generates it")
+			return nil, fmt.Errorf("MERCURE_URL is set but MERCURE_PUBLISHER_JWT_SECRET is missing or shorter than 32 characters; `make env` generates it")
 		}
 		// The hub trusts the API's public URL as the issuer and its own
 		// public URL as the audience (MERCURE_TRUSTED_ISSUERS and
@@ -124,7 +140,7 @@ func newServices(ctx context.Context, log *slog.Logger, reg *module.Registry) (*
 		Audit:           audit.Slog{Log: log},
 		Actor:           auth.Actor{},
 		Crypto:          crypto.NewEncryptor(keys),
-		Signer:          auth.Signer{Secret: []byte(secret)},
+		Signer:          auth.Signer{Secret: crypto.DeriveKey([]byte(secret), secretInfoTokens)},
 		Passwords:       crypto.PasswordHasher{},
 		Mail:            mailer,
 		URLs:            platform.URLs{App: os.Getenv("APP_URL"), Manager: os.Getenv("MANAGER_URL"), API: apiURL},

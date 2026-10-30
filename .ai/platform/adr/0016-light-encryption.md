@@ -15,7 +15,7 @@ encrypted under the key derived for no tenant.
 
 An encrypted value differs on every write, so it is never queried, sorted, indexed or put
 in the search index. Equality lookups go through a sibling `*_hash` column filled with
-`crypto.HashForLookup` (SHA-256 of the trimmed, lower-cased value): `identity_user.email` is
+`Encryptor.HashForLookup` (HMAC-SHA256 of the trimmed, lower-cased value under a key derived from `APP_ENCRYPTION_KEY`, so a dump alone cannot be reversed by dictionary): `identity_user.email` is
 ciphertext, and login queries `email_hash`.
 
 Key derivation sits behind `crypto.KeyProvider`, with one implementation (`DerivedKeys`), so
@@ -31,3 +31,11 @@ a key-manager-backed provider is a type, not a refactor.
   ([`lessons/an-encryption-key-must-belong-to-the-row.md`](../lessons/an-encryption-key-must-belong-to-the-row.md)).
 - There is no master-key rotation command. Rotating means re-encrypting every column under
   a new master, a job a project writes when it needs one.
+
+## Amendment 2026-10-30
+
+The lookup hash was an unkeyed SHA-256. A database dump then gave back every address by a
+dictionary or breach-list lookup, which undid the point of encrypting the column. It is now an
+HMAC-SHA256 under `HKDF(APP_ENCRYPTION_KEY, "open-enu:lookup:v1")`, with the same
+normalisation. Hashes written before the change do not match; a database from before it is
+re-seeded, never migrated, since none is in production.

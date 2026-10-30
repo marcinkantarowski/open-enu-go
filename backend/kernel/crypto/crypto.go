@@ -10,15 +10,18 @@
 //
 // A module's repository encrypts a column on write and decrypts it on read
 // through the Encryptor on platform.Services (example/internal/repository.go
-// shows the pair). What a module may also call is HashForLookup, to fill the sibling *_hash
-// column that equality lookups go through - an encrypted value differs on
-// every write and cannot be queried.
+// shows the pair). What a module may also call is Encryptor.HashForLookup,
+// to fill the sibling *_hash column that equality lookups go through - an
+// encrypted value differs on every write and cannot be queried. The lookup
+// hash is keyed (HMAC under a sub-key of the same master), so a copy of the
+// database alone does not turn a hash column back into addresses.
 package crypto
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hkdf"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -36,6 +39,9 @@ const (
 	keyBytes = 32
 	// hkdfInfo is the derivation context; changing it rotates every key.
 	hkdfInfo = "open-enu:field:v1"
+	// lookupInfo derives the lookup-hash key; changing it orphans every
+	// *_hash column.
+	lookupInfo = "open-enu:lookup:v1"
 	// MinMasterKeyLen is what `make env` generates; a shorter key was set by hand.
 	MinMasterKeyLen = 32
 )
@@ -94,13 +100,56 @@ func (d *DerivedKeys) KeyFor(tenantID string) ([]byte, error) {
 	return k, nil
 }
 
-// Encryptor encrypts and decrypts field values. Safe for concurrent use.
-type Encryptor struct {
-	keys KeyProvider
+// LookupKeyProvider is a KeyProvider that also supplies the key the lookup
+// hash is keyed with. DerivedKeys is one; a provider that is not gets its
+// lookup key derived from its global key.
+type LookupKeyProvider interface {
+	LookupKey() ([]byte, error)
 }
 
-// NewEncryptor wraps a key provider.
-func NewEncryptor(keys KeyProvider) *Encryptor { return &Encryptor{keys: keys} }
+// LookupKey is HKDF-SHA256 of the master under its own info string: a
+// sub-key, never the field key, so a leaked lookup key decrypts nothing.
+func (d *DerivedKeys) LookupKey() ([]byte, error) {
+	return DeriveKey(d.master, lookupInfo), nil
+}
+
+// DeriveKey derives a 32-byte sub-key of secret for one purpose, named by
+// info (HKDF-SHA256, no salt). Two consumers of one secret - the token
+// signer and the download-URL signer under APP_SECRET - each get their own,
+// so a signature made for one is never valid for the other.
+func DeriveKey(secret []byte, info string) []byte {
+	k, err := hkdf.Key(sha256.New, secret, nil, info, keyBytes)
+	if err != nil { // only for an output longer than HKDF allows
+		panic(fmt.Sprintf("crypto: derive %s: %v", info, err))
+	}
+	return k
+}
+
+// Encryptor encrypts and decrypts field values and computes the lookup
+// hash. Safe for concurrent use.
+type Encryptor struct {
+	keys   KeyProvider
+	lookup []byte
+}
+
+// NewEncryptor wraps a key provider. It panics when the provider cannot
+// give a lookup key, which happens at boot or not at all.
+func NewEncryptor(keys KeyProvider) *Encryptor {
+	var lookup []byte
+	var err error
+	if l, ok := keys.(LookupKeyProvider); ok {
+		lookup, err = l.LookupKey()
+	} else {
+		var global []byte
+		if global, err = keys.KeyFor(""); err == nil {
+			lookup = DeriveKey(global, lookupInfo)
+		}
+	}
+	if err != nil {
+		panic(fmt.Sprintf("crypto: lookup key: %v", err))
+	}
+	return &Encryptor{keys: keys, lookup: lookup}
+}
 
 // Encrypt returns `v1:iv:ciphertext:tag`, each part base64, under the
 // tenant's key. The IV is random, so the same plaintext never produces the
@@ -162,12 +211,15 @@ func (e *Encryptor) aead(tenantID string) (cipher.AEAD, error) {
 }
 
 // HashForLookup is the deterministic hash for equality lookups on an
-// encrypted column: sha256, hex, of the value trimmed (spaces, tabs, line
-// breaks, NUL and vertical tab) and lower-cased, so the same address typed
-// with different case or surrounding whitespace hashes the same.
+// encrypted column: HMAC-SHA256, hex, under the lookup sub-key of the master
+// key, of the value trimmed (spaces, tabs, line breaks, NUL and vertical tab)
+// and lower-cased, so the same address typed with different case or
+// surrounding whitespace hashes the same. Keyed, so a database dump without
+// APP_ENCRYPTION_KEY cannot be reversed by hashing a list of guesses.
 // Equality only - it leaks nothing beyond "these two rows hold the same
 // value", which is exactly what an index needs.
-func HashForLookup(value string) string {
-	sum := sha256.Sum256([]byte(strings.ToLower(strings.Trim(value, " \t\n\r\x00\x0b"))))
-	return hex.EncodeToString(sum[:])
+func (e *Encryptor) HashForLookup(value string) string {
+	m := hmac.New(sha256.New, e.lookup)
+	m.Write([]byte(strings.ToLower(strings.Trim(value, " \t\n\r\x00\x0b"))))
+	return hex.EncodeToString(m.Sum(nil))
 }

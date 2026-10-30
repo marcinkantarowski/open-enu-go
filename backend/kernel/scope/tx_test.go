@@ -196,3 +196,65 @@ func TestPolicySQL(t *testing.T) {
 		t.Error("uuid columns compare on uuid")
 	}
 }
+
+func TestReadsInsideConsistentShareOneSnapshot(t *testing.T) {
+	p := table(t)
+	ctx := WithTenant(context.Background(), tenantA)
+	count := func(ctx context.Context) (n int) {
+		t.Helper()
+		if err := p.Read(ctx, func(ctx context.Context, tx *Tx) error {
+			return tx.QueryRow(ctx, "SELECT count(*) FROM thing").Scan(&n)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	insert := func() {
+		t.Helper()
+		if err := p.Run(ctx, func(ctx context.Context, tx *Tx) error {
+			_, err := tx.Exec(ctx, "INSERT INTO thing (tenant_id, name) VALUES ($1, 'c')", tenantA)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := p.Consistent(ctx, func(ctx context.Context) error {
+		first := count(ctx)
+		insert() // another request's commit, between two reads
+		if second := count(ctx); second != first {
+			t.Fatalf("a read inside Consistent saw a commit made after the first: %d, then %d", first, second)
+		}
+		// Outside the shared transaction the commit is there.
+		if outside := count(context.WithoutCancel(WithTenant(context.Background(), tenantA))); outside != first+1 {
+			t.Fatalf("a read outside Consistent: %d, want %d", outside, first+1)
+		}
+		// Another scope does not join: Unscoped sees both tenants and the new row.
+		var all int
+		if err := Unscoped(ctx, "test", func(ctx context.Context) error {
+			return p.Read(ctx, func(ctx context.Context, tx *Tx) error {
+				return tx.QueryRow(ctx, "SELECT count(*) FROM thing").Scan(&all)
+			})
+		}); err != nil || all != 3 {
+			t.Fatalf("unscoped inside Consistent: %d, %v", all, err)
+		}
+		// A write through Read fails: the shared transaction is read only.
+		werr := p.Read(ctx, func(ctx context.Context, tx *Tx) error {
+			_, err := tx.Exec(ctx, "INSERT INTO thing (tenant_id, name) VALUES ($1, 'd')", tenantA)
+			return err
+		})
+		if werr == nil || !strings.Contains(werr.Error(), "read-only") {
+			t.Fatalf("a write inside Consistent: %v", werr)
+		}
+		// The failed statement cost only its savepoint.
+		if again := count(ctx); again != first {
+			t.Fatalf("after a failed read: %d, want %d", again, first)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := count(ctx); got != 2 {
+		t.Fatalf("after Consistent: %d rows for tenant A, want 2", got)
+	}
+}

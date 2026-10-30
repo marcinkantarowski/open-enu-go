@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"strings"
 
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/outbox"
@@ -15,6 +14,7 @@ import (
 type handlers struct {
 	repo   repository
 	outbox *outbox.Outbox
+	policy outbound
 }
 
 func (h handlers) create(ctx context.Context, tx *scope.Tx, c createEndpoint) (created, error) {
@@ -22,10 +22,9 @@ func (h handlers) create(ctx context.Context, tx *scope.Tx, c createEndpoint) (c
 	if !ok {
 		return created{}, httpx.BadRequest(keyNoTenant)
 	}
-	// HTTPS only. The payload is signed, not encrypted, so plain HTTP
-	// publishes every event to anyone on the path.
-	if !strings.HasPrefix(c.URL, "https://") {
-		return created{}, httpx.BadRequest(keyHTTPSRequired)
+	// https, and not an address inside our own network (outbound.go).
+	if key := h.policy.checkURL(c.URL); key != "" {
+		return created{}, httpx.BadRequest(key)
 	}
 	if len(c.Events) == 0 {
 		return created{}, httpx.BadRequest(keyEventsRequired)

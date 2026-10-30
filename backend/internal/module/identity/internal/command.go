@@ -68,6 +68,17 @@ func (removeTenantMemberships) AuditAction() string      { return "identity.memb
 func (c removeTenantMemberships) AuditSubjectID() string { return c.TenantID }
 func (c removeTenantMemberships) AuditTenantID() string  { return c.TenantID }
 
+// EndTenantSessions - `identity.sessions.ended`: every refresh token whose
+// current workspace is this one is revoked, so nobody renews a session into
+// a workspace they can no longer enter. Exported for contract.EndTenantSessions:
+// Manager dispatches it when it suspends a workspace. Access tokens already
+// issued run out within fifteen minutes.
+type EndTenantSessions struct{ TenantID string }
+
+func (EndTenantSessions) AuditAction() string      { return "identity.sessions.ended" }
+func (c EndTenantSessions) AuditSubjectID() string { return c.TenantID }
+func (c EndTenantSessions) AuditTenantID() string  { return c.TenantID }
+
 // createUser - `identity.user.created`: the console's verified account with
 // a membership, idempotent (`openenu user create`, the e2e fixtures).
 type createUser struct {

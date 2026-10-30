@@ -76,7 +76,7 @@ func newStack(t *testing.T) *stack {
 		t.Fatal(err)
 	}
 	s.a, s.b, s.user = primary.TenantID, second.TenantID, primary.UserID
-	if _, created, err := manager.CreateOperator(ctx, svc, manager.CreateOperatorInput{Email: opEmail, Password: opPassword, DisplayName: "Op"}); err != nil || !created {
+	if _, created, err := manager.CreateOperator(ctx, svc, manager.CreateOperatorInput{Email: opEmail, Password: opPassword, DisplayName: "Op", Super: true}); err != nil || !created {
 		t.Fatalf("operator: %v %v", created, err)
 	}
 	return s
@@ -240,6 +240,17 @@ func TestTheOperatorSeesEveryWorkspaceAndATenantTokenSeesNoneOfThis(t *testing.T
 func TestSuspendingAWorkspaceIsAuditedTwiceAndLocksItsMembersOut(t *testing.T) {
 	s := newStack(t)
 	op := s.operator()
+	// A member of Beta with a live session: its refresh must end with the workspace.
+	before := s.do("POST", "/api/auth/login", "", map[string]any{"email": "other@example.test", "password": password})
+	var cookie *http.Cookie
+	for _, c := range before.cookies {
+		if c.Name == identity.RefreshCookie {
+			cookie = c
+		}
+	}
+	if before.code != 200 || cookie == nil {
+		t.Fatalf("login before: %d %s", before.code, before.raw)
+	}
 	r := s.do("POST", "/api/manager/tenants/"+s.b+"/suspend", op, nil)
 	if r.code != 200 || r.str("status") != "suspended" {
 		t.Fatalf("suspend: %d %s", r.code, r.raw)
@@ -250,13 +261,21 @@ func TestSuspendingAWorkspaceIsAuditedTwiceAndLocksItsMembersOut(t *testing.T) {
 	if l := s.do("POST", "/api/auth/login", "", map[string]any{"email": "other@example.test", "password": password}); l.code != 401 {
 		t.Fatalf("a member of a suspended workspace logged in: %d", l.code)
 	}
+	req := httptest.NewRequest("POST", "/api/auth/refresh", nil)
+	req.RemoteAddr = "10.0.0.9:1234"
+	req.AddCookie(&http.Cookie{Name: cookie.Name, Value: cookie.Value})
+	rec := httptest.NewRecorder()
+	s.h.ServeHTTP(rec, req)
+	if rec.Code != 401 || strings.Contains(rec.Body.String(), `"token"`) {
+		t.Fatalf("a refresh into a suspended workspace: %d %s", rec.Code, rec.Body.String())
+	}
 	actions := map[string]bool{}
 	for _, e := range s.trail() {
 		if e.TenantID != nil && *e.TenantID == s.b && e.Succeeded {
 			actions[e.Action] = true
 		}
 	}
-	if !actions["manager.tenant.suspended"] || !actions["tenant.suspended"] {
+	if !actions["manager.tenant.suspended"] || !actions["tenant.suspended"] || !actions["identity.sessions.ended"] {
 		t.Fatalf("trail: %v", actions)
 	}
 }
@@ -314,5 +333,40 @@ func TestImpersonationMintsAMarkedTenantTokenWithNoCookieAndIsAuditedFirst(t *te
 		if it.(map[string]any)["tenantId"] != s.b {
 			t.Fatalf("filter leaked: %v", it)
 		}
+	}
+}
+
+func TestOnlyASuperOperatorMayImpersonateAndAPlainOnesAttemptIsOnRecord(t *testing.T) {
+	s := newStack(t)
+	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: "plain@example.test", Password: opPassword, DisplayName: "Plain"}); err != nil {
+		t.Fatal(err)
+	}
+	l := s.do("POST", "/api/manager/login", "", map[string]any{"email": "plain@example.test", "password": opPassword})
+	if l.code != 200 {
+		t.Fatalf("plain login: %d %s", l.code, l.raw)
+	}
+	plain := l.str("token")
+	// A plain operator still sees the workspace...
+	if d := s.do("GET", "/api/manager/tenants/"+s.a, plain, nil); d.code != 200 {
+		t.Fatalf("plain operator reads: %d", d.code)
+	}
+	// ...and may not become one of its members. (This stack loads no
+	// catalogue, so the message is its key; the security suite reads the text.)
+	r := s.do("POST", "/api/manager/tenants/"+s.a+"/users/"+s.user+"/impersonate", plain, nil)
+	if r.code != 403 || r.str("token") != "" || !strings.Contains(string(r.raw), `"code":"forbidden"`) || !strings.Contains(string(r.raw), "super_required") {
+		t.Fatalf("plain operator impersonated: %d %s", r.code, r.raw)
+	}
+	var refused bool
+	for _, e := range s.trail() {
+		if e.Action == "manager.impersonation.started" && !e.Succeeded && e.SubjectID != nil && *e.SubjectID == s.user {
+			refused = true
+		}
+	}
+	if !refused {
+		t.Fatal("the refused attempt is not on the trail")
+	}
+	// The super operator may.
+	if ok := s.do("POST", "/api/manager/tenants/"+s.a+"/users/"+s.user+"/impersonate", s.operator(), nil); ok.code != 200 || ok.body["impersonating"] != true || ok.str("token") == "" {
+		t.Fatalf("super operator: %d %s", ok.code, ok.raw)
 	}
 }

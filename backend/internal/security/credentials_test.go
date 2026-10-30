@@ -3,6 +3,7 @@ package security_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"strings"
 	"testing"
@@ -271,5 +272,22 @@ func TestAPersonsDataCanBeExportedAndErased(t *testing.T) {
 	var actors int
 	if err := s.db.Admin.QueryRow(s.ctx, `SELECT count(*) FROM audit_entry WHERE actor_id = $1`, userID).Scan(&actors); err != nil || actors != 0 {
 		t.Fatalf("the trail still names the person: %d %v", actors, err)
+	}
+}
+
+func TestGuessesAtOneAddressFromManyMachinesRunOutAtTen(t *testing.T) {
+	s := newStack(t)
+	s.register(ownerEmail, "Acme")
+	guess := func(ip, pw string) reply {
+		return s.send(request{method: "POST", path: "/api/auth/login", payload: map[string]any{"email": ownerEmail, "password": pw}, headers: map[string]string{"X-Forwarded-For": ip}})
+	}
+	for i := 1; i <= 10; i++ {
+		if r := guess(fmt.Sprintf("198.51.100.%d", i), "guess-"+password); r.code != 401 {
+			t.Fatalf("guess %d: %d %s", i, r.code, r.raw)
+		}
+	}
+	// The right password from an eleventh machine: the address is spent.
+	if r := guess("203.0.113.9", password); r.code != 429 || r.str("error", "code") != "rate_limited" || r.str("token") != "" || r.refresh() != nil {
+		t.Fatalf("eleventh attempt: %d %s", r.code, r.raw)
 	}
 }

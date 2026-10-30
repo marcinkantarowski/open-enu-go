@@ -17,8 +17,10 @@ modules only through their `contract/` packages.
   `GET /api/manager/audit`, `GET /api/manager/workers`
 - Permissions: **none**. Operator authority is the realm (`auth.RequireOperator`), not a
   dotted permission - no tenant role can ever satisfy an operator check.
-- Commands: `manager.tenant.suspended` (then Tenant's own `tenant.suspended`),
-  `manager.impersonation.started` (recorded BEFORE the token exists)
+- Commands: `manager.tenant.suspended` (then Tenant's own `tenant.suspended`, then
+  Identity's `identity.sessions.ended` - the members' refresh tokens into it are revoked),
+  `manager.impersonation.started` (recorded BEFORE the token exists; refused with 403
+  `manager.error.super_required` unless the operator's row holds `ROLE_PLATFORM_SUPER`)
 - Tables: `platform_manager` (no RLS; e-mail and display name encrypted, `email_hash` lookup)
 - Console: `openenu manager create --email --password [--name --super]` - the only way the
   first operator comes to exist; there is no signup endpoint and there should never be one
@@ -44,4 +46,4 @@ for the console and the e2e fixtures.
 
 ## Depends on
 
-`tenant`, `identity` (`contract.Directory`, `contract.Minter`), `audit` (`contract.Reader`).
+`tenant`, `identity` (`contract.Directory`, `contract.Minter`, `contract.Sessions`), `audit` (`contract.Reader`).

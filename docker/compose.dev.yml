@@ -23,6 +23,9 @@ x-backend-env: &backend_env
   APP_STAGE: ${APP_STAGE:-local}
   APP_SECRET: ${APP_SECRET}
   APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+  # /health/deep answers only a request carrying X-Health-Token with this value
+  # (empty: only loopback and private addresses). /health stays public.
+  HEALTH_TOKEN: ${HEALTH_TOKEN:-}
   APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
   PROJECT_SLUG: ${PROJECT_SLUG}
   DATABASE_URL: postgres://${DB_USER}_app:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME}
@@ -33,7 +36,10 @@ x-backend-env: &backend_env
   # BROWSER subscribes to differ; publishing through Traefik would be a round
   # trip for nothing.
   MERCURE_URL: http://mercure/.well-known/mercure
-  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+  # Two keys: the subscriber's signs the cookie every browser holds, the
+  # publisher's stays in the backend - a leaked cookie key cannot publish.
+  MERCURE_JWT_SECRET: ${MERCURE_SUBSCRIBER_JWT_SECRET}
+  MERCURE_PUBLISHER_JWT_SECRET: ${MERCURE_PUBLISHER_JWT_SECRET}
   API_URL: https://api.${DOMAIN}
   # Also the CORS allowlist. Exact origins, never a wildcard: auth rides on a
   # cookie, so Access-Control-Allow-Credentials is on and a browser refuses a
@@ -50,6 +56,10 @@ x-backend-env: &backend_env
   # The dev CA, so the backend can call its own stack over HTTPS (a webhook
   # aimed at *.${DOMAIN}). Go reads this file and still the system roots.
   SSL_CERT_FILE: /etc/open-enu/certs/rootCA.pem
+  # The webhook module refuses private and loopback targets (SSRF). The dev
+  # stack's receiver, webhook-echo, lives on this private network, so the dev
+  # and CI stacks allow it. Never in production: `make prod-check` refuses it.
+  WEBHOOK_ALLOW_PRIVATE: "true"
 
 x-backend-volumes: &backend_volumes
   - ./backend:/app
@@ -123,8 +133,8 @@ services:
     restart: unless-stopped
     environment:
       SERVER_NAME: ':80'
-      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
-      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_PUBLISHER_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_SUBSCRIBER_JWT_SECRET}
       # The `iss` and `aud` of the API's tokens (kernel/realtime). The audience
       # is pinned rather than derived per request: the API publishes to
       # http://mercure inside the network and the browser subscribes through the

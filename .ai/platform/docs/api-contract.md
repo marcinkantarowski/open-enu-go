@@ -50,6 +50,11 @@ handler, from decoding or from the kernel.
   `Error` and `ConflictDetails`.
 - **One security scheme**, `bearer`: a JWT or an API key, told apart by the key's `sk_`
   prefix; the realm is the JWT's audience.
+- **Request bodies** are capped at `httpx.DefaultMaxBody` (1 MiB) by `httpx.MaxBody` in the
+  pipeline; beyond it the answer is a 413 envelope, code `payload_too_large`,
+  `details.maxBytes`. A route that takes more raises its own limit where it is mounted -
+  Attachment passes `httpx.AllowBody(MaxBytes + httpx.DefaultMaxBody)` in its
+  `StdHTTPServerOptions.Middlewares` - so the pipeline never names a module's path.
 - `/health` and `/health/deep` are kernel routes outside the spec.
 
 ## The frontends' types

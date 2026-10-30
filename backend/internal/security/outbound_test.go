@@ -156,3 +156,22 @@ func (s *stack) slugOf(tenantID string) (slug string) {
 	}
 	return slug
 }
+
+func TestAWebhookCannotPointIntoOurOwnNetwork(t *testing.T) {
+	s := newStack(t)
+	s.register(ownerEmail, "Acme")
+	owner := s.login(ownerEmail).str("token")
+	for _, url := range []string{
+		"https://127.0.0.1/hook", "https://10.0.0.5/hook", "https://172.17.0.1/hook", "https://192.168.0.1/hook",
+		"https://169.254.169.254/latest/meta-data/", "https://[::1]/hook", "https://[fd00::5]/hook", "https://localhost/hook",
+		"https://postgres.example.test:5432/", "http://hooks.example.test/hook",
+	} {
+		r := s.do("POST", "/api/webhooks", owner, map[string]any{"url": url, "events": []string{"example.project.created"}})
+		if r.code != 400 || r.str("error", "code") != "bad_request" || strings.HasPrefix(r.str("error", "message"), "webhook.error") {
+			t.Fatalf("%s: %d %s", url, r.code, r.raw)
+		}
+	}
+	if l := s.do("GET", "/api/webhooks", owner, nil); strings.Contains(string(l.raw), "hook") {
+		t.Fatalf("a refused endpoint was stored: %s", l.raw)
+	}
+}

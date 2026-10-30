@@ -54,5 +54,12 @@
   "manager.outcomeOk": "OK",
   "manager.outcomeFailed": "Failed",
   "manager.loginTitle": "Operator console",
-  "manager.loginSubtitle": "Sign in with a platform operator account."
+  "manager.loginSubtitle": "Sign in with a platform operator account.",
+  "manager.error.forbidden.title": "No permission",
+  "manager.error.forbidden.description": "This part of the console is reserved to a super operator.",
+  "manager.error.notFound.title": "Page not found",
+  "manager.error.notFound.description": "This address does not lead anywhere in the console.",
+  "manager.error.failed.title": "Something went wrong",
+  "manager.error.failed.description": "The page could not be shown. Try again in a moment; if it keeps happening, quote the reference below.",
+  "manager.error.home": "Back to the start"
 }

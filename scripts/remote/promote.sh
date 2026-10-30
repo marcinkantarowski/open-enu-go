@@ -14,6 +14,8 @@
 #    3. the gate, on staging    arch + tests + typecheck, against that commit
 #    4. production moves        fetch that SHA from GitHub, release.sh:
 #                               build → back up → migrate → restart → health
+#                               (images tagged per release; the last three
+#                               stay, so a rollback is release.sh --rollback)
 #    5. a tag                   prod-<timestamp>, so "what was live when" is git
 #
 #  Staging and production on one server or two:
@@ -126,7 +128,8 @@ log_ok "production checkout ${BEFORE:0:7} → ${SHA:0:7}"
 
 if ! P "bash scripts/remote/release.sh $BEFORE"; then
   die "production did not release cleanly" \
-    "roll back:  on $PROD: cd $PDIR && git checkout --detach $BEFORE && bash scripts/remote/release.sh" \
+    "roll back:  on $PROD: cd $PDIR && git checkout --detach $BEFORE && bash scripts/remote/release.sh --rollback" \
+    "            (the kept images of ${BEFORE:0:7} are restarted - nothing is rebuilt)" \
     "the pre-deploy dump is in $PDIR/backups - a migration is not undone by rolling back code"
 fi
 

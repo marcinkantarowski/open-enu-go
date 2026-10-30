@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"math"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -73,13 +74,15 @@ func (p Pagination) Meta(total int) ListMeta {
 	return ListMeta{Total: total, Page: p.Page, Size: p.Size, Pages: pages}
 }
 
-var etagShape = regexp.MustCompile(`^(?:W/)?"?(\d+)"?$`)
+var etagShape = regexp.MustCompile(`^"(\d{1,9})"$`)
 
-// IfMatch reads the version a client holds from the If-Match header - a
-// quoted ETag, weak or strong - and returns false when the client is not
-// participating in locking (no header, or not a number). A missing header
-// is allowed: a background job has no stale read to protect against, which
-// is why the header is how a UI must write.
+// IfMatch reads the version a client holds from the If-Match header - the
+// strong, quoted ETag that ETag wrote - and returns false when the client is
+// not participating in locking: no header, or `*`. A missing header is
+// allowed: a background job has no stale read to protect against, which is
+// why the header is how a UI must write. Any other shape - a weak `W/"3"`,
+// a bare `3`, a list - is never quietly read as "no lock": ValidIfMatch, in
+// the pipeline, has already answered it with a 400.
 func IfMatch(header string) (int, bool) {
 	m := etagShape.FindStringSubmatch(strings.TrimSpace(header))
 	if m == nil {
@@ -87,6 +90,24 @@ func IfMatch(header string) (int, bool) {
 	}
 	n, err := strconv.Atoi(m[1])
 	return n, err == nil
+}
+
+// ValidIfMatch answers 400 (details.violations["If-Match"]) for a request
+// whose If-Match is present but not one IfMatch can read. Without it a typo
+// in a client - a weak ETag, a missing pair of quotes - would turn every
+// write it makes into last-write-wins, and nobody would see it happen.
+// Absent, empty and `*` pass.
+func ValidIfMatch(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		values := r.Header.Values("If-Match")
+		h := strings.TrimSpace(strings.Join(values, ","))
+		if h != "" && h != "*" && !etagShape.MatchString(h) {
+			WriteError(w, r, NewError(http.StatusBadRequest, CodeBadRequest, KeyBadRequest).
+				WithDetails(map[string]any{"violations": map[string]any{"If-Match": string(KeyIfMatchInvalid)}}))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ETag formats a version as the header the client sends back.

@@ -15,6 +15,9 @@ import { useAuthStore } from '../stores/auth'
  *     gone".
  *  4. **Cookies are always sent** (`credentials: 'include'`), because the
  *     refresh token is an httpOnly cookie on the API host.
+ *  5. **413 becomes a typed PayloadTooLargeError** whose message is the
+ *     user's sentence with the limit in it (`details.maxBytes`), so a page
+ *     that toasts `error.message` says something a person can act on.
  */
 
 export interface ApiErrorBody {
@@ -57,6 +60,23 @@ export class ConflictError extends ApiError {
   }
 }
 
+/**
+ * The body was over the server's limit (413, `payload_too_large`). maxBytes
+ * is the limit from the envelope, or null when something in front of the API
+ * refused it without one; the message is already translated.
+ */
+export class PayloadTooLargeError extends ApiError {
+  constructor(body: ApiErrorBody | null, message: string, readonly maxBytes: number | null) {
+    super(413, body?.error.code ?? 'payload_too_large', message, body?.error.details, body?.error.requestId)
+    this.name = 'PayloadTooLargeError'
+  }
+}
+
+/** A byte limit as people read it: 25, 0.5, 1.5 - in MB. */
+function megabytes(bytes: number): string {
+  return String(Math.round((bytes / 1048576) * 10) / 10)
+}
+
 export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -82,6 +102,7 @@ export function useApi() {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
   const base = String(config.public.apiBase ?? '')
+  const { $i18n } = useNuxtApp()
 
   async function refreshOnce(): Promise<boolean> {
     refreshInFlight ??= (async () => {
@@ -153,6 +174,18 @@ export function useApi() {
     if (response.ok) return (await response.json()) as T
 
     const body = await response.json().catch(() => null) as ApiErrorBody | null
+
+    // Before the envelope check: a proxy in front of the API can refuse a
+    // large body with no envelope, and the person still needs the sentence.
+    if (response.status === 413) {
+      const envelope = body?.error ? body : null
+      const max = envelope?.error.details?.maxBytes
+      const maxBytes = typeof max === 'number' && max > 0 ? max : null
+      const message = maxBytes
+        ? $i18n.t('error.payloadTooLarge', { limit: megabytes(maxBytes) })
+        : $i18n.t('error.payloadTooLargeNoLimit')
+      throw new PayloadTooLargeError(envelope, message, maxBytes)
+    }
 
     if (!body?.error) {
       throw new ApiError(response.status, 'unexpected', `Request failed (${response.status}).`)

@@ -2173,4 +2173,4 @@ export interface operations {
         };
     };
 }
-// generated from backend/openapi.json sha256:e8376560aa7fdb0cc2a8592ec92ec5870f7bcd1571f7c68d52c81cd86aa905af
+// generated from backend/openapi.json sha256:93d1b5ba2ab9b2c8fb600324ea55534b84bfdd889b9508bb08859e715d8a3c0a

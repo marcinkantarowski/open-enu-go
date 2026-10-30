@@ -37,7 +37,14 @@ const userColumns = `id, email, email_hash, password, display_name, status, loca
 
 // ── users ───────────────────────────────────────────────────────────────
 
+// emailHash is the lookup hash of an address, keyed under the platform's
+// master key (crypto.Encryptor.HashForLookup), over its one spelling.
+func (r repository) emailHash(email string) string {
+	return r.crypto.HashForLookup(normalizeEmail(email))
+}
+
 func (r repository) insertUser(ctx context.Context, tx *scope.Tx, u user) error {
+	u.EmailHash = r.emailHash(u.Email)
 	email, err := r.crypto.Encrypt(u.Email, "")
 	if err != nil {
 		return err
@@ -300,6 +307,14 @@ func (r repository) consumeRefresh(ctx context.Context, raw string) (t refreshTo
 func (r repository) revokeAllRefresh(ctx context.Context, tx *scope.Tx, userID string) error {
 	_, err := tx.Exec(ctx, `UPDATE identity_refresh_token SET revoked = true WHERE user_id = $1 AND NOT revoked`, userID)
 	return err
+}
+
+// revokeTenantRefresh revokes every live refresh token whose workspace is
+// tenantID; its families die with it, as on a replay.
+func (r repository) revokeTenantRefresh(ctx context.Context, tx *scope.Tx, tenantID string) (int, error) {
+	tag, err := tx.Exec(ctx, `UPDATE identity_refresh_token SET revoked = true WHERE family IN
+		(SELECT family FROM identity_refresh_token WHERE tenant_id = $1 AND NOT revoked AND used_at IS NULL) AND NOT revoked`, tenantID)
+	return int(tag.RowsAffected()), err
 }
 
 func (r repository) revokeAllRefreshOf(ctx context.Context, userID string) error {

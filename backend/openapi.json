@@ -2741,7 +2741,8 @@
         "summary": "Change display name or locale. Requires `identity.profile.manage`.",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-mcp": false
       }
     },
     "/api/progress/{id}": {

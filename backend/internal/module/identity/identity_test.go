@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/open-enu/kernel/audit"
 	"github.com/open-enu/kernel/auth"
-	"github.com/open-enu/kernel/crypto"
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/migrate"
@@ -148,7 +148,7 @@ func (s *stack) tenantOf(address string) string {
 	s.t.Helper()
 	var id string
 	if err := s.db.Admin.QueryRow(s.ctx, `SELECT m.tenant_id FROM identity_membership m JOIN identity_user u ON u.id = m.user_id
-		WHERE u.email_hash = $1 ORDER BY m.created_at LIMIT 1`, crypto.HashForLookup(address)).Scan(&id); err != nil {
+		WHERE u.email_hash = $1 ORDER BY m.created_at LIMIT 1`, s.svc.Crypto.HashForLookup(address)).Scan(&id); err != nil {
 		s.t.Fatalf("no workspace for %s: %v", address, err)
 	}
 	return id
@@ -254,21 +254,23 @@ func TestRegisterVerifyAndLoginIssueASessionAndACookie(t *testing.T) {
 	if e := s.entries("identity.user.registered"); len(e) != 2 || e[1].After["accountExisted"] != true {
 		t.Fatalf("the attempt is on the trail as what it was: %+v", e)
 	}
+	// Registering costs a workspace, so one client gets five (Mount); the
+	// checks below come from other clients.
 	// Lengths are the spec's, in characters: a 200-letter Polish workspace
 	// name and a twelve-letter password pass, through Identity's check and
 	// Tenant's; one letter more of the name does not, nor eleven of the password.
 	polish := map[string]any{"email": "polish@example.test", "password": strings.Repeat("ą", 12), "tenantName": strings.Repeat("ż", 200), "displayName": strings.Repeat("ł", 120)}
-	if r := s.post("/api/auth/register", polish); r.code != 202 {
+	if r := s.from("10.0.1.1", "/api/auth/register", polish); r.code != 202 {
 		t.Fatalf("200-character name, 12-character password: %d %v", r.code, r.body)
 	}
 	for field, value := range map[string]string{"tenantName": strings.Repeat("ż", 201), "password": strings.Repeat("ą", 11)} {
 		bad := map[string]any{"email": "polish-" + field + "@example.test", "password": strings.Repeat("ą", 12), "tenantName": "Polska"}
 		bad[field] = value
-		if r := s.post("/api/auth/register", bad); r.code != 400 {
+		if r := s.from("10.0.1.2", "/api/auth/register", bad); r.code != 400 {
 			t.Fatalf("%s one past the limit: %d %v", field, r.code, r.body)
 		}
 	}
-	if short := s.post("/api/auth/register", map[string]any{"email": "x@example.test", "password": "short", "tenantName": "X"}); short.code != 400 {
+	if short := s.from("10.0.1.3", "/api/auth/register", map[string]any{"email": "x@example.test", "password": "short", "tenantName": "X"}); short.code != 400 {
 		t.Fatalf("short password: %d", short.code)
 	}
 	info, found, _ := tenantc.NewReader(s.svc).Describe(s.ctx, tenantID)
@@ -285,7 +287,7 @@ func TestRegisterVerifyAndLoginIssueASessionAndACookie(t *testing.T) {
 	}
 	// Verified: the same answer again, and the owner is told they have an
 	// account, with the way in and the way back in - and no token.
-	if again := s.post("/api/auth/register", map[string]any{"email": email, "password": password, "tenantName": "Acme three"}); again.code != 202 || !reflect.DeepEqual(again.body, r.body) {
+	if again := s.from("10.0.1.4", "/api/auth/register", map[string]any{"email": email, "password": password, "tenantName": "Acme three"}); again.code != 202 || !reflect.DeepEqual(again.body, r.body) {
 		t.Fatalf("register after verifying: %d %v", again.code, again.body)
 	}
 	if m, _ := s.mail.Last(email); !strings.Contains(m.Text, "http://app.test/login") || !strings.Contains(m.Text, "http://app.test/forgot-password") || tokenInLink.MatchString(m.Text) {
@@ -512,6 +514,11 @@ func TestADeletedTenantTakesItsMembershipsAndCreateUserIsIdempotent(t *testing.T
 	if l.str("user", "displayName") != "E2E" || len(l.body["memberships"].([]any)) != 2 {
 		t.Fatalf("login after console create: %v", l.body)
 	}
+	// A session currently in the workspace about to go.
+	in := s.do("POST", "/api/auth/switch-tenant", "", map[string]any{"tenantId": c.TenantID}, l.refresh())
+	if in.code != 200 || in.str("tenantId") != c.TenantID {
+		t.Fatalf("switch: %d %v", in.code, in.body)
+	}
 	if err := (tenantc.Provisioner{Bus: s.svc.Bus}).Delete(s.ctx, c.TenantID); err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +529,122 @@ func TestADeletedTenantTakesItsMembershipsAndCreateUserIsIdempotent(t *testing.T
 	if ms := l.body["memberships"].([]any); len(ms) != 1 || ms[0].(map[string]any)["tenantId"] != a.TenantID {
 		t.Fatalf("memberships after the tenant went: %v", ms)
 	}
+	// Its refresh ends, rather than quietly landing in the other workspace.
+	if r := s.do("POST", "/api/auth/refresh", "", nil, in.refresh()); r.code != 401 || r.str("token") != "" {
+		t.Fatalf("refresh into a deleted workspace: %d %v", r.code, r.body)
+	}
 	if e := s.entries("identity.memberships.removed"); len(e) != 1 || e[0].TenantID != c.TenantID || e[0].After["removed"] != 1 {
 		t.Fatalf("audit: %+v", e)
+	}
+}
+
+// from is a POST from one client address, so a test can spread attempts
+// over many machines as a botnet would.
+func (s *stack) from(addr, path string, payload any) reply {
+	s.t.Helper()
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest("POST", path, bytes.NewReader(b))
+	req.RemoteAddr = addr + ":1234"
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	s.h.ServeHTTP(rec, req)
+	r := reply{code: rec.Code, cookies: rec.Result().Cookies(), header: rec.Header()}
+	_ = json.Unmarshal(rec.Body.Bytes(), &r.body)
+	return r
+}
+
+func TestOneAddressGetsTenAttemptsFromAnywhereAndTheNextIsTheSame429(t *testing.T) {
+	s := newStack(t)
+	s.register("Acme")
+	// Ten machines, one guess each, at one address: every one is a 401.
+	for i := 0; i < 10; i++ {
+		if r := s.from(fmt.Sprintf("198.51.100.%d", i+1), "/api/auth/login", map[string]any{"email": email, "password": "wrong-" + password}); r.code != 401 {
+			t.Fatalf("attempt %d: %d %v", i+1, r.code, r.body)
+		}
+	}
+	// The eleventh, from a machine never seen, in another spelling of the
+	// address: the limiter's own answer, even with the right password.
+	r := s.from("203.0.113.50", "/api/auth/login", map[string]any{"email": "  OWNER@example.test ", "password": password})
+	if r.code != 429 || r.str("error", "code") != "rate_limited" || r.header.Get("Retry-After") == "" || r.str("token") != "" {
+		t.Fatalf("eleventh attempt: %d %v", r.code, r.body)
+	}
+	// The same 429 for an address nobody has: the limiter is no oracle.
+	for i := 0; i < 10; i++ {
+		s.from(fmt.Sprintf("192.0.2.%d", i+1), "/api/auth/login", map[string]any{"email": "nobody@example.test", "password": password})
+	}
+	if n := s.from("192.0.2.99", "/api/auth/login", map[string]any{"email": "nobody@example.test", "password": password}); n.code != 429 || n.str("error", "code") != "rate_limited" {
+		t.Fatalf("unknown address: %d %v", n.code, n.body)
+	}
+	// Forgot-password draws on the same bucket: no mail beyond it.
+	sent := len(s.mail.Sent())
+	if f := s.from("203.0.113.51", "/api/auth/forgot-password", map[string]any{"email": email}); f.code != 429 || len(s.mail.Sent()) != sent {
+		t.Fatalf("forgot-password for a spent address: %d %v", f.code, f.body)
+	}
+	// Another address is untouched.
+	if o := s.from("203.0.113.52", "/api/auth/login", map[string]any{"email": "someone@example.test", "password": password}); o.code != 401 {
+		t.Fatalf("another address: %d %v", o.code, o.body)
+	}
+}
+
+func TestASuccessfulLoginDoesNotSpendTheAddressesAttempts(t *testing.T) {
+	s := newStack(t)
+	s.register("Acme")
+	s.login() // verified and able to sign in
+	// Someone who signs in often is not guessing: twice the bucket, all answered.
+	for i := 0; i < 20; i++ {
+		if r := s.from(fmt.Sprintf("198.51.100.%d", i+1), "/api/auth/login", map[string]any{"email": email, "password": password}); r.code != 200 || r.str("token") == "" {
+			t.Fatalf("sign-in %d: %d %v", i+1, r.code, r.body)
+		}
+	}
+	// Guesses still count: ten wrong ones, then the limiter's 429 even with the right password.
+	for i := 0; i < 10; i++ {
+		if r := s.from(fmt.Sprintf("203.0.113.%d", i+1), "/api/auth/login", map[string]any{"email": email, "password": "wrong-" + password}); r.code != 401 {
+			t.Fatalf("guess %d: %d %v", i+1, r.code, r.body)
+		}
+	}
+	if r := s.from("203.0.113.99", "/api/auth/login", map[string]any{"email": email, "password": password}); r.code != 429 || r.str("error", "code") != "rate_limited" {
+		t.Fatalf("after ten guesses: %d %v", r.code, r.body)
+	}
+}
+
+func TestRegisterAndForgotPasswordHaveAStricterBucketPerClient(t *testing.T) {
+	s := newStack(t)
+	for _, path := range []string{"/api/auth/register", "/api/auth/forgot-password"} {
+		var last reply
+		for i := 0; i <= 5; i++ {
+			// A fresh address each time, so only the per-client bucket counts.
+			last = s.from("198.51.100.200", path, map[string]any{"email": fmt.Sprintf("p%d@example.test", i), "password": password, "tenantName": "W"})
+		}
+		if last.code != 429 || last.str("error", "code") != "rate_limited" || last.header.Get("Retry-After") == "" {
+			t.Fatalf("%s, attempt %d from one client: %d %v", path, 5+1, last.code, last.body)
+		}
+		if other := s.from("198.51.100.201", path, map[string]any{"email": "q@example.test", "password": password, "tenantName": "W"}); other.code == 429 {
+			t.Fatalf("%s: another client is limited too", path)
+		}
+	}
+	// Login is not costly: the sixth from one client is still answered.
+	for i := 0; i <= 5; i++ {
+		if r := s.from("198.51.100.202", "/api/auth/login", map[string]any{"email": fmt.Sprintf("l%d@example.test", i), "password": password}); r.code != 401 {
+			t.Fatalf("login %d: %d", i+1, r.code)
+		}
+	}
+}
+
+func TestEndingAWorkspacesSessionsRefusesTheirNextRefresh(t *testing.T) {
+	s := newStack(t)
+	tid := s.register("Acme")
+	cookie := s.login().refresh()
+	if err := (identityc.Sessions{Bus: s.svc.Bus}).EndTenant(s.ctx, tid); err != nil {
+		t.Fatal(err)
+	}
+	if r := s.do("POST", "/api/auth/refresh", "", nil, cookie); r.code != 401 || r.str("token") != "" || r.str("error", "code") != "unauthenticated" {
+		t.Fatalf("refresh after the workspace's sessions ended: %d %v", r.code, r.body)
+	}
+	if e := s.entries("identity.sessions.ended"); len(e) != 1 || e[0].TenantID != tid || e[0].After["sessionsEnded"] != 1 {
+		t.Fatalf("audit: %+v", e)
+	}
+	// A new login is a new session, and works while the workspace does.
+	if l := s.login(); l.str("token") == "" {
+		t.Fatalf("login after: %v", l.body)
 	}
 }

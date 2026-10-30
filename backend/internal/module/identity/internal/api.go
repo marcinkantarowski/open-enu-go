@@ -28,10 +28,12 @@ type api struct {
 	repo     repository
 	sessions sessions
 	locales  []string
+	guard    auth.Guard
 }
 
 var _ StrictServerInterface = api{}
 
+//impersonation:allowed public sign-up, no principal yet - nobody to impersonate
 func (a api) PostAuthRegister(ctx context.Context, req PostAuthRegisterRequestObject) (PostAuthRegisterResponseObject, error) {
 	b := req.Body
 	if !validEmail(string(b.Email)) {
@@ -52,6 +54,7 @@ func (a api) PostAuthRegister(ctx context.Context, req PostAuthRegisterRequestOb
 	return PostAuthRegister202JSONResponse{Status: RegisteredStatusUnverified}, nil
 }
 
+//impersonation:allowed public, the mailed token is the credential - there is no session to impersonate
 func (a api) PostAuthVerify(ctx context.Context, req PostAuthVerifyRequestObject) (PostAuthVerifyResponseObject, error) {
 	u, err := command.Dispatch[user](ctx, a.bus, verifyEmail{Token: req.Body.Token})
 	if err != nil {
@@ -95,6 +98,7 @@ func (a api) PostAuthLogout(ctx context.Context, req PostAuthLogoutRequestObject
 	return loggedOutResponse{cookie: a.sessions.logout(ctx, req.Params.OpenEnuRefresh)}, nil
 }
 
+//impersonation:allowed public, no principal - the same answer for every address (ADR-0023)
 func (a api) PostAuthForgotPassword(ctx context.Context, req PostAuthForgotPasswordRequestObject) (PostAuthForgotPasswordResponseObject, error) {
 	// The same body whether the address is known or not; the handler sends
 	// a mail only when it is.
@@ -104,6 +108,7 @@ func (a api) PostAuthForgotPassword(ctx context.Context, req PostAuthForgotPassw
 	return PostAuthForgotPassword200JSONResponse{Status: SentStatusSent}, nil
 }
 
+//impersonation:allowed public, the mailed token is the credential - there is no session to impersonate
 func (a api) PostAuthResetPassword(ctx context.Context, req PostAuthResetPasswordRequestObject) (PostAuthResetPasswordResponseObject, error) {
 	if !validPassword(req.Body.Password) {
 		return nil, httpx.BadRequest(keyPasswordTooShort)
@@ -130,6 +135,11 @@ func (a api) PatchProfileUpdate(ctx context.Context, req PatchProfileUpdateReque
 	}
 	if p.APIKey {
 		return nil, httpx.Forbidden(keyNotAPerson)
+	}
+	// Support may read a profile; the name and language on it stay the
+	// person's to change (ADR-0020).
+	if err := a.guard.DenyImpersonated(ctx, "identity.profile.updated"); err != nil {
+		return nil, err
 	}
 	if req.Body.Locale != nil && !a.supported(*req.Body.Locale) {
 		return nil, httpx.BadRequest(keyLocaleUnsupported)
