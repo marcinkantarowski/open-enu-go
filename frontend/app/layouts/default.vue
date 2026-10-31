@@ -9,11 +9,13 @@ const { logout } = useAuth()
 const { t } = useI18n()
 const route = useRoute()
 
-// The page in front of someone is never hidden in a group they once collapsed.
-watch(() => route.path, (path) => {
-  const section = sections.value.find(entry => entry.items.some(item => item.to === path))
+// The page in front of someone is never hidden. Its group can appear later than
+// the page: an entry behind a capability waits for the workspace's list.
+const currentGroup = computed(() =>
+  sections.value.find(entry => entry.items.some(item => item.to === route.path))?.group ?? '')
 
-  if (section?.group) ui.expandGroup(section.group)
+watch([() => route.path, currentGroup], ([, group]) => {
+  if (group) ui.expandGroup(group)
 }, { immediate: true })
 
 // One stream per tab, held for as long as the signed-in shell is mounted - so
@@ -55,14 +57,14 @@ async function signOut() {
               v-if="section.label"
               type="button"
               class="flex w-full items-center justify-between rounded-lg px-3 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted transition-colors hover:text-fg"
-              :aria-expanded="!ui.collapsedGroups.includes(section.group)"
+              :aria-expanded="ui.openGroup === section.group"
               data-testid="nav-group"
               @click="ui.toggleGroup(section.group)"
             >
               {{ section.label }}
               <svg
                 class="size-4 shrink-0 transition-transform"
-                :class="{ '-rotate-90': ui.collapsedGroups.includes(section.group) }"
+                :class="{ '-rotate-90': ui.openGroup !== section.group }"
                 viewBox="0 0 20 20"
                 fill="none"
                 stroke="currentColor"
@@ -75,7 +77,8 @@ async function signOut() {
               </svg>
             </button>
             <NuxtLink
-              v-for="item in ui.collapsedGroups.includes(section.group) ? [] : section.items"
+              v-for="item in section.items"
+              v-show="!section.label || ui.openGroup === section.group"
               :key="item.to"
               :to="item.to"
               class="rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-sunken hover:text-fg"

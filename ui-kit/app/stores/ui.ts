@@ -10,7 +10,8 @@ import { defineStore } from 'pinia'
 export const useUiStore = defineStore('ui', {
   state: () => ({
     sidebarOpen: true,
-    collapsedGroups: [] as string[],
+    // Not remembered: every session starts with the menu closed.
+    openGroup: '',
     locale: 'en',
   }),
 
@@ -21,14 +22,11 @@ export const useUiStore = defineStore('ui', {
     },
 
     toggleGroup(group: string) {
-      this.collapsedGroups = this.collapsedGroups.includes(group)
-        ? this.collapsedGroups.filter(entry => entry !== group)
-        : [...this.collapsedGroups, group]
-      this.persist()
+      this.openGroup = this.openGroup === group ? '' : group
     },
 
     expandGroup(group: string) {
-      if (this.collapsedGroups.includes(group)) this.toggleGroup(group)
+      this.openGroup = group
     },
 
     setLocale(locale: string) {
@@ -41,7 +39,10 @@ export const useUiStore = defineStore('ui', {
 
       try {
         const raw = localStorage.getItem('open_enu.ui')
-        if (raw) Object.assign(this.$state, JSON.parse(raw))
+        if (!raw) return
+
+        const { sidebarOpen, locale } = JSON.parse(raw)
+        this.$patch({ sidebarOpen: sidebarOpen ?? this.sidebarOpen, locale: locale ?? this.locale })
       } catch {
         // A corrupt or blocked store is not worth a broken shell.
       }
@@ -51,7 +52,7 @@ export const useUiStore = defineStore('ui', {
       if (import.meta.server) return
 
       try {
-        localStorage.setItem('open_enu.ui', JSON.stringify(this.$state))
+        localStorage.setItem('open_enu.ui', JSON.stringify({ sidebarOpen: this.sidebarOpen, locale: this.locale }))
       } catch {
         // Private mode and "block site data" both throw here.
       }
