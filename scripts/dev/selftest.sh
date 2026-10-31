@@ -143,6 +143,22 @@ cp "$WORK/pl.bak" "$WORK/frontend/app/modules/example/i18n/locales/pl.json"; rm 
 printf -- '---\ntitle: x\n---\n' > "$WORK/landing/content/en/zz-only-en.md"
 fails_when "a landing page in one locale only is refused" bash "$WORK/scripts/dev/check-i18n.sh"
 rm -f "$WORK/landing/content/en/zz-only-en.md"
+cat > "$WORK/backend/internal/module/example/internal/zz_violation.go" <<'GO'
+package internal
+
+import (
+	"github.com/open-enu/kernel/httpx"
+	"github.com/open-enu/kernel/i18n"
+)
+
+const keyPlanted i18n.Key = "example.error.planted"
+
+var _ = httpx.ValidationFailed(map[string]i18n.Key{"name": keyPlanted})
+GO
+fails_when "a validation message with no text in an app is refused" bash "$WORK/scripts/dev/check-i18n.sh"
+sed_inplace 's/ValidationFailed(map\[string\]i18n.Key{"name": keyPlanted})/ValidationFailed(nil); _ = httpx.NotFound(keyPlanted)/' "$WORK/backend/internal/module/example/internal/zz_violation.go"
+assert_contains "a key only the API translates needs no text in an app" "$(bash "$WORK/scripts/dev/check-i18n.sh" 2>&1 && echo clean)" "clean"
+rm -f "$WORK/backend/internal/module/example/internal/zz_violation.go"
 
 # ── 4. docs ─────────────────────────────────────────────────────────────────
 log_step "Docs check catches a broken link and an unindexed record"
