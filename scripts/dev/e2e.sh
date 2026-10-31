@@ -18,6 +18,11 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 
 env_value() { sed -n "s/^$1=//p" "$ROOT/.env" | head -1; }
 
+# compose prefers the environment to .env, and the tests create tenants: a
+# DOMAIN from outside would send them to whatever server carries that name.
+[ "${DOMAIN:-$(env_value DOMAIN)}" = "$(env_value DOMAIN)" ] \
+  || die "DOMAIN=$DOMAIN in the environment is not this stack's" "the browser tests run on the DOMAIN in .env only: unset it"
+
 compose_init "$ROOT"
 DB_USER="$(env_value DB_USER)"; DEV_DB="$(env_value DB_NAME)"
 [ -n "$DB_USER" ] && [ -n "$DEV_DB" ] || die "no DB_USER or DB_NAME in .env"

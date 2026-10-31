@@ -108,6 +108,11 @@ assert_contains "second run is a no-op" "$out2" "nothing to do"
 fails_when "refuses the kernel path as GO_MODULE" env NAME=x-y GO_MODULE=github.com/open-enu/kernel bash "$INIT"
 fails_when "refuses an unsafe NAME" env NAME='Bad Name' bash "$INIT"
 
+printf 'DOMAIN=stack.test\n' > "$WORK/.env.domain-proof"
+fails_when "browser tests refuse a DOMAIN other than the stack's" bash -c \
+  'cd "$0" && cp .env.domain-proof .env && DOMAIN=elsewhere.test bash scripts/dev/e2e.sh 2>&1 | grep -q "not this stack" && exit 1; exit 0' "$WORK"
+rm -f "$WORK/.env.domain-proof" "$WORK/.env"
+
 # ── 3. typography ───────────────────────────────────────────────────────────
 log_step "Typography check catches a long dash"
 printf 'a %s b\n' "$(printf '\342\200\224')" > "$WORK/.ai/platform/zz_dash.md"

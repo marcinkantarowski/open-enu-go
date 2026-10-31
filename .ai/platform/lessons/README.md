@@ -7,6 +7,7 @@ Read the index; open only the rows that match the task. Never bulk-read this dir
 | Lesson | When it bites |
 |---|---|
 | [a-selftest-runs-the-copys-scripts.md](a-selftest-runs-the-copys-scripts.md) | A dev script resolves `ROOT` from its own path; running the real tree's `init.sh` with the copy as cwd renames the real repository |
+| [the-environment-beats-env-for-compose.md](the-environment-beats-env-for-compose.md) | Running anything local from a deploy, or passing a variable compose also reads |
 | [sentinel-strings-must-not-be-renameable.md](sentinel-strings-must-not-be-renameable.md) | Writing any tool that rewrites the tree it lives in - `init`, `platform-update`, `make module` templates |
 | [status-codes-alone-are-not-a-health-check.md](status-codes-alone-are-not-a-health-check.md) | Writing any smoke test, health endpoint or deploy gate |
 | [a-generator-must-validate-its-own-output.md](a-generator-must-validate-its-own-output.md) | Writing anything that emits code - scaffolders, codemods, generators |

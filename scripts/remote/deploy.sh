@@ -48,7 +48,10 @@ if [ "$STAGE" = production ]; then
     log_ok "gate green - make ci passed on exactly this code in the last $((CI_FRESH_SECONDS / 60)) min"
   else
     log_step "make ci"
-    (cd "$ROOT" && make ci) \
+    # Without what this make was typed with: DOMAIN= on the command line reaches
+    # every child, and compose prefers it to .env - the browser tests would run
+    # against the server this deploy is for.
+    (cd "$ROOT" && env -u DOMAIN -u HOST -u REPO -u REF -u MAKEFLAGS -u MFLAGS -u MAKEOVERRIDES make ci) \
       || die "make ci is red - refusing to deploy" "its output is above" \
              "SKIP_CI=1 exists and is a footgun"
     log_ok "gate green"
