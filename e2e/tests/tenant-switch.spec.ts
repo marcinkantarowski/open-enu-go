@@ -19,9 +19,12 @@ test('switching workspace re-issues the session and re-scopes the UI', async ({ 
   await expect(page.getByTestId('current-tenant')).toHaveText(PRIMARY_TENANT.name)
 
   // Selecting triggers a full reload - everything already fetched belongs to the
-  // workspace being left.
+  // workspace being left. Wait for the reload itself: the URL is often `/`
+  // already and the store changes the label first, so neither says it happened,
+  // and a navigation started before it would be cancelled by it.
+  const reloaded = page.waitForEvent('load')
   await switcher.selectOption({ label: SECOND_TENANT.name })
-  await page.waitForURL('**/')
+  await reloaded
 
   await expect(page.getByTestId('current-tenant')).toHaveText(SECOND_TENANT.name)
 

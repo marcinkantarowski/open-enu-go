@@ -49,8 +49,9 @@ test('a project created in one session appears in another, and not in another te
 
   // Move one session to the second workspace. Switching re-issues the session,
   // so from here its Mercure subscriber token is scoped to a different topic.
+  const reloaded = otherTenant.waitForEvent('load')
   await otherTenant.getByTestId('tenant-switcher').selectOption({ label: SECOND_TENANT.name })
-  await otherTenant.waitForURL('**/')
+  await reloaded
   await expect(otherTenant.getByTestId('current-tenant')).toHaveText(SECOND_TENANT.name)
 
   // Both are on the reference screen, which shows events as they arrive, with a
