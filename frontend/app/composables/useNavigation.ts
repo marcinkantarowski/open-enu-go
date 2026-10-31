@@ -24,9 +24,15 @@ const settingsModules = import.meta.glob<{ default: SettingsTab[] }>(
 
 export function useNavigation() {
   const auth = useAuthStore()
-  const { t } = useI18n()
+  const { t, te } = useI18n()
   const { public: cfg } = useRuntimeConfig()
   const capabilities = useState<string[]>('navigation.capabilities', () => [])
+
+  // A group may be named differently while a capability is on: `<group>_<capability>`.
+  const groupLabel = (group: string) => {
+    const on = capabilities.value.find(c => te(`${group}_${c}`))
+    return t(on ? `${group}_${on}` : group)
+  }
 
   const translate = <T extends { label: string }>(item: T): T => ({ ...item, label: t(item.label) })
 
@@ -54,7 +60,7 @@ export function useNavigation() {
       let section = out.find(entry => entry.group === group)
 
       if (!section) {
-        section = { group, label: group ? t(group) : '', items: [] }
+        section = { group, label: group ? groupLabel(group) : '', items: [] }
         out.push(section)
       }
       section.items.push(item)

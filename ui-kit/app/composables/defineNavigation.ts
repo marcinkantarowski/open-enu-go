@@ -24,7 +24,8 @@ export interface NavigationItem {
   /**
    * Translation key of the heading this entry sits under. Headings follow the
    * lowest `order` among their entries and collapse on a click; entries without
-   * one come as they are.
+   * one come as they are. While a capability is on, `<group>_<capability>` names
+   * the heading instead, when that key exists.
    */
   group?: string
   /** A gear in the top bar instead of a line in the menu: where settings live. */
