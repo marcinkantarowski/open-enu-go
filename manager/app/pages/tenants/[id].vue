@@ -37,24 +37,21 @@ const { data, pending, refresh } = await useAsyncData(
 const busy = ref(false)
 const person = reactive({ email: '', displayName: '', role: 'owner' })
 const adding = ref(false)
-const link = ref<string | null>(null)
 
 const roles = computed(() => ['owner', 'admin', 'consultant', 'member']
   .map(value => ({ value, label: t(`manager.roles.${value}`) })))
 
 async function addPerson() {
   adding.value = true
-  link.value = null
 
   try {
-    const added = await api.post<{ setPasswordUrl: string | null }>(`/api/manager/tenants/${id.value}/members`, {
+    const added = await api.post<{ invited: boolean }>(`/api/manager/tenants/${id.value}/members`, {
       email: person.email,
       role: person.role,
       ...(person.displayName ? { displayName: person.displayName } : {}),
     })
 
-    link.value = added.setPasswordUrl
-    toast.success(t(added.setPasswordUrl ? 'manager.memberAdded' : 'manager.memberExisted'))
+    toast.success(t(added.invited ? 'manager.memberAdded' : 'manager.memberExisted'))
     Object.assign(person, { email: '', displayName: '' })
     await refresh()
   } catch (error) {
@@ -62,11 +59,6 @@ async function addPerson() {
   } finally {
     adding.value = false
   }
-}
-
-async function copyLink() {
-  await navigator.clipboard.writeText(link.value ?? '')
-  toast.success(t('manager.memberLinkCopied'))
 }
 
 async function removeConsultant(member: Member) {
@@ -203,14 +195,6 @@ async function viewAs(member: Member) {
           {{ t('manager.memberAddSubmit') }}
         </UiButton>
       </form>
-
-      <UiAlert v-if="link" tone="warning" :title="t('manager.memberLink')" class="mt-4" data-testid="member-link">
-        <p>{{ t('manager.memberLinkHint') }}</p>
-        <div class="mt-2 flex flex-wrap items-center gap-2">
-          <code class="break-all text-xs" data-testid="member-link-url">{{ link }}</code>
-          <UiButton size="sm" data-testid="member-link-copy" @click="copyLink">{{ t('manager.memberLinkCopy') }}</UiButton>
-        </div>
-      </UiAlert>
     </UiCard>
 
     <!-- What each module knows about this tenant - its balance, its limits, its

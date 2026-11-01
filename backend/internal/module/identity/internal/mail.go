@@ -17,6 +17,10 @@ const (
 	keyResetBody     i18n.Key = "identity.email.reset.body"
 	keyResetIgnore   i18n.Key = "identity.email.reset.ignore"
 	keyExpires       i18n.Key = "identity.email.expires"
+	keyInviteSubject i18n.Key = "identity.email.invite.subject"
+	keyInviteBody    i18n.Key = "identity.email.invite.body"
+	keyInviteExpires i18n.Key = "identity.email.invite.expires"
+	keyInviteAfter   i18n.Key = "identity.email.invite.after"
 	keyExistsSubject i18n.Key = "identity.email.account_exists.subject"
 	keyExistsBody    i18n.Key = "identity.email.account_exists.body"
 	keyExistsIgnore  i18n.Key = "identity.email.account_exists.ignore"
@@ -48,6 +52,15 @@ func (m mailer) accountExists(ctx context.Context, u user) {
 	m.send(ctx, u, keyExistsSubject, []string{m.t(u, keyExistsBody, nil), m.appURL + "/login", m.appURL + "/forgot-password", m.t(u, keyExistsIgnore, nil)})
 }
 
+// invitation gives a person an operator added the link to choose a password.
+// The operator never sees it, so no operator can ever sign in as them.
+func (m mailer) invitation(ctx context.Context, u user, workspace, raw string) {
+	named := map[string]string{"tenant": workspace}
+	days := strconv.Itoa(int(setPasswordTTL.Hours() / 24))
+	m.deliver(ctx, u, keyInviteSubject, m.t(u, keyInviteSubject, named), []string{m.t(u, keyInviteBody, named), m.appURL + "/reset-password?token=" + raw,
+		m.t(u, keyInviteExpires, map[string]string{"days": days}), m.t(u, keyInviteAfter, nil) + "\n" + m.appURL + "/forgot-password"})
+}
+
 func (m mailer) expires(u user, hours float64) string {
 	return m.t(u, keyExpires, map[string]string{"hours": strconv.Itoa(int(hours))})
 }
@@ -61,10 +74,14 @@ func (m mailer) t(u user, key i18n.Key, params map[string]string) string {
 }
 
 func (m mailer) send(ctx context.Context, u user, subject i18n.Key, paragraphs []string) {
+	m.deliver(ctx, u, subject, m.t(u, subject, nil), paragraphs)
+}
+
+func (m mailer) deliver(ctx context.Context, u user, kind i18n.Key, subject string, paragraphs []string) {
 	// Sensitive: a link here is a credential, and a journal must not hold it.
-	msg := mail.Message{To: u.Email, Subject: m.t(u, subject, nil), Text: strings.Join(paragraphs, "\n\n") + "\n",
-		Kind: string(subject), UserID: u.ID, Sensitive: true}
+	msg := mail.Message{To: u.Email, Subject: subject, Text: strings.Join(paragraphs, "\n\n") + "\n",
+		Kind: string(kind), UserID: u.ID, Sensitive: true}
 	if err := m.mail.Send(ctx, msg); err != nil && m.log != nil {
-		m.log.ErrorContext(ctx, "identity.mail_failed", "to_user", u.ID, "subject", string(subject), "error", err.Error())
+		m.log.ErrorContext(ctx, "identity.mail_failed", "to_user", u.ID, "subject", string(kind), "error", err.Error())
 	}
 }

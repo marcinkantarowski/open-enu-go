@@ -36,6 +36,7 @@ func (createTenant) AuditSubjectID() string { return "" }
 // read as for startImpersonation: this opens a client's data to a person.
 type addMember struct {
 	TenantID    string
+	Workspace   string
 	Email       string
 	DisplayName *string
 	Role        string

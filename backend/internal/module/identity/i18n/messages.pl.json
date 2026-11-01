@@ -14,12 +14,14 @@
   "identity.email.reset.subject": "Zresetuj hasło",
   "identity.email.reset.body": "Użyj poniższego linku, aby ustawić nowe hasło.",
   "identity.email.reset.ignore": "Jeśli to nie Ty prosiłeś o zmianę, zignoruj tę wiadomość - hasło nie zostało zmienione.",
-  "identity.email.invite.subject": "Zaproszenie do %tenant%",
-  "identity.email.invite.body": "Zaproszono Cię do dołączenia do %tenant%.",
+  "identity.email.invite.subject": "Twoje konto: %tenant%",
+  "identity.email.invite.body": "Założyliśmy Ci konto dla: %tenant%. Użyj poniższego linku, aby ustawić hasło i się zalogować.",
   "identity.email.expires": "Ten link wygasa za %hours% godz.",
   "identity.email.account_exists.subject": "Masz już konto",
   "identity.email.account_exists.body": "Ktoś - być może Ty - próbował założyć konto z tym adresem. Masz już konto: zaloguj się pierwszym linkiem albo ustaw nowe hasło drugim, jeśli go nie pamiętasz.",
   "identity.email.account_exists.ignore": "Jeśli to nie Ty, zignoruj tę wiadomość - nic się nie zmieniło.",
   "identity.error.consultant_is_owner": "Ta osoba jest właścicielem obszaru i nie może być jego konsultantem.",
-  "identity.error.already_member": "Ta osoba już tu należy; rolę można zmienić tylko na konsultanta."
+  "identity.error.already_member": "Ta osoba już tu należy; rolę można zmienić tylko na konsultanta.",
+  "identity.email.invite.expires": "Link działa raz i wygasa po %days% dniach.",
+  "identity.email.invite.after": "Gdy wygaśnie, hasło ustawisz tutaj:"
 }

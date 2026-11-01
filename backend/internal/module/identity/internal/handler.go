@@ -232,9 +232,9 @@ func (h handlers) endTenantSessions(ctx context.Context, tx *scope.Tx, c EndTena
 }
 
 // addMember finds the person or creates them, then adds the membership. A new
-// account has a password nobody knows and a single-use link to set one, which
-// the operator hands over: it works with no mail, and no operator ever knows a
-// password. Only a move to consultant changes an existing membership; the owner
+// account has a password nobody knows and a mail with a single-use link to set
+// one: no operator ever sees the link or knows a password. A mail that never
+// arrives costs nothing, "forgot password" gives the same account another. Only a move to consultant changes an existing membership; the owner
 // stays the owner, because nobody checks their own workspace.
 func (h handlers) addMember(ctx context.Context, tx *scope.Tx, c AddMember) (MemberAdded, error) {
 	if !validRole(c.Role) {
@@ -260,7 +260,8 @@ func (h handlers) addMember(ctx context.Context, tx *scope.Tx, c AddMember) (Mem
 		if err != nil {
 			return out, err
 		}
-		out.SetPasswordURL = h.mail.appURL + "/reset-password?token=" + raw
+		out.Invited = true
+		tx.AfterCommit(func(ctx context.Context) error { h.mail.invitation(ctx, u, c.Workspace, raw); return nil })
 	case err != nil:
 		return out, err
 	}

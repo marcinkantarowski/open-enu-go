@@ -41,8 +41,8 @@ the e-mail is encrypted at rest with a `email_hash` sibling for lookup.
 view) built by
 `contract.NewDirectory` - who belongs to a workspace, for the operator console;
 `contract.Members` (`Add`, `UnassignConsultant`: `identity.member.added`,
-`identity.consultant.unassigned`, for Manager; a new account gets a single-use link to set
-its password, valid seven days); `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
+`identity.consultant.unassigned`, for Manager; a new account gets a mail with a single-use
+link to set its password, valid seven days, which the operator never sees); `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
 person another module vouches for:
 
 - `Impersonate` - the one designed way to act as a member without their password

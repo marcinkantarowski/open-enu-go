@@ -88,13 +88,9 @@
   "manager.tenantName": "Nazwa",
   "manager.tenantCreateSubmit": "Utwórz klienta",
   "manager.memberAdd": "Dodaj osobę",
-  "manager.memberAddHint": "Nowa osoba dostaje konto, a ktoś, kto je ma, dołącza z tym samym. Zyskuje dostęp do danych tego klienta, co trafia do dziennika. Wymaga operatora super.",
+  "manager.memberAddHint": "Nowa osoba dostaje konto, a ktoś, kto je ma, dołącza z tym samym. Zyskuje dostęp do danych tego klienta, co trafia do dziennika. Wymaga operatora super. Nowa osoba dostaje mailem link do ustawienia hasła, ważny 7 dni.",
   "manager.memberAddSubmit": "Dodaj",
-  "manager.memberAdded": "Dodano osobę.",
+  "manager.memberAdded": "Dodano osobę. Mail z linkiem do ustawienia hasła jest w drodze.",
   "manager.memberExisted": "Ta osoba miała już konto i loguje się nim.",
-  "manager.memberLink": "Link do ustawienia hasła",
-  "manager.memberLinkHint": "Skopiuj i przekaż teraz: pokazujemy go tylko raz, działa raz i wygasa po 7 dniach.",
-  "manager.memberLinkCopy": "Kopiuj",
-  "manager.memberLinkCopied": "Skopiowano.",
   "manager.sessionExpired": "Sesja wygasła. Zaloguj się ponownie."
 }

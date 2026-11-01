@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { type APIRequestContext, expect, test } from '@playwright/test'
 import { CONSULTANT, OPERATOR, OWNER, PRIMARY_TENANT } from '../fixtures/accounts'
 import { signInAsOperator } from '../fixtures/session'
 
@@ -7,6 +7,18 @@ import { signInAsOperator } from '../fixtures/session'
  * consultant assigned on a client's page, shown in the lists, and removed.
  */
 const managerUrl = process.env.E2E_MANAGER_URL ?? 'https://manager.open-enu-go.local'
+
+/** The last mail to an address, read from mailpit beside the stack. */
+async function mailTo(request: APIRequestContext, to: string): Promise<{ Subject: string, Text: string }> {
+  const mailpit = managerUrl.replace('://manager.', '://mail.')
+  let id = ''
+  await expect.poll(async () => {
+    const found = await (await request.get(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`)).json()
+    id = found.messages?.[0]?.ID ?? ''
+    return id
+  }).not.toBe('')
+  return (await request.get(`${mailpit}/api/v1/message/${id}`)).json()
+}
 
 test('an operator assigns a consultant to a client, sees it in the lists, and removes it', async ({ browser }) => {
   const context = await browser.newContext({ ignoreHTTPSErrors: true })
@@ -65,11 +77,17 @@ test('an operator opens a client and a new person sets their own password from t
   await page.getByTestId('member-email').fill(email)
   await page.getByTestId('member-name').fill('Nowa Osoba')
   await page.getByTestId('member-add').click()
-  const link = await page.getByTestId('member-link-url').textContent()
-  expect(link).toContain('/reset-password?token=')
+
+  // The operator sees that it went, never what it says: the link is the person's.
+  await expect(page.getByText(/link to set a password|linkiem do ustawienia hasła/).first()).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('/reset-password')
+  const mail = await mailTo(context.request, email)
+  expect(mail.Subject).toContain(`Żółć ${stamp}`)
+  const link = /https:\S+reset-password\?token=\S+/.exec(mail.Text)?.[0] ?? ''
+  expect(link).not.toBe('')
 
   const person = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage()
-  await person.goto(link ?? '')
+  await person.goto(link)
   await person.locator('input[type="password"]').fill(chosen)
   await person.locator('button[type="submit"]').click()
   await expect(person).toHaveURL(/\/login/)

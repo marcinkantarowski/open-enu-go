@@ -41,10 +41,9 @@
       },
       "AddedMember": {
         "properties": {
-          "setPasswordUrl": {
-            "description": "A new account's single-use link. Shown once; nothing keeps it.",
-            "nullable": true,
-            "type": "string"
+          "invited": {
+            "description": "A new account: the link to set a password went to the person by mail, and is never returned here.",
+            "type": "boolean"
           },
           "userId": {
             "type": "string"
@@ -52,7 +51,7 @@
         },
         "required": [
           "userId",
-          "setPasswordUrl"
+          "invited"
         ],
         "type": "object"
       },
@@ -2733,7 +2732,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "summary": "Add a person to a workspace, with an account if they have none. Needs a super operator.",
+        "summary": "Add a person to a workspace; a new account gets a mail with a link to set its password. Needs a super operator.",
         "tags": [
           "manager"
         ]

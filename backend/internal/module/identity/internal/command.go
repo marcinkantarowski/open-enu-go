@@ -102,9 +102,11 @@ func (c eraseUser) AuditSubjectID() string { return c.UserID }
 
 // AddMember - `identity.member.added`: the person with this address joins the
 // workspace, with an account if they have none. Exported for contract.Members:
-// Manager dispatches it. DisplayName is used only for a new account.
+// Manager dispatches it. DisplayName is used only for a new account, and
+// Workspace, the name a mail gives the workspace, only in its invitation.
 type AddMember struct {
 	TenantID    string
+	Workspace   string
 	Email       string
 	DisplayName *string
 	Role        string
@@ -114,11 +116,11 @@ func (AddMember) AuditAction() string      { return "identity.member.added" }
 func (c AddMember) AuditSubjectID() string { return c.TenantID }
 func (c AddMember) AuditTenantID() string  { return c.TenantID }
 
-// MemberAdded is what AddMember answers. SetPasswordURL is set for a new
-// account only: it is single-use, it is shown once, and no copy of it is kept.
+// MemberAdded is what AddMember answers. Invited says a new account was made
+// and its link to set a password went to the person, and only there.
 type MemberAdded struct {
-	UserID         string
-	SetPasswordURL string
+	UserID  string
+	Invited bool
 }
 
 // UnassignConsultant - `identity.consultant.unassigned`: the membership goes,

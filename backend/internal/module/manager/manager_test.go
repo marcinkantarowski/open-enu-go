@@ -9,12 +9,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/open-enu/kernel/auth"
 	"github.com/open-enu/kernel/httpx"
+	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/migrate"
 	"github.com/open-enu/kernel/outbox"
 	"github.com/open-enu/kernel/platform"
@@ -394,9 +396,16 @@ func TestAnOperatorCreatesAClientAndAddsAPersonWithALinkToSetAPassword(t *testin
 	}
 
 	add := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "Wlasciciel@Example.test", "displayName": "Jan", "role": "owner"})
-	link := add.str("setPasswordUrl")
-	if add.code != 200 || !strings.Contains(link, "/reset-password?token=") {
+	if add.code != 200 || add.body["invited"] != true || strings.Contains(string(add.raw), "token") {
 		t.Fatalf("add: %d %s", add.code, add.raw)
+	}
+	sent, ok := s.svc.Mail.(*mail.Recorder).Last("wlasciciel@example.test")
+	if !ok || !sent.Sensitive || !strings.Contains(sent.Text, "/forgot-password") {
+		t.Fatalf("the invitation: %v %+v", ok, sent)
+	}
+	link := regexp.MustCompile(`\S+/reset-password\?token=\S+`).FindString(sent.Text)
+	if link == "" {
+		t.Fatalf("no link in: %q", sent.Text)
 	}
 	for _, e := range s.trail() {
 		if strings.Contains(fmt.Sprintf("%+v", e), link[strings.Index(link, "token=")+6:]) {
@@ -418,7 +427,7 @@ func TestAnOperatorCreatesAClientAndAddsAPersonWithALinkToSetAPassword(t *testin
 
 	// An account that exists gets no link, and a role cannot be changed here.
 	second := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "other@example.test", "role": "member"})
-	if second.code != 200 || second.body["setPasswordUrl"] != nil {
+	if second.code != 200 || second.body["invited"] != false {
 		t.Fatalf("an existing account: %d %s", second.code, second.raw)
 	}
 	if r := s.do("POST", "/api/manager/tenants/"+id+"/members", op, map[string]any{"email": "other@example.test", "role": "admin"}); r.code != 400 || !strings.Contains(string(r.raw), "identity.error.already_member") {
@@ -445,7 +454,7 @@ func TestAConsultantIsAddedAndRemovedByASuperOperator(t *testing.T) {
 	if r := s.do("POST", "/api/manager/tenants/"+s.b+"/members", op, map[string]any{"email": "iod@example.test", "role": "member"}); r.code != 200 {
 		t.Fatalf("a member first: %d %s", r.code, r.raw)
 	}
-	if r := assign(op, s.a, "iod@example.test"); r.code != 200 || r.body["setPasswordUrl"] != nil {
+	if r := assign(op, s.a, "iod@example.test"); r.code != 200 || r.body["invited"] != false {
 		t.Fatalf("assign: %d %s", r.code, r.raw)
 	}
 	if r := assign(op, s.b, "iod@example.test"); r.code != 200 {

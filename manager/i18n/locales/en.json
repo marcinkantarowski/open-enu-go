@@ -88,13 +88,9 @@
   "manager.tenantName": "Name",
   "manager.tenantCreateSubmit": "Create client",
   "manager.memberAdd": "Add a person",
-  "manager.memberAddHint": "A new person gets an account; someone who has one joins with it. They gain access to this client's data, and it goes on the trail. Needs a super operator.",
+  "manager.memberAddHint": "A new person gets an account; someone who has one joins with it. They gain access to this client's data, and it goes on the trail. Needs a super operator. A new person gets a link by mail to set a password, valid for 7 days.",
   "manager.memberAddSubmit": "Add",
-  "manager.memberAdded": "Person added.",
+  "manager.memberAdded": "Person added. A mail with a link to set a password is on its way.",
   "manager.memberExisted": "They already had an account and can sign in with it.",
-  "manager.memberLink": "Link to set a password",
-  "manager.memberLinkHint": "Copy it now and pass it on: it is shown only once, works once and expires in 7 days.",
-  "manager.memberLinkCopy": "Copy",
-  "manager.memberLinkCopied": "Copied.",
   "manager.sessionExpired": "Your session has ended. Sign in again."
 }

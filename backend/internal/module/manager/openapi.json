@@ -387,7 +387,7 @@
     "/api/manager/tenants/{id}/members": {
       "post": {
         "operationId": "post_manager_tenant_member",
-        "summary": "Add a person to a workspace, with an account if they have none. Needs a super operator.",
+        "summary": "Add a person to a workspace; a new account gets a mail with a link to set its password. Needs a super operator.",
         "tags": [
           "manager"
         ],
@@ -939,16 +939,15 @@
         "type": "object",
         "required": [
           "userId",
-          "setPasswordUrl"
+          "invited"
         ],
         "properties": {
           "userId": {
             "type": "string"
           },
-          "setPasswordUrl": {
-            "type": "string",
-            "nullable": true,
-            "description": "A new account's single-use link. Shown once; nothing keeps it."
+          "invited": {
+            "type": "boolean",
+            "description": "A new account: the link to set a password went to the person by mail, and is never returned here."
           }
         }
       }

@@ -72,9 +72,9 @@ type AddMemberRequestRole string
 
 // AddedMember defines model for AddedMember.
 type AddedMember struct {
-	// SetPasswordUrl A new account's single-use link. Shown once; nothing keeps it.
-	SetPasswordUrl *string `json:"setPasswordUrl"`
-	UserId         string  `json:"userId"`
+	// Invited A new account: the link to set a password went to the person by mail, and is never returned here.
+	Invited bool   `json:"invited"`
+	UserId  string `json:"userId"`
 }
 
 // ConflictDetails error.details of a 409: both versions, so the client can offer reload, overwrite or diff.
@@ -305,7 +305,7 @@ type ServerInterface interface {
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(w http.ResponseWriter, r *http.Request, id string)
-	// PostManagerTenantMember Add a person to a workspace, with an account if they have none. Needs a super operator.
+	// PostManagerTenantMember Add a person to a workspace; a new account gets a mail with a link to set its password. Needs a super operator.
 	// (POST /api/manager/tenants/{id}/members)
 	PostManagerTenantMember(w http.ResponseWriter, r *http.Request, id string)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.
@@ -1270,7 +1270,7 @@ type StrictServerInterface interface {
 	// GetManagerTenantShow One workspace and its members.
 	// (GET /api/manager/tenants/{id})
 	GetManagerTenantShow(ctx context.Context, request GetManagerTenantShowRequestObject) (GetManagerTenantShowResponseObject, error)
-	// PostManagerTenantMember Add a person to a workspace, with an account if they have none. Needs a super operator.
+	// PostManagerTenantMember Add a person to a workspace; a new account gets a mail with a link to set its password. Needs a super operator.
 	// (POST /api/manager/tenants/{id}/members)
 	PostManagerTenantMember(ctx context.Context, request PostManagerTenantMemberRequestObject) (PostManagerTenantMemberResponseObject, error)
 	// PostManagerTenantSuspend Suspend a workspace: its members and keys stop authenticating.

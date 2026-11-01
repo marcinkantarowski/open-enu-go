@@ -57,7 +57,7 @@ func (h handlers) addMember(ctx context.Context, _ *scope.Tx, c addMember) (iden
 	if !c.Super {
 		return identityc.MemberAdded{}, httpx.Forbidden(keySuperRequired)
 	}
-	return h.members.Add(ctx, identityc.AddMember{TenantID: c.TenantID, Email: c.Email, DisplayName: c.DisplayName, Role: c.Role})
+	return h.members.Add(ctx, identityc.AddMember{TenantID: c.TenantID, Workspace: c.Workspace, Email: c.Email, DisplayName: c.DisplayName, Role: c.Role})
 }
 
 func (h handlers) unassignConsultant(ctx context.Context, _ *scope.Tx, c unassignConsultant) (struct{}, error) {

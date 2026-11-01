@@ -14,12 +14,14 @@
   "identity.email.reset.subject": "Reset your password",
   "identity.email.reset.body": "Use the link below to choose a new password.",
   "identity.email.reset.ignore": "If you did not request this, you can ignore this email - your password has not changed.",
-  "identity.email.invite.subject": "You have been invited to %tenant%",
-  "identity.email.invite.body": "You have been invited to join %tenant%.",
+  "identity.email.invite.subject": "Your account: %tenant%",
+  "identity.email.invite.body": "We have created an account for you at %tenant%. Use the link below to choose a password and sign in.",
   "identity.email.expires": "This link expires in %hours% hour(s).",
   "identity.email.account_exists.subject": "You already have an account",
   "identity.email.account_exists.body": "Someone - perhaps you - tried to create an account with this address. You already have one: sign in with the first link, or choose a new password with the second if you no longer know it.",
   "identity.email.account_exists.ignore": "If it was not you, you can ignore this email - nothing has changed.",
   "identity.error.consultant_is_owner": "This person owns the workspace; an owner cannot be its consultant.",
-  "identity.error.already_member": "This person is already a member here; only a move to consultant changes a role."
+  "identity.error.already_member": "This person is already a member here; only a move to consultant changes a role.",
+  "identity.email.invite.expires": "The link works once and expires in %days% days.",
+  "identity.email.invite.after": "Once it has expired, you can set a password here:"
 }

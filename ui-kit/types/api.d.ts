@@ -355,7 +355,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a person to a workspace, with an account if they have none. Needs a super operator. */
+        /** Add a person to a workspace; a new account gets a mail with a link to set its password. Needs a super operator. */
         post: operations["post_manager_tenant_member"];
         delete?: never;
         options?: never;
@@ -727,8 +727,8 @@ export interface components {
             role: "owner" | "admin" | "consultant" | "member";
         };
         AddedMember: {
-            /** @description A new account's single-use link. Shown once; nothing keeps it. */
-            setPasswordUrl: string | null;
+            /** @description A new account: the link to set a password went to the person by mail, and is never returned here. */
+            invited: boolean;
             userId: string;
         };
         ApiKey: {
@@ -2400,4 +2400,4 @@ export interface operations {
         };
     };
 }
-// generated from backend/openapi.json sha256:e983ce5d57e16f6921561fa74f023ed8dc7d6e1e999bdae9827e74cbc7db1d0b
+// generated from backend/openapi.json sha256:838b9a78f87f6cfe19416397e84915d2a63f6d70a068408fa276ca421db657fb

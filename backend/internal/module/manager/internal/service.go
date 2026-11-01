@@ -192,23 +192,20 @@ func (s service) createTenant(ctx context.Context, name, slug string) (CreatedTe
 }
 
 func (s service) addMember(ctx context.Context, operatorID, tenantID string, in AddMemberRequest) (AddedMember, error) {
-	if _, err := s.tenant(ctx, tenantID); err != nil {
+	t, err := s.tenant(ctx, tenantID)
+	if err != nil {
 		return AddedMember{}, err
 	}
 	_, super, err := s.super(ctx, operatorID)
 	if err != nil {
 		return AddedMember{}, err
 	}
-	added, err := command.Dispatch[identityc.MemberAdded](ctx, s.bus, addMember{TenantID: tenantID, Email: string(in.Email),
+	added, err := command.Dispatch[identityc.MemberAdded](ctx, s.bus, addMember{TenantID: tenantID, Workspace: t.Name, Email: string(in.Email),
 		DisplayName: in.DisplayName, Role: string(in.Role), Super: super})
 	if err != nil {
 		return AddedMember{}, err
 	}
-	out := AddedMember{UserId: added.UserID}
-	if added.SetPasswordURL != "" {
-		out.SetPasswordUrl = &added.SetPasswordURL
-	}
-	return out, nil
+	return AddedMember{UserId: added.UserID, Invited: added.Invited}, nil
 }
 
 func (s service) unassignConsultant(ctx context.Context, operatorID, tenantID, userID string) error {
