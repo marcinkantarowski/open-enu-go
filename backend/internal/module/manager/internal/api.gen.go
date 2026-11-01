@@ -247,9 +247,12 @@ type TenantMember struct {
 	Email       string  `json:"email"`
 
 	// Id The USER's id - what impersonation takes.
-	Id     string `json:"id"`
-	Role   string `json:"role"`
-	Status string `json:"status"`
+	Id string `json:"id"`
+
+	// Pending Has never signed in, so an invitation can be sent again.
+	Pending bool   `json:"pending"`
+	Role    string `json:"role"`
+	Status  string `json:"status"`
 }
 
 // WorkerStatus defines model for WorkerStatus.
@@ -314,6 +317,9 @@ type ServerInterface interface {
 	// DeleteManagerTenantConsultant Remove a consultant from a workspace. Needs a super operator.
 	// (DELETE /api/manager/tenants/{tenantId}/consultants/{userId})
 	DeleteManagerTenantConsultant(w http.ResponseWriter, r *http.Request, tenantId string, userId string)
+	// PostManagerTenantMemberInvitation Send a person who has not signed in yet a new link to set a password; the earlier links end. Needs a super operator.
+	// (POST /api/manager/tenants/{tenantId}/members/{userId}/invitation)
+	PostManagerTenantMemberInvitation(w http.ResponseWriter, r *http.Request, tenantId string, userId string)
 	// PostManagerImpersonate Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.
 	// (POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate)
 	PostManagerImpersonate(w http.ResponseWriter, r *http.Request, tenantId string, userId string)
@@ -592,6 +598,41 @@ func (siw *ServerInterfaceWrapper) DeleteManagerTenantConsultant(w http.Response
 	handler.ServeHTTP(w, r)
 }
 
+// PostManagerTenantMemberInvitation operation middleware
+func (siw *ServerInterfaceWrapper) PostManagerTenantMemberInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenantId" -------------
+	var tenantId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenantId", r.PathValue("tenantId"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostManagerTenantMemberInvitation(w, r, tenantId, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostManagerImpersonate operation middleware
 func (siw *ServerInterfaceWrapper) PostManagerImpersonate(w http.ResponseWriter, r *http.Request) {
 
@@ -771,6 +812,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/members", wrapper.PostManagerTenantMember)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{id}/suspend", wrapper.PostManagerTenantSuspend)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/consultants/{userId}", wrapper.DeleteManagerTenantConsultant)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/members/{userId}/invitation", wrapper.PostManagerTenantMemberInvitation)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/manager/tenants/{tenantId}/users/{userId}/impersonate", wrapper.PostManagerImpersonate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/manager/workers", wrapper.GetManagerWorkerStatus)
 
@@ -1169,6 +1211,40 @@ func (response DeleteManagerTenantConsultantdefaultJSONResponse) VisitDeleteMana
 	return err
 }
 
+type PostManagerTenantMemberInvitationRequestObject struct {
+	TenantId string `json:"tenantId"`
+	UserId   string `json:"userId"`
+}
+
+type PostManagerTenantMemberInvitationResponseObject interface {
+	VisitPostManagerTenantMemberInvitationResponse(w http.ResponseWriter) error
+}
+
+type PostManagerTenantMemberInvitation204Response struct {
+}
+
+func (response PostManagerTenantMemberInvitation204Response) VisitPostManagerTenantMemberInvitationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostManagerTenantMemberInvitationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PostManagerTenantMemberInvitationdefaultJSONResponse) VisitPostManagerTenantMemberInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostManagerImpersonateRequestObject struct {
 	TenantId string `json:"tenantId"`
 	UserId   string `json:"userId"`
@@ -1279,6 +1355,9 @@ type StrictServerInterface interface {
 	// DeleteManagerTenantConsultant Remove a consultant from a workspace. Needs a super operator.
 	// (DELETE /api/manager/tenants/{tenantId}/consultants/{userId})
 	DeleteManagerTenantConsultant(ctx context.Context, request DeleteManagerTenantConsultantRequestObject) (DeleteManagerTenantConsultantResponseObject, error)
+	// PostManagerTenantMemberInvitation Send a person who has not signed in yet a new link to set a password; the earlier links end. Needs a super operator.
+	// (POST /api/manager/tenants/{tenantId}/members/{userId}/invitation)
+	PostManagerTenantMemberInvitation(ctx context.Context, request PostManagerTenantMemberInvitationRequestObject) (PostManagerTenantMemberInvitationResponseObject, error)
 	// PostManagerImpersonate Mint a tenant-realm session for a member, marked and naming the operator (ADR-0020). Audited before the token exists.
 	// (POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate)
 	PostManagerImpersonate(ctx context.Context, request PostManagerImpersonateRequestObject) (PostManagerImpersonateResponseObject, error)
@@ -1593,6 +1672,33 @@ func (sh *strictHandler) DeleteManagerTenantConsultant(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteManagerTenantConsultantResponseObject); ok {
 		if err := validResponse.VisitDeleteManagerTenantConsultantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostManagerTenantMemberInvitation operation middleware
+func (sh *strictHandler) PostManagerTenantMemberInvitation(w http.ResponseWriter, r *http.Request, tenantId string, userId string) {
+	var request PostManagerTenantMemberInvitationRequestObject
+
+	request.TenantId = tenantId
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostManagerTenantMemberInvitation(ctx, request.(PostManagerTenantMemberInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostManagerTenantMemberInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostManagerTenantMemberInvitationResponseObject); ok {
+		if err := validResponse.VisitPostManagerTenantMemberInvitationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

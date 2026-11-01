@@ -249,7 +249,7 @@ func (r repository) members(ctx context.Context, where, arg string) (out []Membe
 			if !ok {
 				continue
 			}
-			out = append(out, Member{ID: u.ID, TenantID: m.TenantID, Email: u.Email, DisplayName: u.DisplayName, Role: m.Role, Status: m.Status, Locale: u.Locale})
+			out = append(out, Member{Pending: u.LastLoginAt == nil, ID: u.ID, TenantID: m.TenantID, Email: u.Email, DisplayName: u.DisplayName, Role: m.Role, Status: m.Status, Locale: u.Locale})
 		}
 		return nil
 	})
@@ -378,6 +378,12 @@ func (r repository) issueSecurityToken(ctx context.Context, tx *scope.Tx, purpos
 	_, err := tx.Exec(ctx, `INSERT INTO identity_security_token (id, token_hash, purpose, user_id, tenant_id, payload, expires_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, now())`, uuid.Must(uuid.NewV7()).String(), hashToken(raw), purpose, userID, tenantID, payload, time.Now().Add(ttl))
 	return raw, err
+}
+
+// endSecurityTokens consumes whatever is still live of a purpose for a person.
+func (r repository) endSecurityTokens(ctx context.Context, tx *scope.Tx, userID, purpose string) error {
+	_, err := tx.Exec(ctx, `UPDATE identity_security_token SET consumed_at = now() WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL`, userID, purpose)
+	return err
 }
 
 // redeemSecurityToken consumes a live token of the purpose, or fails with

@@ -44,6 +44,7 @@ func Mount(mux *http.ServeMux, svc *platform.Services) {
 	command.Register(svc.Bus, h.createTenant)
 	command.Register(svc.Bus, h.addMember)
 	command.Register(svc.Bus, h.unassignConsultant)
+	command.Register(svc.Bus, h.resendInvitation)
 	a := api{svc: service{bus: svc.Bus, repo: repo, signer: svc.Signer, hasher: svc.Passwords, tenants: tenantc.NewReader(svc),
 		people: identityc.NewDirectory(svc), minter: identityc.NewMinter(svc), audit: auditc.NewReader(svc)}}
 	badRequest := func(w http.ResponseWriter, r *http.Request, err error) {

@@ -83,8 +83,17 @@ test('an operator opens a client and a new person sets their own password from t
   await expect(page.locator('body')).not.toContainText('/reset-password')
   const mail = await mailTo(context.request, email)
   expect(mail.Subject).toContain(`Żółć ${stamp}`)
-  const link = /https:\S+reset-password\?token=\S+/.exec(mail.Text)?.[0] ?? ''
-  expect(link).not.toBe('')
+  const first = /https:\S+reset-password\?token=\S+/.exec(mail.Text)?.[0] ?? ''
+  expect(first).not.toBe('')
+
+  // A new link goes out, and it is that one which works.
+  page.on('dialog', dialog => dialog.accept())
+  await page.getByTestId('member-resend').click()
+  let link = first
+  await expect.poll(async () => {
+    link = /https:\S+reset-password\?token=\S+/.exec((await mailTo(context.request, email)).Text)?.[0] ?? first
+    return link
+  }).not.toBe(first)
 
   const person = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage()
   await person.goto(link)

@@ -23,5 +23,8 @@
   "identity.error.consultant_is_owner": "Ta osoba jest właścicielem obszaru i nie może być jego konsultantem.",
   "identity.error.already_member": "Ta osoba już tu należy; rolę można zmienić tylko na konsultanta.",
   "identity.email.invite.expires": "Link działa raz i wygasa po %days% dniach.",
-  "identity.email.invite.after": "Gdy wygaśnie, hasło ustawisz tutaj:"
+  "identity.email.invite.after": "Gdy wygaśnie, hasło ustawisz tutaj:",
+  "identity.email.added.subject": "Masz dostęp: %tenant%",
+  "identity.email.added.body": "Dodaliśmy Cię do: %tenant%. Zaloguj się swoim dotychczasowym kontem i przełącz się na tę przestrzeń.",
+  "identity.error.already_signed_in": "Ta osoba już się logowała, więc nie potrzebuje zaproszenia."
 }

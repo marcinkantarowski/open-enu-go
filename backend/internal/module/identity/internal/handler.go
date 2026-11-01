@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ const (
 	keyRoleInvalid  i18n.Key = "identity.error.role_invalid"
 
 	keyConsultantIsOwner i18n.Key = "identity.error.consultant_is_owner"
+	keyAlreadySignedIn   i18n.Key = "identity.error.already_signed_in"
 	keyAlreadyMember     i18n.Key = "identity.error.already_member"
 )
 
@@ -234,7 +236,8 @@ func (h handlers) endTenantSessions(ctx context.Context, tx *scope.Tx, c EndTena
 // addMember finds the person or creates them, then adds the membership. A new
 // account has a password nobody knows and a mail with a single-use link to set
 // one: no operator ever sees the link or knows a password. A mail that never
-// arrives costs nothing, "forgot password" gives the same account another. Only a move to consultant changes an existing membership; the owner
+// arrives costs nothing, an operator can send another. A person who has an
+// account is told by mail that they can reach this workspace too. Only a move to consultant changes an existing membership; the owner
 // stays the owner, because nobody checks their own workspace.
 func (h handlers) addMember(ctx context.Context, tx *scope.Tx, c AddMember) (MemberAdded, error) {
 	if !validRole(c.Role) {
@@ -289,7 +292,42 @@ func (h handlers) addMember(ctx context.Context, tx *scope.Tx, c AddMember) (Mem
 	}
 	m := newMembership(u.ID, c.TenantID, c.Role)
 	tx.Insert(m)
+	if !out.Invited {
+		tx.AfterCommit(func(ctx context.Context) error { h.mail.added(ctx, u, c.Workspace); return nil })
+	}
 	return out, h.repo.insertMembership(ctx, tx, m)
+}
+
+// resendInvitation gives a person who has not signed in yet a new link, and ends
+// the ones before it: it may be going out because an old one went astray.
+func (h handlers) resendInvitation(ctx context.Context, tx *scope.Tx, c ResendInvitation) (struct{}, error) {
+	u, err := h.repo.getUser(ctx, tx, c.UserID)
+	if errors.Is(err, errNotFound) {
+		return struct{}{}, httpx.NotFound(httpx.KeyNotFound)
+	}
+	if err != nil {
+		return struct{}{}, err
+	}
+	ms, err := h.repo.membershipsOfTx(ctx, tx, u.ID)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if !slices.ContainsFunc(ms, func(m membership) bool { return m.TenantID == c.TenantID }) {
+		return struct{}{}, httpx.NotFound(httpx.KeyNotFound)
+	}
+	if u.LastLoginAt != nil {
+		return struct{}{}, httpx.BadRequest(keyAlreadySignedIn)
+	}
+	if err := h.repo.endSecurityTokens(ctx, tx, u.ID, purposeResetPassword); err != nil {
+		return struct{}{}, err
+	}
+	raw, err := h.repo.issueSecurityToken(ctx, tx, purposeResetPassword, &u.ID, &c.TenantID, nil, setPasswordTTL)
+	if err != nil {
+		return struct{}{}, err
+	}
+	tx.Snapshot(nil, map[string]any{"userId": u.ID})
+	tx.AfterCommit(func(ctx context.Context) error { h.mail.invitation(ctx, u, c.Workspace, raw); return nil })
+	return struct{}{}, nil
 }
 
 func (h handlers) unassignConsultant(ctx context.Context, tx *scope.Tx, c UnassignConsultant) (struct{}, error) {

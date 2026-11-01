@@ -61,6 +61,16 @@ async function addPerson() {
   }
 }
 
+async function resend(member: Member) {
+  if (!confirm(t('manager.memberResendConfirm', { email: member.email }))) return
+  try {
+    await api.post(`/api/manager/tenants/${id.value}/members/${member.id}/invitation`, {})
+    toast.success(t('manager.memberResent'))
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
 async function removeConsultant(member: Member) {
   if (!confirm(t('manager.consultantRemoveConfirm', { email: member.email }))) return
 
@@ -156,6 +166,9 @@ async function viewAs(member: Member) {
 
         <template #cell-actions="{ row }">
           <div class="flex justify-end gap-2">
+            <UiButton v-if="row.pending" size="sm" variant="ghost" data-testid="member-resend" @click="resend(row)">
+              {{ t('manager.memberResend') }}
+            </UiButton>
             <UiButton
               v-if="row.role === 'consultant'"
               size="sm"

@@ -152,6 +152,17 @@ func (a api) PostManagerTenantMember(ctx context.Context, req PostManagerTenantM
 	return PostManagerTenantMember200JSONResponse(out), nil
 }
 
+func (a api) PostManagerTenantMemberInvitation(ctx context.Context, req PostManagerTenantMemberInvitationRequestObject) (PostManagerTenantMemberInvitationResponseObject, error) {
+	p, err := auth.RequireOperator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.svc.resendInvitation(ctx, p.Subject, req.TenantId, req.UserId); err != nil {
+		return nil, err
+	}
+	return PostManagerTenantMemberInvitation204Response{}, nil
+}
+
 func (a api) DeleteManagerTenantConsultant(ctx context.Context, req DeleteManagerTenantConsultantRequestObject) (DeleteManagerTenantConsultantResponseObject, error) {
 	p, err := auth.RequireOperator(ctx)
 	if err != nil {

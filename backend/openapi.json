@@ -1587,6 +1587,10 @@
             "description": "The USER's id - what impersonation takes.",
             "type": "string"
           },
+          "pending": {
+            "description": "Has never signed in, so an invitation can be sent again.",
+            "type": "boolean"
+          },
           "role": {
             "type": "string"
           },
@@ -1599,7 +1603,8 @@
           "email",
           "displayName",
           "role",
-          "status"
+          "status",
+          "pending"
         ],
         "type": "object"
       },
@@ -2809,6 +2814,41 @@
           }
         },
         "summary": "Remove a consultant from a workspace. Needs a super operator.",
+        "tags": [
+          "manager"
+        ]
+      }
+    },
+    "/api/manager/tenants/{tenantId}/members/{userId}/invitation": {
+      "post": {
+        "operationId": "post_manager_tenant_member_invitation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sent"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Send a person who has not signed in yet a new link to set a password; the earlier links end. Needs a super operator.",
         "tags": [
           "manager"
         ]

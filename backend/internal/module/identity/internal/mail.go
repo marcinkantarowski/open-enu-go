@@ -21,6 +21,8 @@ const (
 	keyInviteBody    i18n.Key = "identity.email.invite.body"
 	keyInviteExpires i18n.Key = "identity.email.invite.expires"
 	keyInviteAfter   i18n.Key = "identity.email.invite.after"
+	keyAddedSubject  i18n.Key = "identity.email.added.subject"
+	keyAddedBody     i18n.Key = "identity.email.added.body"
 	keyExistsSubject i18n.Key = "identity.email.account_exists.subject"
 	keyExistsBody    i18n.Key = "identity.email.account_exists.body"
 	keyExistsIgnore  i18n.Key = "identity.email.account_exists.ignore"
@@ -58,7 +60,14 @@ func (m mailer) invitation(ctx context.Context, u user, workspace, raw string) {
 	named := map[string]string{"tenant": workspace}
 	days := strconv.Itoa(int(setPasswordTTL.Hours() / 24))
 	m.deliver(ctx, u, keyInviteSubject, m.t(u, keyInviteSubject, named), []string{m.t(u, keyInviteBody, named), m.appURL + "/reset-password?token=" + raw,
-		m.t(u, keyInviteExpires, map[string]string{"days": days}), m.t(u, keyInviteAfter, nil) + "\n" + m.appURL + "/forgot-password"})
+		m.t(u, keyInviteExpires, map[string]string{"days": days}), m.t(u, keyInviteAfter, nil) + "\n" + m.appURL + "/forgot-password"}, true)
+}
+
+// added tells a person with an account they can now reach one more workspace.
+// No credential in it, so the journal may keep what it says.
+func (m mailer) added(ctx context.Context, u user, workspace string) {
+	named := map[string]string{"tenant": workspace}
+	m.deliver(ctx, u, keyAddedSubject, m.t(u, keyAddedSubject, named), []string{m.t(u, keyAddedBody, named), m.appURL + "/login"}, false)
 }
 
 func (m mailer) expires(u user, hours float64) string {
@@ -74,13 +83,13 @@ func (m mailer) t(u user, key i18n.Key, params map[string]string) string {
 }
 
 func (m mailer) send(ctx context.Context, u user, subject i18n.Key, paragraphs []string) {
-	m.deliver(ctx, u, subject, m.t(u, subject, nil), paragraphs)
+	m.deliver(ctx, u, subject, m.t(u, subject, nil), paragraphs, true)
 }
 
-func (m mailer) deliver(ctx context.Context, u user, kind i18n.Key, subject string, paragraphs []string) {
-	// Sensitive: a link here is a credential, and a journal must not hold it.
+func (m mailer) deliver(ctx context.Context, u user, kind i18n.Key, subject string, paragraphs []string, sensitive bool) {
+	// Sensitive: a link there is a credential, and a journal must not hold it.
 	msg := mail.Message{To: u.Email, Subject: subject, Text: strings.Join(paragraphs, "\n\n") + "\n",
-		Kind: string(kind), UserID: u.ID, Sensitive: true}
+		Kind: string(kind), UserID: u.ID, Sensitive: sensitive}
 	if err := m.mail.Send(ctx, msg); err != nil && m.log != nil {
 		m.log.ErrorContext(ctx, "identity.mail_failed", "to_user", u.ID, "subject", string(kind), "error", err.Error())
 	}

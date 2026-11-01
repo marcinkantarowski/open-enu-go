@@ -397,6 +397,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/manager/tenants/{tenantId}/members/{userId}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a person who has not signed in yet a new link to set a password; the earlier links end. Needs a super operator. */
+        post: operations["post_manager_tenant_member_invitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manager/tenants/{tenantId}/settings/{identifier}": {
         parameters: {
             query?: never;
@@ -1164,6 +1181,8 @@ export interface components {
             email: string;
             /** @description The USER's id - what impersonation takes. */
             id: string;
+            /** @description Has never signed in, so an invitation can be sent again. */
+            pending: boolean;
             role: string;
             status: string;
         };
@@ -1879,6 +1898,28 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    post_manager_tenant_member_invitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     put_manager_settings_set: {
         parameters: {
             query?: never;
@@ -2400,4 +2441,4 @@ export interface operations {
         };
     };
 }
-// generated from backend/openapi.json sha256:838b9a78f87f6cfe19416397e84915d2a63f6d70a068408fa276ca421db657fb
+// generated from backend/openapi.json sha256:1402aae3b995660f3a2a1c5071f2420a61dbcc442066abacdc49fceb330a5fe6

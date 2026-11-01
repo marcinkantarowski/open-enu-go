@@ -60,6 +60,13 @@ func (h handlers) addMember(ctx context.Context, _ *scope.Tx, c addMember) (iden
 	return h.members.Add(ctx, identityc.AddMember{TenantID: c.TenantID, Workspace: c.Workspace, Email: c.Email, DisplayName: c.DisplayName, Role: c.Role})
 }
 
+func (h handlers) resendInvitation(ctx context.Context, _ *scope.Tx, c resendInvitation) (struct{}, error) {
+	if !c.Super {
+		return struct{}{}, httpx.Forbidden(keySuperRequired)
+	}
+	return struct{}{}, h.members.ResendInvitation(ctx, identityc.ResendInvitation{TenantID: c.TenantID, UserID: c.UserID, Workspace: c.Workspace})
+}
+
 func (h handlers) unassignConsultant(ctx context.Context, _ *scope.Tx, c unassignConsultant) (struct{}, error) {
 	if !c.Super {
 		return struct{}{}, httpx.Forbidden(keySuperRequired)

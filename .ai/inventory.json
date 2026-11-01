@@ -139,6 +139,7 @@
         "AddMember",
         "EndTenantSessions",
         "MemberAdded",
+        "ResendInvitation",
         "UnassignConsultant",
         "createUser",
         "eraseUser",
@@ -161,6 +162,7 @@
         "NewDirectory()",
         "NewMinter()",
         "Operator",
+        "ResendInvitation",
         "Sessions",
         "Started",
         "UnassignConsultant",
@@ -204,6 +206,7 @@
       "commands": [
         "addMember",
         "createTenant",
+        "resendInvitation",
         "startImpersonation",
         "suspendTenant",
         "unassignConsultant"
@@ -223,6 +226,7 @@
         "POST /api/manager/tenants (post_manager_tenant_create)",
         "POST /api/manager/tenants/{id}/members (post_manager_tenant_member)",
         "POST /api/manager/tenants/{id}/suspend (post_manager_tenant_suspend)",
+        "POST /api/manager/tenants/{tenantId}/members/{userId}/invitation (post_manager_tenant_member_invitation)",
         "POST /api/manager/tenants/{tenantId}/users/{userId}/impersonate (post_manager_impersonate)"
       ]
     },

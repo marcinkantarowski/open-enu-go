@@ -112,7 +112,7 @@ func (s service) detail(ctx context.Context, id string) (ManagedTenantDetail, er
 	out := ManagedTenantDetail{Id: t.ID, Slug: t.Slug, Name: t.Name, Status: t.Status, Plan: t.Plan, DefaultLocale: t.DefaultLocale,
 		Version: t.Version, CreatedAt: t.CreatedAt, ActivatedAt: t.ActivatedAt, Members: make([]TenantMember, 0, len(members))}
 	for _, m := range members {
-		out.Members = append(out.Members, TenantMember{Id: m.ID, Email: m.Email, DisplayName: m.DisplayName, Role: m.Role, Status: m.Status})
+		out.Members = append(out.Members, TenantMember{Id: m.ID, Email: m.Email, DisplayName: m.DisplayName, Role: m.Role, Pending: m.Pending, Status: m.Status})
 	}
 	return out, nil
 }
@@ -206,6 +206,19 @@ func (s service) addMember(ctx context.Context, operatorID, tenantID string, in 
 		return AddedMember{}, err
 	}
 	return AddedMember{UserId: added.UserID, Invited: added.Invited}, nil
+}
+
+func (s service) resendInvitation(ctx context.Context, operatorID, tenantID, userID string) error {
+	t, err := s.tenant(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	_, super, err := s.super(ctx, operatorID)
+	if err != nil {
+		return err
+	}
+	_, err = s.bus.Dispatch(ctx, resendInvitation{TenantID: tenantID, UserID: userID, Workspace: t.Name, Super: super})
+	return err
 }
 
 func (s service) unassignConsultant(ctx context.Context, operatorID, tenantID, userID string) error {

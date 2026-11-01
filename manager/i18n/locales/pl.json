@@ -91,6 +91,9 @@
   "manager.memberAddHint": "Nowa osoba dostaje konto, a ktoś, kto je ma, dołącza z tym samym. Zyskuje dostęp do danych tego klienta, co trafia do dziennika. Wymaga operatora super. Nowa osoba dostaje mailem link do ustawienia hasła, ważny 7 dni.",
   "manager.memberAddSubmit": "Dodaj",
   "manager.memberAdded": "Dodano osobę. Mail z linkiem do ustawienia hasła jest w drodze.",
-  "manager.memberExisted": "Ta osoba miała już konto i loguje się nim.",
-  "manager.sessionExpired": "Sesja wygasła. Zaloguj się ponownie."
+  "manager.memberExisted": "Ta osoba miała już konto. Jeśli to dla niej nowy klient, dostała o tym mail.",
+  "manager.sessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
+  "manager.memberResend": "Wyślij zaproszenie ponownie",
+  "manager.memberResendConfirm": "Wysłać nowy link do {email}? Poprzednie linki przestaną działać.",
+  "manager.memberResent": "Wysłano nowe zaproszenie."
 }

@@ -545,3 +545,94 @@ func TestOnlyASuperOperatorMayAssignAndATenantTokenSeesNoneOfThis(t *testing.T) 
 		}
 	}
 }
+
+// A person who has not signed in can be sent a new link, which ends the old one;
+// once they have, there is nothing to resend.
+func TestAnInvitationIsSentAgainAndTheOldLinkEnds(t *testing.T) {
+	s := newStack(t)
+	op := s.operator()
+	path := "/api/manager/tenants/" + s.a + "/members"
+	link := func() string {
+		sent, ok := s.svc.Mail.(*mail.Recorder).Last("nowa@example.test")
+		if !ok || !sent.Sensitive {
+			t.Fatalf("the invitation: %v %+v", ok, sent)
+		}
+		return regexp.MustCompile(`token=(\S+)`).FindStringSubmatch(sent.Text)[1]
+	}
+	added := s.do("POST", path, op, map[string]any{"email": "nowa@example.test", "role": "member"})
+	if added.code != 200 || added.body["invited"] != true {
+		t.Fatalf("add: %d %s", added.code, added.raw)
+	}
+	first, user := link(), added.str("userId")
+	detail := s.do("GET", "/api/manager/tenants/"+s.a, op, nil)
+	if !strings.Contains(string(detail.raw), `"pending":true`) {
+		t.Fatalf("not pending: %s", detail.raw)
+	}
+	if r := s.do("POST", path+"/"+user+"/invitation", op, nil); r.code != 204 {
+		t.Fatalf("resend: %d %s", r.code, r.raw)
+	}
+	second := link()
+	if second == first {
+		t.Fatal("the same link twice")
+	}
+	if r := s.do("POST", "/api/auth/reset-password", "", map[string]any{"token": first, "password": "a-password-they-chose"}); r.code < 400 {
+		t.Fatalf("the old link still works: %d", r.code)
+	}
+	if r := s.do("POST", "/api/manager/tenants/"+s.b+"/members/"+user+"/invitation", op, nil); r.code != 404 {
+		t.Fatalf("not a member there: %d %s", r.code, r.raw)
+	}
+	if r := s.do("POST", path+"/00000000-0000-4000-8000-000000000001/invitation", op, nil); r.code != 404 {
+		t.Fatalf("nobody: %d %s", r.code, r.raw)
+	}
+	if r := s.do("POST", "/api/auth/reset-password", "", map[string]any{"token": second, "password": "a-password-they-chose"}); r.code >= 300 {
+		t.Fatalf("the new link: %d %s", r.code, r.raw)
+	}
+	in := s.do("POST", "/api/auth/login", "", map[string]any{"email": "nowa@example.test", "password": "a-password-they-chose"})
+	if in.code != 200 {
+		t.Fatalf("login: %d %s", in.code, in.raw)
+	}
+	if r := s.do("POST", path+"/"+user+"/invitation", op, nil); r.code != 400 {
+		t.Fatalf("after signing in: %d %s", r.code, r.raw)
+	}
+}
+
+// Someone with an account hears they can reach one more workspace, once, and
+// the journal may keep it: there is no credential in it.
+func TestAPersonWithAnAccountIsToldOfANewWorkspace(t *testing.T) {
+	s := newStack(t)
+	op := s.operator()
+	add := func() reply {
+		return s.do("POST", "/api/manager/tenants/"+s.b+"/members", op, map[string]any{"email": userEmail, "role": "member"})
+	}
+	if r := add(); r.code != 200 || r.body["invited"] != false {
+		t.Fatalf("add: %d %s", r.code, r.raw)
+	}
+	box := s.svc.Mail.(*mail.Recorder)
+	sent, ok := box.Last(userEmail)
+	if !ok || sent.Sensitive || sent.Kind != "identity.email.added.subject" || !strings.Contains(sent.Text, "/login") || strings.Contains(sent.Text, "token=") {
+		t.Fatalf("the mail: %v %+v", ok, sent)
+	}
+	before := len(box.Sent())
+	if r := add(); r.code != 200 {
+		t.Fatalf("again: %d %s", r.code, r.raw)
+	}
+	if n := len(box.Sent()); n != before {
+		t.Fatalf("told twice: %d mails after %d", n, before)
+	}
+}
+
+func TestOnlyASuperOperatorResendsAnInvitation(t *testing.T) {
+	s := newStack(t)
+	path := "/api/manager/tenants/" + s.a + "/members/" + s.user + "/invitation"
+	if r := s.do("POST", path, "nie-token", nil); r.code != 401 {
+		t.Fatalf("a stranger: %d", r.code)
+	}
+	const email, pass = "zwykly@example.test", "an-ordinary-operator-password"
+	if _, _, err := manager.CreateOperator(s.ctx, s.svc, manager.CreateOperatorInput{Email: email, Password: pass, DisplayName: "Zwykly"}); err != nil {
+		t.Fatal(err)
+	}
+	in := s.do("POST", "/api/manager/login", "", map[string]any{"email": email, "password": pass})
+	if r := s.do("POST", path, in.str("token"), nil); r.code != 403 {
+		t.Fatalf("an operator who is not super: %d %s", r.code, r.raw)
+	}
+}

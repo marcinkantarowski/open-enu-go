@@ -427,6 +427,41 @@
           }
         }
       }
+    },
+    "/api/manager/tenants/{tenantId}/members/{userId}/invitation": {
+      "post": {
+        "operationId": "post_manager_tenant_member_invitation",
+        "summary": "Send a person who has not signed in yet a new link to set a password; the earlier links end. Needs a super operator.",
+        "tags": [
+          "manager"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sent"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -619,7 +654,8 @@
           "email",
           "displayName",
           "role",
-          "status"
+          "status",
+          "pending"
         ],
         "properties": {
           "id": {
@@ -638,6 +674,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "Has never signed in, so an invitation can be sent again."
           }
         }
       },

@@ -23,5 +23,8 @@
   "identity.error.consultant_is_owner": "This person owns the workspace; an owner cannot be its consultant.",
   "identity.error.already_member": "This person is already a member here; only a move to consultant changes a role.",
   "identity.email.invite.expires": "The link works once and expires in %days% days.",
-  "identity.email.invite.after": "Once it has expired, you can set a password here:"
+  "identity.email.invite.after": "Once it has expired, you can set a password here:",
+  "identity.email.added.subject": "You have access: %tenant%",
+  "identity.email.added.body": "You have been added to %tenant%. Sign in with your existing account and switch to it.",
+  "identity.error.already_signed_in": "This person has already signed in and needs no invitation."
 }

@@ -47,6 +47,18 @@ func (addMember) AuditAction() string      { return "manager.member.added" }
 func (c addMember) AuditSubjectID() string { return c.TenantID }
 func (c addMember) AuditTenantID() string  { return c.TenantID }
 
+// resendInvitation - `manager.invitation.resent`.
+type resendInvitation struct {
+	TenantID  string
+	UserID    string
+	Workspace string
+	Super     bool
+}
+
+func (resendInvitation) AuditAction() string      { return "manager.invitation.resent" }
+func (c resendInvitation) AuditSubjectID() string { return c.UserID }
+func (c resendInvitation) AuditTenantID() string  { return c.TenantID }
+
 // unassignConsultant - `manager.consultant.unassigned`.
 type unassignConsultant struct {
 	TenantID string

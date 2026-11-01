@@ -42,7 +42,9 @@ view) built by
 `contract.NewDirectory` - who belongs to a workspace, for the operator console;
 `contract.Members` (`Add`, `UnassignConsultant`: `identity.member.added`,
 `identity.consultant.unassigned`, for Manager; a new account gets a mail with a single-use
-link to set its password, valid seven days, which the operator never sees); `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
+link to set its password, valid seven days, which the operator never sees, and `ResendInvitation`
+for someone who has not signed in yet, which ends the earlier links; a person with an account is
+told by mail); `contract.Operator` and `contract.Minter`, built by `contract.NewMinter` - sessions for a
 person another module vouches for:
 
 - `Impersonate` - the one designed way to act as a member without their password

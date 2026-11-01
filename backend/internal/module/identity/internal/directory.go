@@ -14,6 +14,8 @@ type Member struct {
 	DisplayName *string `json:"displayName"`
 	Role        string  `json:"role"`
 	Status      string  `json:"status"`
+	// Pending is someone who has never signed in.
+	Pending bool `json:"pending"`
 	// Locale is the person's stored choice, nil when they never chose: what
 	// a mail to them is written in.
 	Locale *string `json:"locale"`

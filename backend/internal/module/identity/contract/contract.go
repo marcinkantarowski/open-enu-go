@@ -70,6 +70,7 @@ func (s Sessions) EndTenant(ctx context.Context, tenantID string) error {
 // MemberAdded is what adding answers.
 type (
 	AddMember          = internal.AddMember
+	ResendInvitation   = internal.ResendInvitation
 	MemberAdded        = internal.MemberAdded
 	UnassignConsultant = internal.UnassignConsultant
 )
@@ -81,6 +82,12 @@ type Members struct{ Bus *command.Bus }
 // Add puts a person in a workspace, with an account if they have none.
 func (m Members) Add(ctx context.Context, c AddMember) (MemberAdded, error) {
 	return command.Dispatch[MemberAdded](ctx, m.Bus, c)
+}
+
+// ResendInvitation sends a person who has not signed in yet a new link.
+func (m Members) ResendInvitation(ctx context.Context, c ResendInvitation) error {
+	_, err := m.Bus.Dispatch(ctx, c)
+	return err
 }
 
 // UnassignConsultant removes a consultant from a workspace.

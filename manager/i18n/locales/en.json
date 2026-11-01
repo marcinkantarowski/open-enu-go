@@ -91,6 +91,9 @@
   "manager.memberAddHint": "A new person gets an account; someone who has one joins with it. They gain access to this client's data, and it goes on the trail. Needs a super operator. A new person gets a link by mail to set a password, valid for 7 days.",
   "manager.memberAddSubmit": "Add",
   "manager.memberAdded": "Person added. A mail with a link to set a password is on its way.",
-  "manager.memberExisted": "They already had an account and can sign in with it.",
-  "manager.sessionExpired": "Your session has ended. Sign in again."
+  "manager.memberExisted": "They already had an account. If this client is new to them, they were told by mail.",
+  "manager.sessionExpired": "Your session has ended. Sign in again.",
+  "manager.memberResend": "Send the invitation again",
+  "manager.memberResendConfirm": "Send a new link to {email}? Earlier links will stop working.",
+  "manager.memberResent": "A new invitation has been sent."
 }

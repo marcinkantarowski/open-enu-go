@@ -116,6 +116,14 @@ func (AddMember) AuditAction() string      { return "identity.member.added" }
 func (c AddMember) AuditSubjectID() string { return c.TenantID }
 func (c AddMember) AuditTenantID() string  { return c.TenantID }
 
+// ResendInvitation - `identity.invitation.resent`: a new link for someone who has
+// not signed in yet. Exported for contract.Members.
+type ResendInvitation struct{ TenantID, UserID, Workspace string }
+
+func (ResendInvitation) AuditAction() string      { return "identity.invitation.resent" }
+func (c ResendInvitation) AuditSubjectID() string { return c.UserID }
+func (c ResendInvitation) AuditTenantID() string  { return c.TenantID }
+
 // MemberAdded is what AddMember answers. Invited says a new account was made
 // and its link to set a password went to the person, and only there.
 type MemberAdded struct {
