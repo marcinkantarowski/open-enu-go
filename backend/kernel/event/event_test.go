@@ -43,6 +43,15 @@ func TestEnvelopeIsWhatTheBrowserReads(t *testing.T) {
 	}
 }
 
+func TestOperatorsPublishesOnTheConsoleTopicOnly(t *testing.T) {
+	hub := &Recorder{}
+	Broadcaster{Hub: hub}.Operators(context.Background(), created{id: "x"})
+	u := hub.Updates()
+	if len(u) != 1 || u[0].Topic != OperatorTopic || !strings.Contains(string(u[0].Data), `"event":"demo.thing.created"`) {
+		t.Fatalf("updates = %+v", u)
+	}
+}
+
 func TestBroadcasterPublishesOnTheTenantTopicOnly(t *testing.T) {
 	var hub Recorder
 	var buf bytes.Buffer

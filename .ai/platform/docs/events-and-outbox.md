@@ -33,7 +33,9 @@ one without stays internal. No tenant in the job (a system event) means no topic
 is entitled to - dropped with a warning, never a global topic. The hub is Mercure in the
 stack (`kernel/realtime.Hub`, every update private) and a recorder in tests; a publish
 failure is logged, not retried: the change already happened. A browser subscribes with the
-cookie `POST /api/realtime/token` sets, scoped to its own tenant's topics
+cookie `POST /api/realtime/token` sets, scoped to its own tenant's topics; an operator's
+names `event.OperatorTopic`, reached with `Events.Operators(ctx, ev)` after the commit, for
+what has no tenant. Every operator hears it, so it carries that something changed, not what
 ([`dev-stack.md`](dev-stack.md) → *Realtime*).
 
 ## Subscribing

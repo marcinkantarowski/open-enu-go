@@ -97,7 +97,7 @@ func (h Hub) Publish(ctx context.Context, topic string, data []byte) error {
 // subscribe grant names the caller's own tenant topics and nothing else: a
 // `{"match": "*"}` grant, the obvious thing to write, would hand every tenant's
 // updates to any signed-in user - a leak no query filter can see, because no
-// query runs.
+// query runs. An operator has no tenant and gets the console's one topic.
 type Tokens struct {
 	Secret []byte
 	// Issuer and Audience as on Hub.
@@ -116,10 +116,21 @@ func (t Tokens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.Unauthenticated(httpx.KeyUnauthenticated))
 		return
 	}
-	tenant, ok := scope.TenantID(ctx)
-	if !ok {
-		httpx.WriteError(w, r, httpx.Forbidden(KeyNoTenant))
-		return
+	var topic string
+	var granted []grant
+	if principal.Realm == auth.RealmManager {
+		topic = event.OperatorTopic
+		granted = []grant{{Match: topic}}
+	} else {
+		tenant, ok := scope.TenantID(ctx)
+		if !ok {
+			httpx.WriteError(w, r, httpx.Forbidden(KeyNoTenant))
+			return
+		}
+		topic = event.Topic(tenant)
+		// A URL Pattern for the jobs: relative, resolved against the hub's
+		// `resource_identifier`, as the topics themselves are.
+		granted = []grant{{Match: topic}, {Match: fmt.Sprintf("/tenants/%s/progress/:id", tenant), MatchType: "urlpattern"}}
 	}
 	// An empty secret produces tokens the hub accepts from anyone, which is
 	// indistinguishable from working until someone tries it.
@@ -137,11 +148,7 @@ func (t Tokens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	issued := now()
 	expires := issued.Add(ttl)
-	topic := event.Topic(tenant)
-	// A URL Pattern for the jobs: relative, resolved against the hub's
-	// `resource_identifier`, as the topics themselves are.
-	token, err := accessToken(t.Secret, t.Issuer, t.Audience, principal.Subject, "subscribe",
-		[]grant{{Match: topic}, {Match: fmt.Sprintf("/tenants/%s/progress/:id", tenant), MatchType: "urlpattern"}}, issued, ttl)
+	token, err := accessToken(t.Secret, t.Issuer, t.Audience, principal.Subject, "subscribe", granted, issued, ttl)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.Internal(err))
 		return

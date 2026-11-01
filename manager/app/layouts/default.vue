@@ -51,6 +51,7 @@ async function signOut() {
           >
             {{ link.label }}
           </NuxtLink>
+          <InjectionPoint name="manager.nav" />
         </nav>
       </div>
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/open-enu/kernel/auth"
+	"github.com/open-enu/kernel/event"
 	"github.com/open-enu/kernel/scope"
 )
 
@@ -105,6 +106,27 @@ func TestHubPublishesAPrivateUpdateWithAPublisherToken(t *testing.T) {
 	}
 }
 
+// An operator hears the console and no tenant; a tenant's user never the console.
+func TestAnOperatorsCookieNamesTheConsoleAlone(t *testing.T) {
+	h := Tokens{Secret: secret, Issuer: issuer, Audience: audience, Secure: true}
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{Subject: "op", Realm: auth.RealmManager})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/realtime/token", nil).WithContext(ctx))
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"topic":"/operators/events"`) {
+		t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+	}
+	if g := grants(t, claims(t, rec.Result().Cookies()[0].Value)); !strings.Contains(g, `"topics":[{"match":"/operators/events"}]`) {
+		t.Fatalf("an operator's grant = %s", g)
+	}
+
+	ctx = scope.WithTenant(auth.WithPrincipal(context.Background(), auth.Principal{Subject: "u1", TenantID: "t1", Realm: auth.RealmTenant}), "t1")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/realtime/token", nil).WithContext(ctx))
+	if strings.Contains(grants(t, claims(t, rec.Result().Cookies()[0].Value)), event.OperatorTopic) {
+		t.Fatal("a tenant's user may hear the console")
+	}
+}
+
 func TestTokensScopeTheCookieToTheCallersTenant(t *testing.T) {
 	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
 	h := Tokens{Secret: secret, Issuer: issuer, Audience: audience, Secure: true, Now: func() time.Time { return now }}
@@ -142,7 +164,7 @@ func TestTokensScopeTheCookieToTheCallersTenant(t *testing.T) {
 		t.Fatalf("anonymous = %d %s", rec.Code, rec.Body.String())
 	}
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/realtime/token", nil).WithContext(auth.WithPrincipal(context.Background(), auth.Principal{Subject: "op", Realm: "manager"})))
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/realtime/token", nil).WithContext(auth.WithPrincipal(context.Background(), auth.Principal{Subject: "u2", Realm: "tenant"})))
 	if rec.Code != 403 || !strings.Contains(rec.Body.String(), "forbidden") {
 		t.Fatalf("no tenant = %d %s", rec.Code, rec.Body.String())
 	}

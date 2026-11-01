@@ -93,7 +93,8 @@ Most features have nothing for an operator to do. When one does, `make manager-m
 NAME=billing` gives the existing module a layer under `manager/app/modules/<name>/`,
 discovered by `manager/nuxt.config.ts` the same way; its endpoints are `/api/manager/...`
 behind `auth.RequireOperator`, and its usual way in is a card on the tenant page through
-`<InjectionPoint name="manager.tenant">`, which hands each card `tenantId`. The layout and
+`<InjectionPoint name="manager.tenant">`, which hands each card `tenantId`. A link that has
+to say something, a count of what waits, goes in `manager.nav`: it stays mounted on every screen. The layout and
 the rules: [`module-development.md`](module-development.md) → *Screens for an operator*.
 
 **The screen to copy is `frontend/app/modules/example/pages/example/index.vue`.** It is the only

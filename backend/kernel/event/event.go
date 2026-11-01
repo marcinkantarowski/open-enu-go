@@ -58,6 +58,11 @@ func ValidName(name string) bool { return nameShape.MatchString(name) }
 // never global: a subscriber's token names this topic and no other.
 func Topic(tenantID string) string { return fmt.Sprintf("/tenants/%s/events", tenantID) }
 
+// OperatorTopic is the console's topic. One and global, because an operator
+// belongs to no tenant: what goes on it reaches every operator, so it says that
+// something changed and leaves the reading to an endpoint behind the realm.
+const OperatorTopic = "/operators/events"
+
 // Envelope is the JSON the browser receives - the keys useAppEvent reads.
 type Envelope struct {
 	Event              string         `json:"event"`
@@ -115,12 +120,27 @@ func (b Broadcaster) Handle(ctx context.Context, ev Event) {
 		log.WarnContext(ctx, "broadcast.skipped_no_tenant", "event", ev.EventName())
 		return
 	}
-	data, err := json.Marshal(NewEnvelope(bc))
+	b.publish(ctx, log, Topic(tenant), bc)
+}
+
+// Operators publishes ev to the console, for what has no tenant to go to the
+// outbox with. Call it after the change is committed; failing is logged, like
+// Handle, and a console that misses one catches up when it next looks.
+func (b Broadcaster) Operators(ctx context.Context, ev Broadcast) {
+	log := b.Log
+	if log == nil {
+		log = slog.Default()
+	}
+	b.publish(ctx, log, OperatorTopic, ev)
+}
+
+func (b Broadcaster) publish(ctx context.Context, log *slog.Logger, topic string, ev Broadcast) {
+	data, err := json.Marshal(NewEnvelope(ev))
 	if err != nil {
 		log.ErrorContext(ctx, "broadcast.failed", "event", ev.EventName(), "error", err.Error())
 		return
 	}
-	if err := b.Hub.Publish(ctx, Topic(tenant), data); err != nil {
+	if err := b.Hub.Publish(ctx, topic, data); err != nil {
 		log.ErrorContext(ctx, "broadcast.failed", "event", ev.EventName(), "error", err.Error())
 	}
 }
