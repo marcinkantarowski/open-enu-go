@@ -10,6 +10,8 @@ interface Member {
   displayName: string | null
   role: string
   status: string
+  /** Has never signed in, so an invitation can go again. */
+  pending: boolean
 }
 
 interface TenantDetail {
