@@ -236,6 +236,10 @@
         "keys",
         "row"
       ],
+      "contract": [
+        "Flags",
+        "MailsOn()"
+      ],
       "tables": [
         "notification"
       ],

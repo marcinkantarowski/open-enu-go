@@ -41,3 +41,16 @@ if [ -n "$hits" ]; then
   exit 1
 fi
 log_ok "no long dashes"
+
+# A date cut from toISOString is the day in UTC: for hours every night it is not
+# the day the person is living in, and a deadline is written one day off.
+days="$(grep -rnI -e 'toISOString().slice(0, 10)' -e 'toISOString().substring(0, 10)' -e "toISOString().split('T')" \
+  "$ROOT/frontend/app" "$ROOT/manager/app" "$ROOT/ui-kit/app" "$ROOT/landing/app" \
+  --include='*.vue' --include='*.ts' --exclude-dir=node_modules 2>/dev/null)"
+if [ -n "$days" ]; then
+  log_fail "$(wc -l <<<"$days" | tr -d ' ') line(s) take a calendar day from UTC" \
+    "ask Intl.DateTimeFormat for the day in the user's zone" || true
+  sed "s|^$ROOT/||" <<<"$days" | cut -c1-140 | head -20 | sed 's/^/      /' >&2
+  exit 1
+fi
+log_ok "no calendar day taken from UTC"

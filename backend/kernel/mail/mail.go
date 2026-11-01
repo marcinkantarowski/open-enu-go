@@ -10,6 +10,9 @@ package mail
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,6 +21,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Message is one email to one person.
@@ -32,6 +36,22 @@ type Message struct {
 	Kind, Ref        string
 	TenantID, UserID string
 	Sensitive        bool
+
+	// A conversation, not a notice. From replaces the configured sender, and a
+	// reply to it goes to it, so the Reply-To stays out. The ids are bare,
+	// without their angle brackets.
+	From       string
+	Date       time.Time
+	MessageID  string
+	InReplyTo  string
+	References []string
+	Files      []File
+}
+
+// File is one attachment.
+type File struct {
+	Name, ContentType string
+	Data              []byte
 }
 
 // Mailer sends. Send returns once the message has been handed to the
@@ -83,7 +103,11 @@ func (s *SMTP) Send(_ context.Context, m Message) error {
 		host, _, _ := strings.Cut(s.Addr, ":")
 		auth = smtp.PlainAuth("", s.Username, s.Password, host)
 	}
-	if err := smtp.SendMail(s.Addr, auth, s.From, []string{headerLine(m.To)}, s.message(m)); err != nil {
+	from := s.From
+	if m.From != "" {
+		from = m.From
+	}
+	if err := smtp.SendMail(s.Addr, auth, from, []string{headerLine(m.To)}, s.message(m)); err != nil {
 		return fmt.Errorf("mail: %w", err)
 	}
 	return nil
@@ -96,14 +120,66 @@ func (s *SMTP) Send(_ context.Context, m Message) error {
 // and let that user add headers - a Bcc, say - of their own. The subject is
 // also RFC 2047 encoded, so a non-ASCII name arrives intact.
 func (s *SMTP) message(m Message) []byte {
+	if m.From != "" {
+		return Render(m)
+	}
+	m.From = s.From
+	return render(m, s.ReplyTo)
+}
+
+// Render is the mail as it will leave, for a copy kept somewhere else. It needs
+// a From of its own.
+func Render(m Message) []byte { return render(m, "") }
+
+func render(m Message, replyTo string) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, "From: %s\r\nTo: %s\r\nSubject: %s\r\n",
-		headerLine(s.From), headerLine(m.To), mime.QEncoding.Encode("utf-8", headerLine(m.Subject)))
-	if s.ReplyTo != "" {
-		fmt.Fprintf(&b, "Reply-To: %s\r\n", headerLine(s.ReplyTo))
+		headerLine(m.From), headerLine(m.To), mime.QEncoding.Encode("utf-8", headerLine(m.Subject)))
+	if replyTo != "" {
+		fmt.Fprintf(&b, "Reply-To: %s\r\n", headerLine(replyTo))
 	}
-	b.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n")
-	b.WriteString(strings.ReplaceAll(m.Text, "\n", "\r\n"))
+	if !m.Date.IsZero() {
+		fmt.Fprintf(&b, "Date: %s\r\n", m.Date.Format(time.RFC1123Z))
+	}
+	if m.MessageID != "" {
+		fmt.Fprintf(&b, "Message-ID: <%s>\r\n", headerLine(m.MessageID))
+	}
+	if m.InReplyTo != "" {
+		fmt.Fprintf(&b, "In-Reply-To: <%s>\r\n", headerLine(m.InReplyTo))
+	}
+	if len(m.References) > 0 {
+		ids := make([]string, 0, len(m.References))
+		for _, id := range m.References {
+			ids = append(ids, "<"+headerLine(id)+">")
+		}
+		fmt.Fprintf(&b, "References: %s\r\n", strings.Join(ids, " "))
+	}
+	b.WriteString("MIME-Version: 1.0\r\n")
+	text := strings.ReplaceAll(m.Text, "\n", "\r\n")
+	if len(m.Files) == 0 {
+		b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n" + text)
+		return []byte(b.String())
+	}
+	boundary := make([]byte, 16)
+	_, _ = rand.Read(boundary)
+	mark := hex.EncodeToString(boundary)
+	fmt.Fprintf(&b, "Content-Type: multipart/mixed; boundary=\"%s\"\r\n\r\n", mark)
+	fmt.Fprintf(&b, "--%s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n", mark, text)
+	for _, f := range m.Files {
+		kind := headerLine(f.ContentType)
+		if _, _, err := mime.ParseMediaType(kind); err != nil || !strings.Contains(kind, "/") {
+			kind = "application/octet-stream"
+		}
+		fmt.Fprintf(&b, "--%s\r\nContent-Type: %s\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: %s\r\n\r\n",
+			mark, kind, mime.FormatMediaType("attachment", map[string]string{"filename": headerLine(f.Name)}))
+		encoded := base64.StdEncoding.EncodeToString(f.Data)
+		for len(encoded) > 76 {
+			b.WriteString(encoded[:76] + "\r\n")
+			encoded = encoded[76:]
+		}
+		b.WriteString(encoded + "\r\n")
+	}
+	fmt.Fprintf(&b, "--%s--\r\n", mark)
 	return []byte(b.String())
 }
 
