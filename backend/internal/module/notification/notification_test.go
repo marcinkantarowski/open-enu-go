@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/open-enu/kernel/auth"
+	"github.com/open-enu/kernel/flags"
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/migrate"
@@ -246,6 +247,37 @@ func TestReadStateIsPersonalAndIdempotent(t *testing.T) {
 	}
 	if r := s.do("POST", "/api/notifications/not-a-row/read", s.as(s.alice)); r.code != 404 {
 		t.Fatalf("garbage id: %d", r.code)
+	}
+}
+
+// A workspace switched off by an operator keeps its feed and gets no mail; the
+// switch of another workspace changes nothing here.
+func TestAWorkspaceSwitchedOffKeepsItsFeedAndGetsNoMail(t *testing.T) {
+	s := newStack(t)
+	store := &flags.MemoryStore{}
+	store.Set(s.tenant, "notification.email", false)
+	resolver, err := flags.NewResolver(store, notification.Module.Flags...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.svc.Flags = resolver
+	quiet := notification.Module.Notifier(s.svc)
+	if err := quiet.ToTenant(s.ctx, s.tenant, ping.Type, map[string]any{"count": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(s.mails()); n != 0 {
+		t.Fatalf("%d mails from a workspace switched off", n)
+	}
+	if r := s.feed(s.alice); len(r.items) != 1 {
+		t.Fatalf("the feed went with the mail: %s", r.raw)
+	}
+	store.Unset(s.tenant, "notification.email")
+	store.Set("22222222-2222-2222-2222-222222222222", "notification.email", false)
+	if err := quiet.ToTenant(s.ctx, s.tenant, ping.Type, map[string]any{"count": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(s.mails()); n != 2 {
+		t.Fatalf("%d mails, want one per member", n)
 	}
 }
 

@@ -242,6 +242,9 @@
       "permissions": [
         "notification.view"
       ],
+      "flags": [
+        "notification.email"
+      ],
       "routes": [
         "GET /api/notifications (get_notification_index)",
         "POST /api/notifications/read-all (post_notification_read_all)",

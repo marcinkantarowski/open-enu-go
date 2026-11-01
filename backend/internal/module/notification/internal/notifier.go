@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/open-enu/kernel/flags"
 	"github.com/open-enu/kernel/i18n"
 	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/notification"
@@ -25,6 +26,7 @@ type notifier struct {
 	repo   repository
 	defs   map[string]notification.Definition
 	people identityc.Directory
+	flags  flags.Flags
 	mail   mail.Mailer
 	i18n   *i18n.Catalogue
 	appURL string
@@ -34,7 +36,7 @@ type notifier struct {
 // NewNotifier is what module.go registers (module.Module.Notifier).
 func NewNotifier(svc *platform.Services) notification.Notifier {
 	return notifier{repo: newRepository(svc), defs: byType(svc.NotificationDefinitions), people: identityc.NewDirectory(svc),
-		mail: svc.Mail, i18n: svc.I18n, appURL: svc.URLs.App, log: svc.Log}
+		flags: svc.Flags, mail: svc.Mail, i18n: svc.I18n, appURL: svc.URLs.App, log: svc.Log}
 }
 
 func byType(defs []notification.Definition) map[string]notification.Definition {
@@ -107,7 +109,7 @@ func (n notifier) store(ctx context.Context, tenantID string, m identityc.Member
 	if err := n.repo.insert(ctx, newRow(tenantID, m.ID, def.Type, c)); err != nil {
 		return err
 	}
-	if !def.Email || m.Email == "" {
+	if !def.Email || m.Email == "" || !n.flags.Enabled(ctx, "notification.email", true) {
 		return nil
 	}
 	locale := n.i18n.Default()

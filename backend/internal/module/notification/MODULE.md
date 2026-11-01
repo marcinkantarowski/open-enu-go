@@ -18,6 +18,8 @@ reader's property ([ADR-0008](../../../../.ai/platform/adr/0008-i18n-from-the-st
 - Permissions: `notification.view` - the only one; a feed is personal, so "whose" is never
   a parameter. Marking read (one or all) is refused under impersonation (ADR-0020): support
   reading the feed must not make the person miss what is in it
+- Flags: `notification.email` (default on, an operator's per workspace): off, the feed stays and
+  no mail goes out behind a notification. Mail that is not a notification never reads it
 - Commands: none. The notifier's writes are a side effect of an already-audited change;
   read state is a repository write (auditing a glance would bury the trail)
 - Tables: `notification` (RLS; `type varchar(120)`, `context jsonb`, `read_at`)

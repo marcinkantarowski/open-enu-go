@@ -37,6 +37,7 @@ var migrations embed.FS
 var Module = module.Module{
 	Manifest:    module.MustManifest(manifest),
 	Permissions: []string{"notification.view"},
+	Flags:       internal.Flags,
 	Mount:       internal.Mount,
 	Migrations:  module.MustSub(migrations, "migrations"),
 	Locales:     module.MustSub(locales, "i18n"),
