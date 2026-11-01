@@ -13,12 +13,14 @@ interface OperatorRow {
 }
 
 const api = useApi()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const { data, pending } = await useAsyncData(
   'manager-operators',
   () => api.get<{ items: OperatorRow[] }>('/api/manager/operators'),
 )
+// A date is written one way everywhere: 2026-11-01 14:30.
+const moment = new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' })
 </script>
 
 <template>
@@ -56,7 +58,7 @@ const { data, pending } = await useAsyncData(
         </template>
 
         <template #cell-lastLoginAt="{ row }">
-          {{ row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString(locale) : t('manager.never') }}
+          {{ row.lastLoginAt ? moment.format(new Date(row.lastLoginAt)) : t('manager.never') }}
         </template>
       </UiTable>
     </UiCard>

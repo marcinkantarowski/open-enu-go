@@ -54,3 +54,16 @@ if [ -n "$days" ]; then
   exit 1
 fi
 log_ok "no calendar day taken from UTC"
+
+# A date written the way each browser or locale likes is a different date on
+# every screen. One format, from one place in each project.
+local_dates="$(grep -rnIE 'new Date\([^)]*\)\.toLocale|"02\.01\.2006' \
+  "$ROOT/frontend/app" "$ROOT/manager/app" "$ROOT/ui-kit/app" "$ROOT/backend/internal/module" \
+  --include='*.vue' --include='*.ts' --include='*.go' --exclude='*_test.go' --exclude-dir=node_modules 2>/dev/null)"
+if [ -n "$local_dates" ]; then
+  log_fail "$(wc -l <<<"$local_dates" | tr -d ' ') line(s) write a date in a format of their own" \
+    "write YYYY-MM-DD: Intl.DateTimeFormat('sv-SE') on a screen, \"2006-01-02\" in Go" || true
+  sed "s|^$ROOT/||" <<<"$local_dates" | cut -c1-140 | head -20 | sed 's/^/      /' >&2
+  exit 1
+fi
+log_ok "every date is written one way"

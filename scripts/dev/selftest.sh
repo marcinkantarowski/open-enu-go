@@ -124,6 +124,11 @@ printf "export const day = new Date().toISOString().slice(0, 10)\n" > "$WORK/ui-
 fails_when "a day from UTC is refused" bash "$WORK/scripts/dev/check-typography.sh"
 rm -f "$WORK/ui-kit/app/zz_day.ts"
 
+log_step "Typography check catches a date in a format of its own"
+printf "export const day = new Date().toLocaleDateString()\n" > "$WORK/ui-kit/app/zz_day.ts"
+fails_when "a date from a locale is refused" bash "$WORK/scripts/dev/check-typography.sh"
+rm -f "$WORK/ui-kit/app/zz_day.ts"
+
 log_step "Types check catches API types older than the spec"
 assert_contains "types check passes on the stamped copy" "$(bash "$WORK/scripts/dev/check-types.sh" 2>&1 && echo clean)" "clean"
 cp "$WORK/backend/openapi.json" "$WORK/openapi.bak"
