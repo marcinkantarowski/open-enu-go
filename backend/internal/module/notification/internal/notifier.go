@@ -15,6 +15,8 @@ import (
 	"github.com/open-enu/kernel/scope"
 
 	identityc "github.com/open-enu/app/internal/module/identity/contract"
+
+	"github.com/open-enu/app/internal/module/notification/contract"
 )
 
 const keyOpen i18n.Key = "notification.email.open"
@@ -109,7 +111,7 @@ func (n notifier) store(ctx context.Context, tenantID string, m identityc.Member
 	if err := n.repo.insert(ctx, newRow(tenantID, m.ID, def.Type, c)); err != nil {
 		return err
 	}
-	if !def.Email || m.Email == "" || !n.flags.Enabled(ctx, "notification.email", true) {
+	if !def.Email || m.Email == "" || !contract.MailsOn(ctx, n.flags) {
 		return nil
 	}
 	locale := n.i18n.Default()
@@ -117,7 +119,8 @@ func (n notifier) store(ctx context.Context, tenantID string, m identityc.Member
 		locale = *m.Locale
 	}
 	params := arguments(c)
-	msg := mail.Message{To: m.Email, Subject: n.i18n.Translate(locale, def.TitleKey, params),
+	ref, _ := c[notification.RefArg].(string)
+	msg := mail.Message{To: m.Email, Kind: def.Type, Ref: ref, TenantID: tenantID, UserID: m.ID, Subject: n.i18n.Translate(locale, def.TitleKey, params),
 		Text: n.i18n.Translate(locale, def.BodyKey, params) + "\n\n" + n.i18n.Translate(locale, keyOpen, nil) + " " + n.appURL + "/notifications\n"}
 	if err := n.mail.Send(ctx, msg); err != nil {
 		// The row is written; a mail that did not go out is a log line, not

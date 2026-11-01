@@ -157,6 +157,15 @@ func newServices(ctx context.Context, log *slog.Logger, reg *module.Registry) (*
 	if err := platform.WithDatabase(svc, pool, outbox.Options{}, true); err != nil {
 		return nil, err
 	}
+	// Before anything keeps svc.Mail: the journal stands in front of every sender.
+	journal, err := reg.MailJournal(svc)
+	if err != nil {
+		return nil, err
+	}
+	if journal != nil {
+		svc.Mail = mail.Journaled{Next: svc.Mail, Journal: journal, Log: log}
+	}
+	svc.Forecasts = reg.Forecasts(svc)
 	// The notifier after the database half, for the same reason as Setup:
 	// the Notification module's keeps the pool.
 	if n, err := reg.Notifier(svc); err != nil {

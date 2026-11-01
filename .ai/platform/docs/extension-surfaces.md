@@ -41,6 +41,7 @@ Without a provider the kernel's default stands.
 | `Keys` | `auth.KeyResolver` | ApiKey | no API key authenticates |
 | `FlagStore` | `flags.Store` | Settings | every flag resolves to its declared default |
 | `Notifier` | `notification.Notifier` | Notification | a log line |
+| `MailJournal` | `mail.Journal`, in front of `svc.Mail` | a project's module | mail simply goes |
 
 **A new slot** is a field on `module.Module`, a `Registry` method that collects it (or picks
 the one provider and refuses two), a test in `hooks_test.go`, and a row here - copy `FlagStore`.

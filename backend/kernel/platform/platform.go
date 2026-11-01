@@ -81,7 +81,9 @@ type Services struct {
 	// Notification module provides the one that stores and mails, the
 	// process starts with notification.Log. NotificationDefinitions is every
 	// type every module declared, for the catalogue that translates rows.
-	Notifier                notification.Notifier
+	Notifier notification.Notifier
+	// Forecasts is what the modules expect to raise (Module.Upcoming).
+	Forecasts               []notification.Forecast
 	NotificationDefinitions []notification.Definition
 
 	// Permissions is every permission every module declares - what a role

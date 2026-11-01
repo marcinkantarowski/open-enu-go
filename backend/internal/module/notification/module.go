@@ -17,6 +17,7 @@ import (
 
 	"github.com/open-enu/kernel/module"
 
+	"github.com/open-enu/app/internal/module/notification/contract"
 	"github.com/open-enu/app/internal/module/notification/internal"
 )
 
@@ -37,7 +38,7 @@ var migrations embed.FS
 var Module = module.Module{
 	Manifest:    module.MustManifest(manifest),
 	Permissions: []string{"notification.view"},
-	Flags:       internal.Flags,
+	Flags:       contract.Flags,
 	Mount:       internal.Mount,
 	Migrations:  module.MustSub(migrations, "migrations"),
 	Locales:     module.MustSub(locales, "i18n"),

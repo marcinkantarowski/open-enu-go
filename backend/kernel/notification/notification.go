@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/open-enu/kernel/i18n"
 )
@@ -36,6 +37,29 @@ type Definition struct {
 	// Email sends a mail as well as writing the feed row. Worth it only when
 	// the point is to reach somebody who is not looking at the app.
 	Email bool
+	// Reactive is a mail nobody can know ahead, as it answers an event. Any
+	// other Email belongs to a module with Upcoming, so it is in the plan.
+	Reactive bool
+}
+
+// RefArg is the argument that names one occurrence of a notification: this
+// reminder for this date. The same string on a Planned and on the delivery is
+// what lets an operator hold one mail.
+const RefArg = "ref"
+
+// Planned is a notification a module expects to raise on a day, with the
+// arguments the delivery will use. Statutory says the date is the law's.
+type Planned struct {
+	TenantID, Type, Ref string
+	On                  time.Time
+	Args                map[string]any
+	Statutory           bool
+}
+
+// Forecast is what a module expects to raise by a date, computed from the same
+// rule as the reminder itself: nothing is queued, so nothing else knows.
+type Forecast interface {
+	Upcoming(ctx context.Context, until time.Time) ([]Planned, error)
 }
 
 // Validate is the shape check the registry runs.
@@ -75,6 +99,28 @@ type Sent struct {
 	To      string // "user:<id>" or "tenant:<id>"
 	Type    string
 	Context map[string]any
+}
+
+// Unplanned is what was delivered and no forecast named, for a module's test:
+// the plan and the reminder are two readings of one rule, and must not drift.
+func Unplanned(planned []Planned, sent []Sent) []Sent {
+	out := []Sent{}
+	for _, s := range sent {
+		found := false
+		for _, p := range planned {
+			if s.To != "tenant:"+p.TenantID || s.Type != p.Type || s.Context[RefArg] != p.Ref {
+				continue
+			}
+			found = true
+			for k, v := range p.Args {
+				found = found && fmt.Sprint(s.Context[k]) == fmt.Sprint(v)
+			}
+		}
+		if !found {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // Recorder keeps what was raised, for tests.

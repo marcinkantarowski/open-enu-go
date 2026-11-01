@@ -23,6 +23,7 @@ import (
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/i18n"
 	"github.com/open-enu/kernel/logctx"
+	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/notification"
 	"github.com/open-enu/kernel/platform"
 	"github.com/open-enu/kernel/search"
@@ -106,6 +107,11 @@ type Module struct {
 	// logged (notification.Log).
 	Notifications []notification.Definition
 	Notifier      func(svc *platform.Services) notification.Notifier
+	// Upcoming is what this module will raise on a clock, for the plan of mail
+	// (svc.Forecasts). MailJournal is the one module keeping what went out,
+	// in front of svc.Mail; without it mail simply goes.
+	Upcoming    func(svc *platform.Services) notification.Forecast
+	MailJournal func(svc *platform.Services) mail.Journal
 
 	// LogFields add what this module knows to every log line logged with a
 	// context, after the kernel's request, tenant, caller and command

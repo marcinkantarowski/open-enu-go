@@ -33,8 +33,8 @@ reader's property ([ADR-0008](../../../../.ai/platform/adr/0008-i18n-from-the-st
 
 ## Public contract
 
-Nothing under `contract/`. The kernel's `notification.Notifier` is the contract; this
-module implements it.
+The kernel's `notification.Notifier` is the contract; this module implements it. `contract/`
+holds `Flags` and `MailsOn`: whether a workspace gets mail, for what plans it without sending.
 
 ## Notes for agents
 

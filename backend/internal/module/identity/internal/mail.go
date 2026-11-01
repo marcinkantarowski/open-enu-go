@@ -61,7 +61,9 @@ func (m mailer) t(u user, key i18n.Key, params map[string]string) string {
 }
 
 func (m mailer) send(ctx context.Context, u user, subject i18n.Key, paragraphs []string) {
-	msg := mail.Message{To: u.Email, Subject: m.t(u, subject, nil), Text: strings.Join(paragraphs, "\n\n") + "\n"}
+	// Sensitive: a link here is a credential, and a journal must not hold it.
+	msg := mail.Message{To: u.Email, Subject: m.t(u, subject, nil), Text: strings.Join(paragraphs, "\n\n") + "\n",
+		Kind: string(subject), UserID: u.ID, Sensitive: true}
 	if err := m.mail.Send(ctx, msg); err != nil && m.log != nil {
 		m.log.ErrorContext(ctx, "identity.mail_failed", "to_user", u.ID, "subject", string(subject), "error", err.Error())
 	}

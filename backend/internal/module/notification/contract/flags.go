@@ -1,6 +1,10 @@
-package internal
+package contract
 
-import "github.com/open-enu/kernel/flags"
+import (
+	"context"
+
+	"github.com/open-enu/kernel/flags"
+)
 
 // Flags declares the module's switches. Mail behind a notification is on until
 // an operator turns it off for a workspace: the feed goes on either way, and a
@@ -13,3 +17,9 @@ var Flags = []flags.Definition{{
 	TenantEditable: false,
 	Category:       "notification",
 }}
+
+// MailsOn is whether a workspace in ctx gets mail behind its notifications, for
+// whoever has to say what will happen without sending anything.
+func MailsOn(ctx context.Context, f flags.Flags) bool {
+	return f.Enabled(ctx, "notification.email", true)
+}

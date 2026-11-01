@@ -49,6 +49,7 @@ var Module = module.Module{
 		BodyKey:  "notification.webhook.delivery_failed.body",
 		// Mail as well as the feed: the point of this one is to reach
 		// somebody who is not looking at the app.
-		Email: true,
+		Email:    true,
+		Reactive: true,
 	}},
 }

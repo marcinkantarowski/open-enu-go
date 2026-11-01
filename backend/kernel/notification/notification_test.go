@@ -32,3 +32,20 @@ func TestTheRecorderKeepsBothAudiences(t *testing.T) {
 		t.Fatalf("%+v", s)
 	}
 }
+
+func TestUnplannedNamesWhatDriftedFromThePlan(t *testing.T) {
+	planned := []Planned{{TenantID: "t", Type: "a.due", Ref: "r", Args: map[string]any{"name": "x"}}}
+	same := Sent{To: "tenant:t", Type: "a.due", Context: map[string]any{RefArg: "r", "name": "x"}}
+	if got := Unplanned(planned, []Sent{same}); len(got) != 0 {
+		t.Fatalf("the same mail: %+v", got)
+	}
+	for name, s := range map[string]Sent{
+		"another ref":       {To: "tenant:t", Type: "a.due", Context: map[string]any{RefArg: "q", "name": "x"}},
+		"other arguments":   {To: "tenant:t", Type: "a.due", Context: map[string]any{RefArg: "r", "name": "y"}},
+		"another workspace": {To: "tenant:u", Type: "a.due", Context: map[string]any{RefArg: "r", "name": "x"}},
+	} {
+		if got := Unplanned(planned, []Sent{s}); len(got) != 1 {
+			t.Fatalf("%s passed", name)
+		}
+	}
+}

@@ -25,6 +25,13 @@ type Message struct {
 	To      string
 	Subject string
 	Text    string
+
+	// What the journal needs, and nothing the transport reads. Kind is what
+	// this mail is, Ref the one occurrence of it, which is what can be held.
+	// Sensitive keeps the text out of a journal: a link in it is a credential.
+	Kind, Ref        string
+	TenantID, UserID string
+	Sensitive        bool
 }
 
 // Mailer sends. Send returns once the message has been handed to the

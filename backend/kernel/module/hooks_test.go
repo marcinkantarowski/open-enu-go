@@ -14,6 +14,7 @@ import (
 	"github.com/open-enu/kernel/httpx"
 	"github.com/open-enu/kernel/i18n"
 	"github.com/open-enu/kernel/logctx"
+	"github.com/open-enu/kernel/mail"
 	"github.com/open-enu/kernel/notification"
 	"github.com/open-enu/kernel/platform"
 	"github.com/open-enu/kernel/search"
@@ -155,6 +156,39 @@ func TestNotificationsNeedAnOwnerPrefixAndKeysTheModuleCanTranslate(t *testing.T
 		if _, err := reg.Notifier(nil); err == nil {
 			t.Fatal("two notifiers accepted")
 		}
+	}
+}
+
+// A reminder by mail is in the plan or says why it cannot be, and one journal.
+func TestMailIsPlannedOrSaysItCannotBe(t *testing.T) {
+	locales := fstest.MapFS{
+		"messages.en.json": {Data: []byte(`{"n.t": "t", "n.b": "b"}`)},
+		"messages.pl.json": {Data: []byte(`{"n.t": "t", "n.b": "b"}`)},
+	}
+	declared := func(d notification.Definition) Module {
+		d.Type, d.TitleKey, d.BodyKey = "a.due", "n.t", "n.b"
+		return Module{Manifest: Manifest{Name: "a", Enabled: true}, Locales: locales, Notifications: []notification.Definition{d}}
+	}
+	if _, err := NewRegistry(declared(notification.Definition{Email: true})); err == nil || !strings.Contains(err.Error(), "Upcoming") {
+		t.Fatalf("a mail nobody plans: %v", err)
+	}
+	if _, err := NewRegistry(declared(notification.Definition{Email: true, Reactive: true})); err != nil {
+		t.Fatal(err)
+	}
+	planned := declared(notification.Definition{Email: true})
+	planned.Upcoming = func(*platform.Services) notification.Forecast { return nil }
+	reg, err := NewRegistry(planned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := reg.Forecasts(nil); len(got) != 1 {
+		t.Fatalf("forecasts = %v", got)
+	}
+	journal := func(*platform.Services) mail.Journal { return nil }
+	if reg, err := NewRegistry(Module{Manifest: Manifest{Name: "a", Enabled: true}, MailJournal: journal}, Module{Manifest: Manifest{Name: "b", Enabled: true}, MailJournal: journal}); err != nil {
+		t.Fatal(err)
+	} else if _, err := reg.MailJournal(nil); err == nil {
+		t.Fatal("two journals accepted")
 	}
 }
 
