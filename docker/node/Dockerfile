@@ -43,14 +43,20 @@ COPY landing ./landing
 # resolved a different dependency tree than CI tested is not a deploy.
 RUN npm ci --no-audit --no-fund \
  && npm run build --workspace "$APP" \
- && mkdir -p /srv \
+ && mkdir -p /srv/.data \
  && cp -r "$APP/.output" /srv/output \
+ && chown node:node /srv/.data \
  && rm -rf /app /root/.npm
 
 WORKDIR /srv
 USER node
 
-ENV PORT=3000 HOST=0.0.0.0
+# @nuxt/content builds the landing's SQLite when the server starts, at a path fixed
+# at build time inside /app - gone by now, and never the node user's. Here instead,
+# the one directory that user may write. Without it every page the server renders
+# comes out empty or 404, and only a browser, with its own copy, shows content.
+ENV PORT=3000 HOST=0.0.0.0 \
+    NUXT_CONTENT_DATABASE_FILENAME=/srv/.data/contents.sqlite
 EXPOSE 3000
 ENTRYPOINT []
 CMD ["node", "output/server/index.mjs"]
