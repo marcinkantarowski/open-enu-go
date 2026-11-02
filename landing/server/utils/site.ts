@@ -25,6 +25,8 @@ export interface SitePage {
   /** Content path, the same in every language: `/`, `/contact`. */
   path: string
   updated?: string
+  /** An article: the day it was published (`published` in its frontmatter). */
+  published?: string
   versions: { code: string, language: string, url: string, title: string, description: string }[]
 }
 
@@ -46,12 +48,12 @@ export async function sitePages(event: H3Event): Promise<SitePage[]> {
   for (const locale of LOCALES.filter(l => locales.includes(l.code))) {
     const prefix = locale.code === defaultLocale ? '' : `/${locale.code}`
     const rows = await queryCollection(event, locale.collection)
-      .select('path', 'title', 'description', 'noindex', 'updated')
+      .select('path', 'title', 'description', 'noindex', 'updated', 'published')
       .all()
 
     for (const row of rows) {
       if (row.noindex) continue
-      const page = pages.get(row.path) ?? { path: row.path, updated: row.updated, versions: [] }
+      const page = pages.get(row.path) ?? { path: row.path, updated: row.updated, published: row.published, versions: [] }
       page.versions.push({
         code: locale.code,
         language: locale.language,

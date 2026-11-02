@@ -31,12 +31,19 @@ const schema = z.object({
   // Rules for both, and for everything else a crawler reads: `make seo-check`.
   title: z.string(),
   description: z.string(),
+  // The <title> and the shared title, when they should be shorter than the page's own:
+  // a search result shows about 60 characters, the product's name included.
+  headTitle: z.string().optional(),
   // Leave a page out of search results, the sitemap and llms.txt.
   noindex: z.boolean().optional(),
   // The social-share image, as a site path. Defaults to /og.png.
   image: z.string().optional(),
   // ISO date of the last meaningful change; becomes <lastmod> in the sitemap.
   updated: z.string().optional(),
+  // An article: the day it was published. The page is then an Article for crawlers
+  // and is listed under the articles in llms.txt; `tags` become its keywords.
+  published: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   hero: z.object({
     eyebrow: z.string().optional(),
     title: z.string(),

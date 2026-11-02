@@ -13,7 +13,8 @@ something to say. Nothing here needs a new route or a new component.
 | Header, footer, language names | `landing/i18n/locales/{en,pl}.json` |
 | The product's name | `PROJECT_NAME` in `.env` (set by `make init`), which `make env` writes into `landing/.env` as `NUXT_PUBLIC_APP_NAME` - never typed into a template |
 | Links | `/contact` stays on the site, in the reader's language; `app:/register` goes to the app host, which derives from `DOMAIN` (`SiteLink.vue`) |
-| The share image, the icon | `landing/public/og.png` (1200x630) and `landing/public/favicon.svg` - plain placeholders; replace both |
+| The share image, the icon | `landing/public/og.png` (1200x630); the icon is `ui-kit/public/favicon.svg` and `apple-touch-icon.png` (180x180), served by all three apps. Plain placeholders; replace all three |
+| The company behind the product | `organization` in `landing/app/app.config.ts`, optional - see *Found by search engines* |
 
 The home page is `index.md`. Every other file is served by `app/pages/[...slug].vue` at the
 path its filename gives it: `content/en/about.md` is `/about`, and `content/pl/about.md` is
@@ -106,24 +107,50 @@ adding a page adds it everywhere.
 | `/sitemap.xml` - every page, every language, with `hreflang` alternates and `x-default` | `server/routes/sitemap.xml.ts` |
 | `/llms.txt` - the site described for a language model ([llmstxt.org](https://llmstxt.org)) | `server/routes/llms.txt.ts` |
 | The list of pages all three are built from | `server/utils/site.ts` |
-| `X-Robots-Tag` on every response off production | `server/middleware/noindex.ts` |
+| `X-Robots-Tag` on every response off production, and always on the app and the console, whose `/robots.txt` is `Disallow: /` | `ui-kit/server/middleware/noindex.ts` - every app that does not set `public.indexable`, which only the landing does |
+| One address per page: `www.` and a trailing slash answer 301 to the canonical URL | `server/middleware/canonical.ts` |
 
-Three frontmatter keys, all optional, on any page:
+Frontmatter keys, all optional, on any page:
 
 ```yaml
 noindex: true          # out of search results, the sitemap and llms.txt
 image: /og-pricing.png # this page's share image; a file in landing/public/
 updated: 2026-09-21    # becomes <lastmod> in the sitemap
+headTitle: Short title # the <title> and share title, when `title` is too long for a result
+published: 2026-09-21  # an article: an Article in JSON-LD, its own section in llms.txt
+tags: [gdpr, audit]    # an article's keywords
 ```
 
 **Only production is indexable.** `make env` writes `NUXT_PUBLIC_INDEXABLE=true` when
 `APP_STAGE=production` and `false` everywhere else - and the code defaults to `false`, so a
 missing variable hides a site instead of publishing a staging server. When it is `false`,
 `robots.txt` says `Disallow: /`, every response carries `X-Robots-Tag: noindex, nofollow`,
-and every page carries the meta tag. Seeing that locally is correct, not a bug.
+and every page carries the meta tag. Seeing that locally is correct, not a bug. The app and
+the console are never indexable: the same middleware answers for them on every stage.
 
-JSON-LD is `WebSite` + `Organization` on the home page and `WebPage` elsewhere; a page with
-`faqs:` also gets `FAQPage`, which is what makes the questions eligible to show in results.
+JSON-LD is `WebSite`, `Organization` and `SoftwareApplication` on the home page, `Article`
+on a page with `published:` and `WebPage` elsewhere, each with a `BreadcrumbList` but the
+home page; a page with `faqs:` also gets `FAQPage`, which is what makes the questions
+eligible to show in results. The `Organization` is the product; to tie it to the company
+that makes it - its legal name, address, tax and registry numbers - set `organization` in
+`landing/app/app.config.ts`:
+
+```ts
+export default defineAppConfig({
+  organization: {
+    legalName: 'Acme Sp. z o.o.', url: 'https://acme.example', email: 'hello@acme.example',
+    foundingDate: '2018', taxId: '1234567890', identifiers: { KRS: '0000000000' },
+    address: { street: 'ul. Przykładowa 1', postalCode: '00-001', city: 'Warszawa', country: 'PL' },
+  },
+})
+```
+
+A template that knows more than the frontmatter passes it to `usePageSeo(page, { parent,
+image })`: `parent` puts the page it sits under (an article's list) in the breadcrumb, and
+`image` is the share image when the page sets no `image:` of its own.
+
+`llms.txt` is written in the default language: the pages, then the articles (pages with
+`published:`), then each other language offered in `LOCALES` under its own name.
 
 To stay in search but refuse AI training crawlers, add groups to `robots.txt.ts`:
 `User-agent: GPTBot`, `ClaudeBot`, `Google-Extended`, `PerplexityBot`, `CCBot`, each with
@@ -137,7 +164,7 @@ the rest are on whoever writes the page.
 
 | Rule | Why |
 |---|---|
-| `title`: present, at most 60 characters, unique within the language | It is the link in the results. Longer is cut off; the site name is appended for you |
+| `title`: present, at most 60 characters, unique within the language - or a `headTitle` that is | It is the link in the results. Longer is cut off; the site name is appended for you |
 | `description`: 50 to 160 characters, unique within the language | It is the snippet under the link, the share text, and the page's entry in `llms.txt`. Say what the page is for, in a sentence a person would click |
 | No `# ` heading in the body; start at `## ` and do not skip levels | The template renders `title` as the page's only `<h1>`. Two of them, or a jump to `###`, breaks the outline crawlers and screen readers read |
 | Every image has alt text - the words between the square brackets of `![a dashboard with three charts]` | An image with none is invisible to search, to an LLM and to a screen reader |

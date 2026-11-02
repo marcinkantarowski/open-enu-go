@@ -10,7 +10,12 @@
  *
  * Built per request from the runtime config, so the API and Mercure origins
  * are those of the deployment and no domain is written here. The landing has
- * neither, and talks to nothing but itself.
+ * neither, and talks to nothing but itself - unless it loads a third party.
+ *
+ * A third party an app loads (a chat widget on the landing, say) names its origins
+ * in the app's app.config.ts, `csp: { script, connect, img }`: added to those
+ * directives and nothing else, each reduced to an origin, so an entry cannot
+ * smuggle in a directive or a wildcard.
  *
  * `script-src 'unsafe-inline'`: Nuxt writes the runtime config as an inline
  * `<script>window.__NUXT__…</script>` into every page, and its contents vary
@@ -27,18 +32,23 @@ const origin = (url: unknown) => {
   }
 }
 
+type Extra = Partial<Record<'script' | 'connect' | 'img', unknown[]>>
+const unique = (list: string[]) => list.filter((v, i, all) => v && all.indexOf(v) === i)
+
 export default defineEventHandler((event) => {
   const pub = useRuntimeConfig(event).public as Record<string, unknown>
   const api = origin(pub.apiBase)
   const mercure = origin(pub.mercureUrl)
-  const connect = ["'self'", api, mercure].filter((v, i, all) => v && all.indexOf(v) === i)
+  const extra = ((useAppConfig(event) as { csp?: Extra }).csp ?? {})
+  const more = (key: keyof Extra) => (extra[key] ?? []).map(origin)
+  const connect = unique(["'self'", api, mercure, ...more('connect')])
 
   setHeader(event, 'Content-Security-Policy', [
     "default-src 'self'",
     // The landing is the app without an API; only it runs @nuxt/content.
-    `script-src 'self' 'unsafe-inline'${api ? '' : " 'wasm-unsafe-eval'"}`,
+    unique(["script-src 'self' 'unsafe-inline'", api ? '' : "'wasm-unsafe-eval'", ...more('script')]).join(' '),
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    unique(["img-src 'self' data: blob:", ...more('img')]).join(' '),
     "font-src 'self' data:",
     `connect-src ${connect.join(' ')}`,
     "frame-ancestors 'none'",

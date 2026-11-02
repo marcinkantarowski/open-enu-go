@@ -37,6 +37,18 @@ export default defineNuxtConfig({
 
   css: [here('./app/assets/css/main.css')],
 
+  // The product's icon in every app: favicon.svg and apple-touch-icon.png in this
+  // layer's public/, which a layer serves to each app that extends it. Placeholders -
+  // a project replaces both files, and the landing's JSON-LD names the PNG as its logo.
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
+    },
+  },
+
   pinia: {
     // Layer-relative, for the same reason as `here()` above.
     storesDirs: [here('./app/stores/**')],

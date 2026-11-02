@@ -18,7 +18,6 @@ export default defineNuxtConfig({
   app: {
     head: {
       meta: [{ name: 'app-role', content: 'marketing' }],
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
   },
 
