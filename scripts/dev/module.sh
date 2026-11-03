@@ -45,7 +45,8 @@ STUDLY="$(awk -F'_' '{for(i=1;i<=NF;i++) printf toupper(substr($i,1,1)) substr($
 KEBAB="${NAME//_/-}"
 BACKEND="$ROOT/backend"
 BACK="$BACKEND/internal/module/$NAME"
-MODPATH="$(sed -nE 's/^module[[:space:]]+(\S+)/\1/p' "$BACKEND/go.mod" | head -1)"
+# POSIX classes only: BSD sed (macOS) has no \S and would match nothing.
+MODPATH="$(sed -nE 's/^module[[:space:]]+([^[:space:]]+).*/\1/p' "$BACKEND/go.mod" | head -1)"
 TODAY="$(date +%F)"
 
 FRONT="$ROOT/frontend/app/modules/$KEBAB"
