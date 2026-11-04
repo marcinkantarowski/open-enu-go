@@ -6,7 +6,10 @@
  * conflict in a merge (.ai/platform/docs/frontend-conventions.md).
  */
 export interface NavigationItem {
-  /** Translation key, never a literal (ADR-0008). */
+  /**
+   * Translation key, never a literal (ADR-0008). While a capability is on,
+   * `<label>_<capability>` names the entry instead, when that key exists.
+   */
   label: string
   to: string
   icon?: string

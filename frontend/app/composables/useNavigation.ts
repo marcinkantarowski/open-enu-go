@@ -28,13 +28,15 @@ export function useNavigation() {
   const { public: cfg } = useRuntimeConfig()
   const capabilities = useState<string[]>('navigation.capabilities', () => [])
 
-  // A group may be named differently while a capability is on: `<group>_<capability>`.
-  const groupLabel = (group: string) => {
-    const on = capabilities.value.find(c => te(`${group}_${c}`))
-    return t(on ? `${group}_${on}` : group)
+  // A group or an entry may be named differently while a capability is on:
+  // `<key>_<capability>`, when that key exists.
+  const named = (key: string) => {
+    const on = capabilities.value.find(c => te(`${key}_${c}`))
+    return t(on ? `${key}_${on}` : key)
   }
+  const groupLabel = named
 
-  const translate = <T extends { label: string }>(item: T): T => ({ ...item, label: t(item.label) })
+  const translate = <T extends { label: string }>(item: T): T => ({ ...item, label: named(item.label) })
 
   const items = computed<NavigationItem[]>(() =>
     Object.values(navigationModules)
