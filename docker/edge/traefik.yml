@@ -21,12 +21,24 @@ entryPoints:
   web:
     address: ":80"
     http:
+      # Drop request headers whose name aliases another one (X_Forwarded_For for
+      # X-Forwarded-For): backends that derive variable names from header names
+      # (PHP, CGI) would read them as the header Traefik manages.
+      aliasHeadersStrategy: delete
       redirections:
         # As on a server (traefik.server.yml): below every router, so that a
         # router naming `web` itself answers over plain HTTP here too.
         entryPoint: { to: websecure, scheme: https, permanent: false, priority: 1 }
   websecure:
     address: ":443"
+    http:
+      aliasHeadersStrategy: delete
+  # Internal only: `ping` for the healthcheck, never published. Declared so it
+  # gets the same header handling as the public entry points.
+  traefik:
+    address: ":8080"
+    http:
+      aliasHeadersStrategy: delete
 
 providers:
   docker:

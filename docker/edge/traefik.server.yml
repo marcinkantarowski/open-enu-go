@@ -38,6 +38,10 @@ entryPoints:
   web:
     address: ":80"
     http:
+      # Drop request headers whose name aliases another one (X_Forwarded_For for
+      # X-Forwarded-For): backends that derive variable names from header names
+      # (PHP, CGI) would read them as the header Traefik manages.
+      aliasHeadersStrategy: delete
       redirections:
         # `permanent: true` here and not in dev: a 301 is cached by browsers,
         # which is right once the domain is settled and painful while it is not.
@@ -45,6 +49,7 @@ entryPoints:
   websecure:
     address: ":443"
     http:
+      aliasHeadersStrategy: delete
       tls:
         # The default for every router on this entrypoint, so the dev stack's
         # routers (`tls=true`, no resolver - mkcert locally) get Let's Encrypt
@@ -53,6 +58,12 @@ entryPoints:
       middlewares:
         - security-headers@file
         - rate-limit@file
+  # Internal only: `ping` for the healthcheck, never published. Declared so it
+  # gets the same header handling as the public entry points.
+  traefik:
+    address: ":8080"
+    http:
+      aliasHeadersStrategy: delete
 
 providers:
   docker:
