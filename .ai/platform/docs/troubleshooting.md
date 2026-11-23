@@ -71,8 +71,8 @@ ERR Failed to retrieve information of the docker client and server host
 
 Two things produce this. If the message is `Cannot connect to the Docker daemon`, the
 daemon was restarted (Docker Desktop, a host reboot) and the edge is holding a socket that
-no longer exists. `make up` (through `make edge`) detects that and restarts the edge;
-`docker restart enu-edge` does the same by hand.
+no longer exists. `make up` (through `make edge`) detects that and restarts the socket proxy and the edge;
+`docker restart enu-edge-socket-proxy enu-edge` does the same by hand.
 
 An empty error message is the other tell: the daemon rejected the API version outright.
 Docker 29 and later set a minimum API version (`docker version` → `MinAPIVersion`), and

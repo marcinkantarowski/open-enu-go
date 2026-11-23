@@ -114,7 +114,7 @@ EOF
 }
 
 register_server() {
-  install -m 644 "$ROOT/docker/edge/middlewares.yml" "$EDGE_HOME/dynamic/_shared.yml"
+  write_atomically "$EDGE_HOME/dynamic/_shared.yml" < "$ROOT/docker/edge/middlewares.yml"
 
   if [ "$STAGE" = staging ]; then
     local allow; allow="$(env_value STAGING_ALLOW_FROM | tr -d ' ')"

@@ -22,7 +22,9 @@ entryPoints:
     address: ":80"
     http:
       redirections:
-        entryPoint: { to: websecure, scheme: https, permanent: false }
+        # As on a server (traefik.server.yml): below every router, so that a
+        # router naming `web` itself answers over plain HTTP here too.
+        entryPoint: { to: websecure, scheme: https, permanent: false, priority: 1 }
   websecure:
     address: ":443"
 
